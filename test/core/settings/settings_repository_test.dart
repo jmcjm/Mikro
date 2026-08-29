@@ -74,20 +74,20 @@ void main() {
     // Pokrywa OBA guardy isEmpty. Sam pusty base_url zostawilby polowe apiKey.isEmpty
     // bez straznika.
     SharedPreferences.setMockInitialValues({'base_url': '', 'stt_model': 'a', 'tag_model': 'b'});
-    final bezUrl = SettingsRepository(
+    final emptyUrlRepo = SettingsRepository(
       await SharedPreferences.getInstance(),
       FakeKeyStore()..value = 'sekret',
     );
-    expect(await bezUrl.load(), isNull,
+    expect(await emptyUrlRepo.load(), isNull,
         reason: 'pusty baseUrl to brak konfiguracji, nie konfiguracja z pustym URL');
 
     SharedPreferences.setMockInitialValues(
         {'base_url': 'https://x', 'stt_model': 'a', 'tag_model': 'b'});
-    final bezKlucza = SettingsRepository(
+    final emptyKeyRepo = SettingsRepository(
       await SharedPreferences.getInstance(),
       FakeKeyStore()..value = '',
     );
-    expect(await bezKlucza.load(), isNull,
+    expect(await emptyKeyRepo.load(), isNull,
         reason: 'pusty klucz API to brak klucza, nie klucz o zerowej dlugosci');
   });
 }
