@@ -28,7 +28,10 @@ MikroApiException mapDioError(DioException e) {
   if (code == 429) return MikroApiException(ApiErrorKind.rateLimit, 'HTTP 429');
   if (code != null && code >= 500) return MikroApiException(ApiErrorKind.server, 'HTTP $code');
   if (code != null) {
-    return MikroApiException(ApiErrorKind.badResponse, 'HTTP $code: ${e.response?.data}');
+    return MikroApiException(
+      ApiErrorKind.badResponse,
+      'Nieoczekiwana odpowiedź serwera (HTTP $code).',
+    );
   }
   return MikroApiException(ApiErrorKind.network, e.message ?? 'network error');
 }

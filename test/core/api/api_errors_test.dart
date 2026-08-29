@@ -20,4 +20,17 @@ void main() {
   test('userMessage auth wskazuje ustawienia', () {
     expect(mapDioError(_withStatus(401)).userMessage, contains('Ustawieniach'));
   });
+  test('404 -> badResponse z polskim komunikatem bez surowego body', () {
+    final e = DioException(
+      requestOptions: RequestOptions(path: '/x'),
+      response: Response(
+        requestOptions: RequestOptions(path: '/x'),
+        statusCode: 404,
+        data: {'error': 'model not found', 'echo': 'sekret uzytkownika'},
+      ),
+    );
+    final mapped = mapDioError(e);
+    expect(mapped.kind, ApiErrorKind.badResponse);
+    expect(mapped.userMessage, 'Nieoczekiwana odpowiedź serwera (HTTP 404).');
+  });
 }
