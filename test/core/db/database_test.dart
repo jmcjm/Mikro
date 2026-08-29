@@ -79,4 +79,48 @@ void main() {
     final all = await db.watchAllWithTags().first;
     expect(all.map((r) => r.recording.id), ['new', 'old']);
   });
+
+  // --- Straznicy regresji (Task 3, uzupelnienie) ---
+  // Testy z planu weryfikuja kaskade i sprzatanie osieroconych wylacznie przez
+  // watchAllWithTags(), a ta kwerenda joinuje OD tabeli recordings — osierocone wiersze
+  // sa dla niej niewidoczne i przechodzi nawet przy calkowicie wylaczonych obu
+  // mechanizmach. Ponizsze testy siegaja po stan bazy bezposrednim SQL-em.
+
+  test('STRAZNIK: PRAGMA foreign_keys jest wlaczona', () async {
+    // SQLite ignoruje te pragme wykonana wewnatrz transakcji, wiec beforeOpen moze byc
+    // cichym no-opem. Bez tego 1 kaskada z KeyAction.cascade nigdy nie zadziala.
+    final row = await db.customSelect('PRAGMA foreign_keys').getSingle();
+    expect(row.data.values.first, 1, reason: 'kaskady FK wymagaja PRAGMA foreign_keys = ON');
+  });
+
+  test('STRAZNIK: deleteRecording nie zostawia sierot w recording_tags ani w tags', () async {
+    await insert('a');
+    await insert('b');
+    await db.setTags('a', ['tylko-a', 'wspolny']);
+    await db.setTags('b', ['wspolny']);
+
+    final before = await db.customSelect('SELECT COUNT(*) c FROM recording_tags').getSingle();
+    expect(before.data['c'], 3, reason: 'scenariusz wyjsciowy: 2 powiazania dla a, 1 dla b');
+
+    await db.deleteRecording('a');
+
+    final linksForA = await db
+        .customSelect("SELECT COUNT(*) c FROM recording_tags WHERE recording_id = 'a'")
+        .getSingle();
+    expect(linksForA.data['c'], 0, reason: 'kaskada FK musi skasowac powiazania nagrania a');
+
+    final orphanLinks = await db.customSelect(
+      'SELECT COUNT(*) c FROM recording_tags rt '
+      'WHERE rt.recording_id NOT IN (SELECT id FROM recordings) '
+      'OR rt.tag_id NOT IN (SELECT id FROM tags)',
+    ).getSingle();
+    expect(orphanLinks.data['c'], 0, reason: 'zaden wiersz recording_tags nie moze wisiec w prozni');
+
+    final tagNames = await db.customSelect('SELECT name FROM tags ORDER BY name').get();
+    expect(
+      tagNames.map((r) => r.data['name']).toList(),
+      ['wspolny'],
+      reason: 'tag tylko-a stracil ostatnie powiazanie i musi zniknac z tabeli tags',
+    );
+  });
 }
