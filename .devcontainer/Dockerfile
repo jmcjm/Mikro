@@ -106,15 +106,29 @@ RUN apt-get update \
     # audio runtime (PulseAudio/PipeWire socket passthrough + ALSA)
     libpulse0 \
     libasound2t64 \
+    # record_linux 2.x has no native backend: it shells out to `parecord` for capture and
+    # `pactl` for device enumeration, both from pulseaudio-utils. Without them every
+    # AudioRecorder.start() dies with ProcessException: No such file or directory.
+    pulseaudio-utils \
+    # ...and it pipes that raw PCM through `ffmpeg` to encode, for EVERY encoder including wav.
+    # ffmpeg is therefore a hard runtime dependency of the `record` plugin on Linux, not optional.
+    ffmpeg \
     # audioplayers on Linux is built on GStreamer
     libgstreamer1.0-dev \
     libgstreamer-plugins-base1.0-dev \
     gstreamer1.0-plugins-base \
     gstreamer1.0-plugins-good \
     gstreamer1.0-pulseaudio \
+    # plugins-good ships qtdemux (the MP4 container) but no AAC decoder, so an .m4a recorded
+    # by `record` would demux and then stall. gstreamer1.0-libav provides avdec_aac.
+    gstreamer1.0-libav \
     # flutter_secure_storage on Linux is built on libsecret
     libsecret-1-dev \
     libjsoncpp-dev \
+    # path_provider_linux resolves getApplicationDocumentsDirectory() by shelling out to
+    # `xdg-user-dir DOCUMENTS`. With the binary absent it returns null and path_provider
+    # throws MissingPlatformDirectoryException, which looks like an unrelated plugin failure.
+    xdg-user-dirs \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /var/lib/apt/lists/*
@@ -133,3 +147,8 @@ COPY --from=builder --chown=${USERNAME}:${USERNAME} /android-sdk ${ANDROID_SDK_R
 COPY --from=builder --chown=${USERNAME}:${USERNAME} /flutter ${FLUTTER_SDK_ROOT}
 
 RUN git config --global --add safe.directory ${FLUTTER_SDK_ROOT}
+
+# Populate ~/.config/user-dirs.dirs and create ~/Documents, ~/Downloads and friends.
+# Without this `xdg-user-dir DOCUMENTS` falls back to bare ${HOME}, and any code that expects
+# a real documents directory to write into gets a path that is not the one it asked for.
+RUN xdg-user-dirs-update
