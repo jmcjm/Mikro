@@ -128,6 +128,20 @@ class ConcurrencyTrackingTranscription implements TranscriptionApi {
   }
 }
 
+/// Zamyka baze i dopiero potem rzuca. Pipeline zlapie ten wyjatek, ale updateStatus w bloku
+/// catch nie ma juz dokad pisac — wtedy wyjatek ucieka z samego _process i bez .catchError
+/// odrzucona przyszlosc propaguje sie na kazde kolejne ogniwo kolejki.
+class DatabaseKillingTagging implements TaggingApi {
+  DatabaseKillingTagging(this.db);
+  final AppDatabase db;
+  @override
+  Future<List<String>> generateTags(
+      {required String transcript, required ProviderConfig config}) async {
+    await db.close();
+    throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
+  }
+}
+
 void main() {
   late AppDatabase db;
   late FakeTranscription stt;
@@ -317,5 +331,23 @@ void main() {
         reason: 'w danej chwili moze trwac dokladnie jedna transkrypcja');
     expect((await db.getRecording('a'))!.status, RecordingStatus.done);
     expect((await db.getRecording('b'))!.status, RecordingStatus.done);
+  });
+
+  test('STRAZNIK: awaria bazy w trakcie obslugi bledu nie zatruwa kolejki', () async {
+    final killer = DatabaseKillingTagging(db);
+    final resilient = ProcessingPipeline(
+        db: db, transcriptionApi: stt, taggingApi: killer, settings: settings);
+    await insert('a');
+
+    resilient.enqueue('a');
+    await expectLater(resilient.idle, completes,
+        reason: 'wyjatek z updateStatus w bloku catch nie moze wyplynac przez idle');
+
+    // Baza jest juz zamknieta, wiec drugie nagranie nie ma sie gdzie zapisac — ale lancuch
+    // kolejki musi przyjac zadanie i domknac je normalnie, zamiast w nieskonczonosc
+    // propagowac odrzucona przyszlosc z poprzedniego ogniwa.
+    resilient.enqueue('b');
+    await expectLater(resilient.idle, completes,
+        reason: 'kolejka musi przyjmowac kolejne zadania po awarii obslugi bledu');
   });
 }
