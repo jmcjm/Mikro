@@ -21,6 +21,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _pages = PageController();
   var _step = 0;
 
+  /// Held from the synchronous entry of [_finish] until it returns. Without it a double tap on
+  /// the key tile lands twice before the first await and pushes the settings route twice, so the
+  /// user has two backs to press instead of one.
+  var _finishing = false;
+
   @override
   void dispose() {
     _pages.dispose();
@@ -42,12 +47,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   /// Raising the flag swaps this screen for the shell (see [OnboardingGate]), which unmounts
   /// this widget — hence the navigator is captured before the await, not looked up after it.
   Future<void> _finish({required bool openSettings}) async {
+    if (_finishing) return;
+    _finishing = true;
     final navigator = Navigator.of(context);
-    await ref.read(onboardingCompletedProvider.notifier).complete();
-    if (openSettings) {
-      await navigator.push<void>(
-        MaterialPageRoute(builder: (context) => const SettingsScreen()),
-      );
+    try {
+      await ref.read(onboardingCompletedProvider.notifier).complete();
+      if (openSettings) {
+        await navigator.push<void>(
+          MaterialPageRoute(builder: (context) => const SettingsScreen()),
+        );
+      }
+    } finally {
+      _finishing = false;
     }
   }
 

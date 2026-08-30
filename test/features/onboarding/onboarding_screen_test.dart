@@ -6,6 +6,7 @@ import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:mikro/features/onboarding/onboarding_providers.dart';
 import 'package:mikro/features/onboarding/onboarding_screen.dart';
+import 'package:mikro/features/onboarding/onboarding_widgets.dart';
 import 'package:mikro/features/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -150,6 +151,31 @@ void main() {
 
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
     expect(find.byType(SettingsScreen), findsOneWidget);
+  });
+
+  testWidgets('podwojny tap na kafelku klucza otwiera Ustawienia raz', (tester) async {
+    await pumpOnboarding(tester);
+    await tapNext(tester, 'Dalej');
+    await tapNext(tester, 'Dalej');
+
+    // Dwa tapniecia w jednej porcji zdarzen wolaja onTap synchronicznie, jeszcze zanim
+    // pierwsze wywolanie dojdzie do swojego awaita. Przez tester.tap tego nie odtworzymy:
+    // await miedzy nimi przepuszcza mikrozadania i drugie tapniecie nie ma juz w co trafic.
+    // Bez straznika re-entrancy oba wypchnelyby Ustawienia i user cofalby sie dwa razy.
+    final tile = tester.widget<OnboardingCard>(find.byType(OnboardingCard));
+    tile.onTap!();
+    tile.onTap!();
+    await settleFrames(tester);
+    expect(find.byType(SettingsScreen), findsOneWidget);
+
+    // Sama obecnosc ekranu ustawien niczego nie dowodzi: Overlay buduje tylko trasy nad
+    // ostatnia nieprzezroczysta, wiec druga kopia na stosie i tak byla niewidoczna.
+    // Liczymy trasy jedynym sposobem, ktory widzi user — cofnieciem.
+    tester.state<NavigatorState>(find.byType(Navigator).first).pop();
+    await settleFrames(tester);
+
+    expect(find.byType(SettingsScreen), findsNothing,
+        reason: 'jeden back ma wrocic do onboardingu, a nie do drugich Ustawien');
   });
 
   // --- Straznik regresji (runda fix 1) ---
