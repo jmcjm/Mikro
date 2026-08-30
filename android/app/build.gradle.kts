@@ -6,7 +6,10 @@ plugins {
 
 android {
     namespace = "pl.jmc.mikro"
-    compileSdk = flutter.compileSdkVersion
+    // flutter_secure_storage 11.0.0 wymaga od konsumentow kompilacji wobec API 37, a Flutter 3.47.2
+    // domyslnie daje 36. API 37 wychodzi tylko z wersja poboczna, stad jawne compileSdkMinor.
+    compileSdk = 37
+    compileSdkMinor = 0
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

@@ -5,6 +5,20 @@ allprojects {
     }
 }
 
+// Repozytorium Android SDK nie wydaje juz pakietu "platforms;android-37" — API 37 istnieje wylacznie
+// w wariantach z wersja poboczna (37.0, 37.1, ...). Wtyczka deklarujaca samo compileSdk = 37 kaze wiec
+// AGP szukac nieistniejacego celu "android-37" i build pada. Domykamy takie moduly na wersji pobocznej 0.
+subprojects {
+    afterEvaluate {
+        val android = extensions.findByType(com.android.build.api.dsl.LibraryExtension::class.java)
+            ?: return@afterEvaluate
+        val compileSdk = android.compileSdk
+        if (compileSdk != null && compileSdk >= 37 && android.compileSdkMinor == null) {
+            android.compileSdkMinor = 0
+        }
+    }
+}
+
 val newBuildDir: Directory =
     rootProject.layout.buildDirectory
         .dir("../../build")
