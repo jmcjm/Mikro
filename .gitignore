@@ -50,3 +50,8 @@ app.*.map.json
 # dokumenty robocze
 docs/superpowers/
 .superpowers/
+
+# artefakty pakowania (leza pod /build/, ktore jest juz ignorowane wyzej -
+# wpisy zostawione wprost, zeby bylo widac, co produkuja skrypty z packaging/)
+/build/flatpak/
+/build/appimage/

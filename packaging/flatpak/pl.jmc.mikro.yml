@@ -1,0 +1,63 @@
+# Manifest Flatpaka aplikacji Mikro.
+#
+# Strategia: Flutter budowany jest POZA flatpak-builderem (w devcontainerze),
+# a tutaj pakowany jest gotowy bundle z build/linux/x64/release/bundle razem
+# z integracja desktopowa. Dzieki temu sandbox budowania nie potrzebuje SDK
+# Fluttera ani dostepu do sieci.
+#
+# Budowanie: ./packaging/build-flatpak.sh (z katalogu glownego repo).
+#
+# Wybor runtime'u: org.freedesktop.Platform 25.08 dostarcza komplet zaleznosci
+# aplikacji (gtk3, gstreamer z wtyczkami pulse/pipewire/playback, libsecret,
+# json-glib) oraz binarki parecord/pactl/ffmpeg, ktore record_linux uruchamia
+# jako procesy potomne. Galaz 24.08 NIE zawiera libsecret-1 wymaganego przez
+# flutter_secure_storage, dlatego 25.08 jest minimalna dzialajaca wersja.
+app-id: pl.jmc.mikro
+runtime: org.freedesktop.Platform
+runtime-version: '25.08'
+sdk: org.freedesktop.Sdk
+command: mikro
+
+finish-args:
+  # Natywny backend sesji graficznej; fallback-x11 dla sesji bez Waylanda.
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Wspoldzielone IPC (pamiec dzielona MIT-SHM) - wymagane przez backend X11.
+  - --share=ipc
+  # Akceleracja GPU dla renderera Fluttera.
+  - --device=dri
+  # Nagrywanie z mikrofonu (parecord) i odtwarzanie (GStreamer) przez
+  # PulseAudio / PipeWire.
+  - --socket=pulseaudio
+  # Wysylanie nagran do zewnetrznego API transkrypcji.
+  - --share=network
+  # connectivity_plus odpytuje NetworkManagera po systemowej magistrali D-Bus
+  # (monitoring lacznosci i wznawianie transkrypcji po jej odzyskaniu). Bez tego
+  # aplikacja startuje, ale wywala SocketException na systemowej magistrali.
+  - --system-talk-name=org.freedesktop.NetworkManager
+  # flutter_secure_storage trzyma klucz API w Secret Service (libsecret).
+  - --talk-name=org.freedesktop.secrets
+
+modules:
+  - name: mikro
+    buildsystem: simple
+    build-commands:
+      # Bundle Fluttera musi zostac w calosci: binarka szuka bibliotek przez
+      # RPATH $ORIGIN/lib, a silnik katalogu data/ obok pliku wykonywalnego.
+      - install -d /app/mikro
+      - cp -a bundle/. /app/mikro/
+      - install -d /app/bin
+      - ln -s ../mikro/mikro /app/bin/mikro
+      - install -Dm644 shared/pl.jmc.mikro.desktop /app/share/applications/pl.jmc.mikro.desktop
+      - install -Dm644 shared/pl.jmc.mikro.metainfo.xml /app/share/metainfo/pl.jmc.mikro.metainfo.xml
+      - for size in 64 128 256 512; do install -Dm644 "icons/hicolor/${size}x${size}/apps/pl.jmc.mikro.png" "/app/share/icons/hicolor/${size}x${size}/apps/pl.jmc.mikro.png"; done
+    sources:
+      - type: dir
+        path: ../../build/linux/x64/release/bundle
+        dest: bundle
+      - type: dir
+        path: ../shared
+        dest: shared
+      - type: dir
+        path: ../icons
+        dest: icons
