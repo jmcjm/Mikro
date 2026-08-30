@@ -7,7 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../core/util/format.dart';
 import 'recorder_controller.dart';
 
-/// Stała z makiety: parametry nagrania pokazywane pod licznikiem.
+/// Stala z makiety: parametry nagrania pokazywane pod licznikiem.
 const _formatCaption = 'm4a · aacLc · 64 kbps · mono';
 
 /// Rozmiary przepisane 1:1 z designu (ekran "Nagrywaj 1a").
@@ -17,13 +17,13 @@ const _barCount = 9;
 const _barWidth = 6.0;
 const _barsHeight = 56.0;
 
-/// Czasy animacji z sekcji styli designu. Jeden kontroler o okresie [_morphPeriod] napędza
-/// wszystko; pozostałe elementy dostają swoją fazę przez modulo, żeby nie mnożyć tickerów.
+/// Czasy animacji z sekcji styli designu. Jeden kontroler o okresie [_morphPeriod] napedza
+/// wszystko; pozostale elementy dostaja swoja faze przez modulo, zeby nie mnozyc tickerow.
 const _morphPeriod = Duration(seconds: 6);
 const _ring1Seconds = 2.0;
 const _ring2Seconds = 2.4;
 
-/// `animation:bar <czas>s ... <opoznienie>s` dla dziewięciu słupków z makiety.
+/// `animation:bar <czas>s ... <opoznienie>s` dla dziewieciu slupkow z makiety.
 const _barSeconds = <double>[1.1, 0.9, 1.3, 1.0, 1.2, 0.95, 1.15, 1.05, 1.25];
 const _barDelays = <double>[-0.9, -0.2, -0.5, 0.0, -0.7, -0.35, -0.15, -0.6, -0.85];
 
@@ -41,10 +41,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
   @override
   void initState() {
     super.initState();
-    // Kontroler startuje ZATRZYMANY. IndexedStack trzyma ten State przy życiu na wszystkich
-    // zakładkach, więc bezwarunkowe repeat() kazałoby aplikacji przeliczać dziewięć cosinusów
-    // 60 razy na sekundę przez cały czas jej życia — także poza nagrywaniem i poza tą zakładką.
-    // Makieta ma stan spoczynku statyczny, więc ruch włącza się dopiero na czas nagrania.
+    // Kontroler startuje ZATRZYMANY. IndexedStack trzyma ten State przy zyciu na wszystkich
+    // zakladkach, wiec bezwarunkowe repeat() kazaloby aplikacji przeliczac dziewiec cosinusow
+    // 60 razy na sekunde przez caly czas jej zycia — takze poza nagrywaniem i poza ta zakladka.
+    // Makieta ma stan spoczynku statyczny, wiec ruch wlacza sie dopiero na czas nagrania.
     _pulse = AnimationController(vsync: this, duration: _morphPeriod);
   }
 
@@ -54,8 +54,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
     super.dispose();
   }
 
-  /// Włącza puls na czas nagrania i zatrzymuje go po jego zakończeniu, cofając fazę do zera,
-  /// żeby kolejne nagranie zaczynało się od tego samego kształtu plamy.
+  /// Wlacza puls na czas nagrania i zatrzymuje go po jego zakonczeniu, cofajac faze do zera,
+  /// zeby kolejne nagranie zaczynalo sie od tego samego ksztaltu plamy.
   void _syncTicker(bool isRecording) {
     if (isRecording) {
       _pulse.repeat();
@@ -66,12 +66,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
     }
   }
 
-  /// W spoczynku nie owijamy widgetu w [AnimatedBuilder] — nie ma czego animować, więc nic
-  /// nie przerysowuje się co klatkę.
+  /// W spoczynku nie owijamy widgetu w [AnimatedBuilder] — nie ma czego animowac, wiec nic
+  /// nie przerysowuje sie co klatke.
   Widget _animated(bool animate, Widget Function() builder) =>
       animate ? AnimatedBuilder(animation: _pulse, builder: (_, _) => builder()) : builder();
 
-  /// Oscylacja 0 -> 1 -> 0 o kształcie ease-in-out, jak `ease-in-out` w keyframe'ach CSS.
+  /// Oscylacja 0 -> 1 -> 0 o ksztalcie ease-in-out, jak `ease-in-out` w keyframe'ach CSS.
   double _wave(double phase) => (1 - math.cos(2 * math.pi * phase)) / 2;
 
   double _phase(double seconds, [double delay = 0]) {
@@ -81,8 +81,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
 
   @override
   Widget build(BuildContext context) {
-    // ref.listen odpala się poza fazą budowania, więc to bezpieczne miejsce na start/stop
-    // tickera. Reagujemy wyłącznie na ZMIANĘ stanu nagrywania, nie na każdą emisję.
+    // ref.listen odpala sie poza faza budowania, wiec to bezpieczne miejsce na start/stop
+    // tickera. Reagujemy wylacznie na ZMIANE stanu nagrywania, nie na kazda emisje.
     ref.listen<RecorderState>(recorderControllerProvider, (previous, next) {
       if (previous?.isRecording != next.isRecording) _syncTicker(next.isRecording);
     });
@@ -111,8 +111,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: ConstrainedBox(
-            // 160 = pasek aplikacji (64) + dolna nawigacja HomeShell (80) + zapas na wcięcia
-            // systemowe. Treść ma wypełnić resztę ekranu, a gdy się nie mieści — przewinąć się.
+            // 160 = pasek aplikacji (64) + dolna nawigacja HomeShell (80) + zapas na wciecia
+            // systemowe. Tresc ma wypelnic reszte ekranu, a gdy sie nie miesci — przewinac sie.
             constraints: BoxConstraints(minHeight: MediaQuery.sizeOf(context).height - 160),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -186,7 +186,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
   }
 }
 
-/// Pigułka stanu nad licznikiem: czerwona kropka + "Nagrywanie" w trakcie, neutralna
+/// Pigulka stanu nad licznikiem: czerwona kropka + "Nagrywanie" w trakcie, neutralna
 /// "Gotowy do nagrywania" w spoczynku.
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.isRecording});
@@ -246,7 +246,7 @@ class _Timer extends StatelessWidget {
         height: 80 / 76,
         fontWeight: FontWeight.w700,
         letterSpacing: -2,
-        // Cyfry o stałej szerokości, żeby licznik nie drgał przy każdej sekundzie.
+        // Cyfry o stalej szerokosci, zeby licznik nie drgal przy kazdej sekundzie.
         fontFeatures: const [FontFeature.tabularFigures()],
         color: isRecording
             ? scheme.onSurface
@@ -256,8 +256,8 @@ class _Timer extends StatelessWidget {
   }
 }
 
-/// Wielki przycisk z pulsem. W trakcie nagrania dwa pierścienie oddychają, a plama morfuje
-/// kształt; w spoczynku zostaje spokojny okrąg w cienkiej obwódce.
+/// Wielki przycisk z pulsem. W trakcie nagrania dwa pierscienie oddychaja, a plama morfuje
+/// ksztalt; w spoczynku zostaje spokojny okrag w cienkiej obwodce.
 class _PulseButton extends StatelessWidget {
   const _PulseButton({
     required this.isRecording,
@@ -276,7 +276,7 @@ class _PulseButton extends StatelessWidget {
   final VoidCallback onTap;
 
   /// Amplituda moduluje rozmach pulsu, ale go nie gasi — przy ciszy ruch jest ledwie widoczny,
-  /// przy głośnym dźwięku pełny, jak w makiecie.
+  /// przy glosnym dzwieku pelny, jak w makiecie.
   double get _gain => 0.35 + 0.65 * amplitude.clamp(0.0, 1.0);
 
   @override
@@ -343,9 +343,9 @@ class _PulseButton extends StatelessWidget {
     );
   }
 
-  /// Przekład `@keyframes morph` z designu. CSS podaje promienie jako procenty szerokości
-  /// i wysokości osobno (`44% 56% 52% 48% / 50% 44% 56% 50%`), więc każdy narożnik jest
-  /// elipsą, a nie okręgiem — stąd Radius.elliptical.
+  /// Przeklad `@keyframes morph` z designu. CSS podaje promienie jako procenty szerokosci
+  /// i wysokosci osobno (`44% 56% 52% 48% / 50% 44% 56% 50%`), wiec kazdy naroznik jest
+  /// elipsa, a nie okregiem — stad Radius.elliptical.
   BorderRadius _morphRadius(double t) {
     const from = [
       [0.44, 0.50],
@@ -402,8 +402,8 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// Dziewięć słupków poziomu. W spoczynku są kropkami, w trakcie nagrania skaczą — każdy
-/// z własnym okresem i przesunięciem faz, dokładnie jak w makiecie.
+/// Dziewiec slupkow poziomu. W spoczynku sa kropkami, w trakcie nagrania skacza — kazdy
+/// z wlasnym okresem i przesunieciem faz, dokladnie jak w makiecie.
 class _LevelBars extends StatelessWidget {
   const _LevelBars({
     required this.isRecording,
@@ -430,7 +430,7 @@ class _LevelBars extends StatelessWidget {
             if (i > 0) const SizedBox(width: 4),
             Container(
               width: _barWidth,
-              // `@keyframes bar` skaluje wysokość od .25 do 1; amplituda przycina zakres.
+              // `@keyframes bar` skaluje wysokosc od .25 do 1; amplituda przycina zakres.
               height: isRecording
                   ? _barsHeight * (0.25 + 0.75 * phases[i]) * gain
                   : _barWidth,
@@ -446,7 +446,7 @@ class _LevelBars extends StatelessWidget {
   }
 }
 
-/// Karta bledu z sekcji "Stany puste i błędy".
+/// Karta bledu z sekcji "Stany puste i bledy".
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.message});
 
