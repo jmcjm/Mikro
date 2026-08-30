@@ -42,10 +42,6 @@ class PluginConnectivityService implements ConnectivityService {
 final connectivityServiceProvider =
     Provider<ConnectivityService>((ref) => PluginConnectivityService());
 
-/// Biezacy stan lacznosci dla UI.
-final onlineProvider =
-    StreamProvider<bool>((ref) => ref.watch(connectivityServiceProvider).onlineChanges);
-
 /// Ile nagran czeka na przetworzenie: niedokonczone plus wstrzymane brakiem sieci.
 /// Zasila przyszly banner informujacy o nagraniach czekajacych w kolejce offline.
 final queueLengthProvider =

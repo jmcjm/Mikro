@@ -25,8 +25,9 @@ class TaggingApi {
 
   static const _maxTranscriptChars = 8000;
 
-  /// Gorny limit tagow na nagranie. Jedno zrodlo prawdy: ta sama liczba idzie do promptu
-  /// i tnie wynik po sparsowaniu.
+  /// Gorny limit tagow, ktore przyjmujemy OD MODELU: ta sama liczba idzie do promptu i tnie
+  /// wynik po sparsowaniu. Nagrania jako calosci nie ogranicza — tagi dopisywane recznie
+  /// w szczegolach ida do bazy z pominieciem tej sciezki i nikt ich nie zlicza.
   static const maxTags = 5;
 
   /// Gorny limit dlugosci tytulu. Tak samo jak przy tagach: liczba idzie do promptu ORAZ

@@ -5,6 +5,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../core/util/format.dart';
 import '../../l10n/app_localizations.dart';
 import '../shell/home_tab.dart';
@@ -151,10 +152,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
                     fontSize: 13,
                     height: 18 / 13,
                     letterSpacing: 0.4,
-                    // Rodzine bundluje osobny task pod nazwa 'RobotoMono'; do czasu jego
-                    // merge podpis schodzi na monospace systemowy zamiast na proporcjonalny.
-                    fontFamily: 'RobotoMono',
-                    fontFamilyFallback: const ['monospace'],
+                    fontFamily: monoFontFamily,
+                    fontFamilyFallback: monoFontFallback,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),

@@ -13,7 +13,10 @@ const themePaletteKey = 'theme_palette';
 class ThemeModeController extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
-    final stored = ref.read(sharedPrefsProvider).getString(themeModeKey);
+    // Odczyt nietypowany: getString() rzuca na wartosci innego typu (downgrade albo kolizja
+    // klucza), a wyjatek w pierwszej klatce to bialy ekran, ktorego nie da sie juz odratowac.
+    // Nieznana wartosc ma po prostu spasc na domyslna — tak samo jak w onboarding_providers.dart.
+    final stored = ref.read(sharedPrefsProvider).get(themeModeKey);
     return ThemeMode.values.firstWhere(
       (mode) => mode.name == stored,
       orElse: () => ThemeMode.system,
@@ -30,7 +33,8 @@ class ThemeModeController extends Notifier<ThemeMode> {
 class ThemePaletteController extends Notifier<AppPalette> {
   @override
   AppPalette build() {
-    final stored = ref.read(sharedPrefsProvider).getString(themePaletteKey);
+    // Jak przy trybie: typowany odczyt rzucilby w pierwszej klatce, a paleta ma opad.
+    final stored = ref.read(sharedPrefsProvider).get(themePaletteKey);
     return AppPalette.values.firstWhere(
       (palette) => palette.name == stored,
       orElse: () => AppPalette.md3,

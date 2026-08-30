@@ -120,6 +120,18 @@ void main() {
       expect(container.read(themeModeProvider), ThemeMode.system);
       expect(container.read(themePaletteProvider), AppPalette.md3);
     });
+
+    test('wartosc obcego typu pod kluczem motywu tez nie wywraca startu', () async {
+      // Nie hipotetyczne: downgrade aplikacji albo kolizja klucza zostawia pod tym samym
+      // nazwiskiem liczbe czy flage. Typowany getString() rzucilby wtedy w pierwszej klatce
+      // budowania motywu, czyli zanim cokolwiek zdazy sie narysowac — bialy ekran bez
+      // sciezki wyjscia, bo motyw czyta sie przy kazdym starcie.
+      final container = await containerWith({'theme_mode': 7, 'theme_palette': true});
+      addTearDown(container.dispose);
+
+      expect(container.read(themeModeProvider), ThemeMode.system);
+      expect(container.read(themePaletteProvider), AppPalette.md3);
+    });
   });
 
   group('palety z designu', () {
