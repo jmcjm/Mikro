@@ -208,17 +208,23 @@ class AddTagChip extends StatelessWidget {
           child: Container(
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Symbols.add_rounded, fill: 1, size: 16, color: scheme.onSurfaceVariant),
-                const SizedBox(width: 4),
-                Text(
-                  l10n.detailAddTagChip,
-                  style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
-                ),
-              ],
+            // Center z widthFactor 1 zamiast Container.alignment — patrz komentarz
+            // w [TagChip]: alignment przy ograniczonych constraints rozciaga kafelek
+            // na cala szerokosc.
+            child: Center(
+              widthFactor: 1,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Symbols.add_rounded,
+                      fill: 1, size: 16, color: scheme.onSurfaceVariant),
+                  const SizedBox(width: 4),
+                  Text(
+                    l10n.detailAddTagChip,
+                    style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -19,6 +19,7 @@ void main() {
             children: [
               TagChip(label: 'release', onDelete: () {}),
               const TagChip(label: 'baza danych', dense: true),
+              AddTagChip(onTap: () {}),
             ],
           ),
         ),
@@ -38,11 +39,20 @@ void main() {
     expect(wide.height, 32);
     expect(denseChip.height, 26);
 
-    // Najmocniejszy sygnal przylegania: oba chipy mieszcza sie obok siebie
-    // w jednym wierszu Wrapa. Chip na 100% szerokosci zepchnalby drugi nizej.
+    final addChip = tester.getSize(find.byType(AddTagChip));
+    expect(addChip.width, lessThan(160),
+        reason: 'kafelek "+ tag" ma przylegac do tresci');
+    expect(addChip.height, 32);
+
+    // Najmocniejszy sygnal przylegania: wszystkie trzy kafelki mieszcza sie
+    // obok siebie w jednym wierszu Wrapa. Kafelek na 100% szerokosci
+    // zepchnalby nastepny nizej.
     final firstTop = tester.getTopLeft(find.byType(TagChip).first).dy;
     final lastTop = tester.getTopLeft(find.byType(TagChip).last).dy;
+    final addTop = tester.getTopLeft(find.byType(AddTagChip)).dy;
     expect(firstTop, lastTop,
         reason: 'chipy przylegajace do tresci stoja w jednym wierszu');
+    expect(addTop, firstTop,
+        reason: 'kafelek "+ tag" stoi w tym samym wierszu co chipy tagow');
   });
 }
