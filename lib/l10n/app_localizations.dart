@@ -458,12 +458,6 @@ abstract class AppLocalizations {
   /// **'Ukryj klucz'**
   String get settingsHideKey;
 
-  /// Objasnienie pod polem klucza API. SharedPreferences to nazwa klasy i zostaje nietlumaczona.
-  ///
-  /// In pl, this message translates to:
-  /// **'Trzymany w keystore systemu, nie w SharedPreferences'**
-  String get settingsKeyStorage;
-
   /// Etykieta pola z nazwa modelu transkrypcji.
   ///
   /// In pl, this message translates to:

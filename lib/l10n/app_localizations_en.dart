@@ -199,10 +199,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsHideKey => 'Hide key';
 
   @override
-  String get settingsKeyStorage =>
-      'Kept in the system keystore, not in SharedPreferences';
-
-  @override
   String get settingsSttModel => 'STT model';
 
   @override

@@ -199,10 +199,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsHideKey => 'Ukryj klucz';
 
   @override
-  String get settingsKeyStorage =>
-      'Trzymany w keystore systemu, nie w SharedPreferences';
-
-  @override
   String get settingsSttModel => 'Model STT';
 
   @override
