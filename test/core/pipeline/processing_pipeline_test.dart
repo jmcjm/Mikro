@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -53,6 +54,77 @@ class FakeTagging implements TaggingApi {
       {required String transcript, required ProviderConfig config}) async {
     if (error != null) throw error!;
     return ['praca', 'notatki'];
+  }
+}
+
+
+/// Wstrzymuje transkrypcje na bramce, zeby dalo sie wejsc z drugim enqueue W TRAKCIE
+/// przetwarzania — inaczej dedup in-flight nigdy nie jest wykonywany.
+class DelayedTranscription implements TranscriptionApi {
+  final started = Completer<void>();
+  final gate = Completer<void>();
+  int calls = 0;
+  @override
+  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+    calls++;
+    if (!started.isCompleted) started.complete();
+    await gate.future;
+    return 'transkrypt testowy';
+  }
+}
+
+/// Liczy wywolania i zawsze zawodzi, zeby nagranie skonczylo w stanie error — dopiero wtedy
+/// ewentualny drugi przebieg ma co robic i jest policzalny.
+class CountingFailingTagging implements TaggingApi {
+  int calls = 0;
+  @override
+  Future<List<String>> generateTags(
+      {required String transcript, required ProviderConfig config}) async {
+    calls++;
+    throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
+  }
+}
+
+/// Odczytuje status prosto z bazy w chwili, gdy pipeline jest w srodku danego kroku.
+class StatusProbingTranscription implements TranscriptionApi {
+  StatusProbingTranscription(this.db, this.recordingId);
+  final AppDatabase db;
+  final String recordingId;
+  RecordingStatus? statusDuringCall;
+  @override
+  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+    statusDuringCall = (await db.getRecording(recordingId))?.status;
+    return 'transkrypt testowy';
+  }
+}
+
+class StatusProbingTagging implements TaggingApi {
+  StatusProbingTagging(this.db, this.recordingId);
+  final AppDatabase db;
+  final String recordingId;
+  RecordingStatus? statusDuringCall;
+  @override
+  Future<List<String>> generateTags(
+      {required String transcript, required ProviderConfig config}) async {
+    statusDuringCall = (await db.getRecording(recordingId))?.status;
+    return ['praca'];
+  }
+}
+
+/// Mierzy, ile transkrypcji trwa jednoczesnie. Opoznienie wymusza nakladke, gdyby pipeline
+/// przestal byc sekwencyjny.
+class ConcurrencyTrackingTranscription implements TranscriptionApi {
+  int active = 0;
+  int maxActive = 0;
+  int calls = 0;
+  @override
+  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+    calls++;
+    active++;
+    if (active > maxActive) maxActive = active;
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    active--;
+    return 'transkrypt testowy';
   }
 }
 
@@ -189,5 +261,61 @@ void main() {
 
     expect((await db.getRecording('b'))!.status, RecordingStatus.done,
         reason: 'kolejka musi przezyc wyjatek z poprzedniego nagrania');
+  });
+
+  // --- Z2: straznicy pokrycia (ruling koordynatora) ---
+
+  test('STRAZNIK: powtorny enqueue W TRAKCIE przetwarzania nie uruchamia drugiego przebiegu',
+      () async {
+    final delayed = DelayedTranscription();
+    final failingTagger = CountingFailingTagging();
+    final guarded = ProcessingPipeline(
+        db: db, transcriptionApi: delayed, taggingApi: failingTagger, settings: settings);
+    await insert('a');
+
+    guarded.enqueue('a');
+    await delayed.started.future; // transkrypcja juz trwa, nagranie jest in-flight
+    guarded.enqueue('a'); // duplikat
+    delayed.gate.complete();
+    await guarded.idle;
+
+    expect(delayed.calls, 1, reason: 'transkrypcja tylko raz');
+    expect(failingTagger.calls, 1,
+        reason: 'duplikat nie moze uruchomic drugiego przebiegu _process');
+  });
+
+  test('STRAZNIK: status w bazie to transcribing w trakcie transkrypcji i tagging w trakcie tagowania',
+      () async {
+    final probingStt = StatusProbingTranscription(db, 'a');
+    final probingTagger = StatusProbingTagging(db, 'a');
+    final observed = ProcessingPipeline(
+        db: db, transcriptionApi: probingStt, taggingApi: probingTagger, settings: settings);
+    await insert('a');
+
+    observed.enqueue('a');
+    await observed.idle;
+
+    expect(probingStt.statusDuringCall, RecordingStatus.transcribing,
+        reason: 'UI ma pokazywac "transkrybuje" w trakcie transkrypcji');
+    expect(probingTagger.statusDuringCall, RecordingStatus.tagging,
+        reason: 'UI ma pokazywac "taguje" w trakcie tagowania');
+  });
+
+  test('STRAZNIK: dwa nagrania sa przetwarzane sekwencyjnie, nie rownolegle', () async {
+    final tracking = ConcurrencyTrackingTranscription();
+    final sequential = ProcessingPipeline(
+        db: db, transcriptionApi: tracking, taggingApi: tagger, settings: settings);
+    await insert('a');
+    await insert('b');
+
+    sequential.enqueue('a');
+    sequential.enqueue('b');
+    await sequential.idle;
+
+    expect(tracking.calls, 2, reason: 'oba nagrania musza zostac przetworzone');
+    expect(tracking.maxActive, 1,
+        reason: 'w danej chwili moze trwac dokladnie jedna transkrypcja');
+    expect((await db.getRecording('a'))!.status, RecordingStatus.done);
+    expect((await db.getRecording('b'))!.status, RecordingStatus.done);
   });
 }
