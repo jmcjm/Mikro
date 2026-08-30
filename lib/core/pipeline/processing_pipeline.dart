@@ -29,7 +29,12 @@ class ProcessingPipeline {
 
   void enqueue(String recordingId) {
     if (!_inFlight.add(recordingId)) return;
-    _queue = _queue.then((_) => _process(recordingId).whenComplete(() => _inFlight.remove(recordingId)));
+    // catchError trzyma kolejke przy zyciu nawet wtedy, gdy _process rzuci mimo wszystko
+    // (np. gdyby zawiodl sam updateStatus w bloku catch). Bez tego jedna odrzucona przyszlosc
+    // propaguje sie na kazde kolejne ogniwo i pipeline jest martwy do konca zycia procesu.
+    _queue = _queue
+        .then((_) => _process(recordingId).whenComplete(() => _inFlight.remove(recordingId)))
+        .catchError((Object _) {});
   }
 
   Future<void> resumePending() async {
@@ -39,17 +44,20 @@ class ProcessingPipeline {
   }
 
   Future<void> _process(String id) async {
-    final recording = await db.getRecording(id);
-    if (recording == null || recording.status == RecordingStatus.done) return;
-
-    final config = await settings.load();
-    if (config == null) {
-      await db.updateStatus(id, RecordingStatus.error,
-          errorMessage: 'Brak konfiguracji API — ustaw klucz w Ustawieniach.');
-      return;
-    }
-
+    // Odczyt nagrania i konfiguracji tez musi byc w try: settings.load() siega po klucz do
+    // magazynu systemowego (libsecret / Keystore), ktory potrafi rzucic. Poza try taki wyjatek
+    // uciekal z _process, zostawial nagranie w stanie recorded bez komunikatu i zatruwal kolejke.
     try {
+      final recording = await db.getRecording(id);
+      if (recording == null || recording.status == RecordingStatus.done) return;
+
+      final config = await settings.load();
+      if (config == null) {
+        await db.updateStatus(id, RecordingStatus.error,
+            errorMessage: 'Brak konfiguracji API — ustaw klucz w Ustawieniach.');
+        return;
+      }
+
       var transcript = recording.transcript;
       if (transcript == null) {
         final size = await File(recording.audioPath).length();

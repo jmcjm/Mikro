@@ -22,6 +22,19 @@ class FakeSettings implements SettingsRepository {
   Future<void> save(ProviderConfig config) async {}
 }
 
+/// Udaje `SettingsRepository`, ktorego magazyn kluczy jest chwilowo niedostepny —
+/// na Linuksie libsecret przez D-Bus, na Androidzie Keystore. Oba potrafia rzucic.
+class ThrowingSettings implements SettingsRepository {
+  bool shouldThrow = true;
+  @override
+  Future<ProviderConfig?> load() async {
+    if (shouldThrow) throw StateError('magazyn kluczy niedostepny');
+    return _config;
+  }
+  @override
+  Future<void> save(ProviderConfig config) async {}
+}
+
 class FakeTranscription implements TranscriptionApi {
   Object? error;
   int calls = 0;
@@ -140,5 +153,41 @@ void main() {
     pipeline.enqueue('a');
     await pipeline.idle;
     expect(stt.calls, 1);
+  });
+
+  // --- Z1: odpornosc na wyjatki spoza bloku try (ruling koordynatora) ---
+
+  test('awaria magazynu kluczy konczy sie statusem error, a idle nie rzuca', () async {
+    final throwingSettings = ThrowingSettings();
+    final resilient = ProcessingPipeline(
+        db: db, transcriptionApi: stt, taggingApi: tagger, settings: throwingSettings);
+    await insert('a');
+    resilient.enqueue('a');
+
+    await resilient.idle;
+
+    final r = await db.getRecording('a');
+    expect(r!.status, RecordingStatus.error,
+        reason: 'awaria odczytu klucza to blad przetwarzania, nie cisza');
+    expect(r.errorMessage, isNotNull, reason: 'uzytkownik musi zobaczyc powod');
+    expect(r.errorMessage, isNotEmpty);
+  });
+
+  test('awaria jednego nagrania nie zatruwa kolejki dla nastepnych', () async {
+    final flakySettings = ThrowingSettings();
+    final resilient = ProcessingPipeline(
+        db: db, transcriptionApi: stt, taggingApi: tagger, settings: flakySettings);
+    await insert('a');
+    resilient.enqueue('a');
+    await resilient.idle;
+
+    // Awaria minela, magazyn kluczy znow odpowiada.
+    flakySettings.shouldThrow = false;
+    await insert('b');
+    resilient.enqueue('b');
+    await resilient.idle;
+
+    expect((await db.getRecording('b'))!.status, RecordingStatus.done,
+        reason: 'kolejka musi przezyc wyjatek z poprzedniego nagrania');
   });
 }
