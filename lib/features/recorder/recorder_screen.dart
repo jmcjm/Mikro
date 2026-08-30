@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/util/format.dart';
+import '../shell/home_tab.dart';
 import 'recorder_controller.dart';
 
 /// Stala z makiety: parametry nagrania pokazywane pod licznikiem.
@@ -118,11 +119,14 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
         foregroundColor: scheme.onSurface,
         backgroundColor: scheme.surface,
         actions: [
-          // W makiecie to statyczna ikona bez akcji — patrz raport.
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: Icon(Symbols.history_rounded, fill: 1, size: 24, color: scheme.onSurfaceVariant),
+          // Makieta rysuje ja jako statyczna, ale ikona bez akcji w pasku aplikacji to
+          // zaproszenie do bezowocnego stukania. Historia nagran mieszka w Bibliotece,
+          // wiec tam prowadzi.
+          IconButton(
+            onPressed: () => ref.read(homeTabProvider.notifier).select(HomeTab.library),
+            tooltip: 'Biblioteka',
+            iconSize: 24,
+            icon: Icon(Symbols.history_rounded, fill: 1, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(width: 8),
         ],
@@ -201,6 +205,13 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
       content: Text(
         'Nagranie zapisane — transkrypcja w toku.',
         style: TextStyle(fontSize: 14, color: scheme.onInverseSurface),
+      ),
+      action: SnackBarAction(
+        label: 'Pokaż',
+        // Makieta rozjasnia primary filtrem, bo etykieta stoi na ciemnym inverseSurface.
+        // W MD3 rola dla dokladnie tego przypadku nazywa sie inversePrimary.
+        textColor: scheme.inversePrimary,
+        onPressed: () => ref.read(homeTabProvider.notifier).select(HomeTab.library),
       ),
     ));
   }

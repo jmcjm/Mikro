@@ -6,6 +6,7 @@ import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import '../shell/home_tab.dart';
 import 'library_styles.dart';
 import 'recording_detail_screen.dart';
 
@@ -316,13 +317,13 @@ class RecordingCard extends ConsumerWidget {
 
 /// Pusty stan biblioteki. Bez trafien filtru komunikat jest inny niz przy pustej bazie —
 /// makieta opisuje tylko ten drugi przypadek, wiec pierwszy zostaje przy tekscie z T12.
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   const _EmptyState({required this.filtering});
 
   final bool filtering;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Padding(
@@ -369,8 +370,56 @@ class _EmptyState extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              _RecordCta(
+                onTap: () => ref.read(homeTabProvider.notifier).select(HomeTab.recorder),
+              ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Wezwanie do dzialania z makiety "Stany puste i bledy": promien 24, wypelnienie
+/// `primaryContainer`, mikrofon 20 px przed etykieta.
+class _RecordCta extends StatelessWidget {
+  const _RecordCta({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: scheme.primaryContainer,
+      borderRadius: BorderRadius.circular(24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Container(
+          // Makieta podaje 48 px sztywno, ale przy powiekszonej czcionce systemowej etykieta
+          // musi miec jak urosnac — stad minimum zamiast stalej wysokosci.
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Symbols.mic_rounded, fill: 1, size: 20, color: scheme.onPrimaryContainer),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  'Nagraj pierwszą notatkę',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
