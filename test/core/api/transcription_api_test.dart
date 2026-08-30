@@ -45,18 +45,18 @@ void main() {
     );
   });
 
-  test('odpowiedz bez pola text -> badResponse', () async {
+  test('odpowiedz bez pola text -> noTranscript', () async {
     adapter.onPost('https://api.test/v1/audio/transcriptions',
         (server) => server.reply(200, {'nope': 1}),
         data: Matchers.any);
     final api = TranscriptionApi(dio);
     await expectLater(
       api.transcribe(audioPath: audioPath, config: config),
-      throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+      throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.noTranscript)),
     );
   });
 
-  test('cialo odpowiedzi nie bedace mapa -> badResponse, nie network', () async {
+  test('cialo odpowiedzi nie bedace mapa -> badFormat, nie network', () async {
     // Generyk post<Map<String, dynamic>> wymuszal rzutowanie; przy tablicy JSON dio lapalo
     // _TypeError i pakowalo je w DioException bez odpowiedzi, wiec mapDioError klasyfikowalo
     // to jako awarie sieci i uzytkownik dostawal "Brak polaczenia z siecia."
@@ -66,7 +66,7 @@ void main() {
     final api = TranscriptionApi(dio);
     await expectLater(
       api.transcribe(audioPath: audioPath, config: config),
-      throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+      throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badFormat)),
     );
   });
 

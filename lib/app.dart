@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -9,22 +10,7 @@ import 'features/onboarding/onboarding_gate.dart';
 import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/home_tab.dart';
-
-/// Destynacja powloki. Dolny pasek i rail rysuja te sama trojke, wiec stoi ona w jednym
-/// miejscu — inaczej dolozenie zakladki wymagaloby pamietania o dwoch listach naraz.
-@immutable
-class _Destination {
-  const _Destination({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-}
-
-const _destinations = <_Destination>[
-  _Destination(icon: Symbols.mic_rounded, label: 'Nagrywaj'),
-  _Destination(icon: Symbols.library_music_rounded, label: 'Biblioteka'),
-  _Destination(icon: Symbols.settings_rounded, label: 'Ustawienia'),
-];
+import 'l10n/app_localizations.dart';
 
 class MikroApp extends ConsumerWidget {
   const MikroApp({super.key});
@@ -39,6 +25,17 @@ class MikroApp extends ConsumerWidget {
       theme: buildTheme(palette: palette, brightness: Brightness.light),
       darkTheme: buildTheme(palette: palette, brightness: Brightness.dark),
       themeMode: ref.watch(themeModeProvider),
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: AppLocalizations.supportedLocales,
+      localeResolutionCallback: (locale, supportedLocales) {
+        if (locale?.languageCode == 'pl') return const Locale('pl');
+        return const Locale('en');
+      },
       // Pierwsze uruchomienie idzie przez onboarding, kolejne prosto do powloki.
       home: const OnboardingGate(child: HomeShell()),
     );
@@ -53,6 +50,7 @@ class HomeShell extends ConsumerWidget {
     final index = ref.watch(homeTabProvider);
     void select(int destination) =>
         ref.read(homeTabProvider.notifier).select(destination);
+    final l10n = AppLocalizations.of(context);
 
     // IndexedStack buduje wszystkie zakladki i trzyma ich stan, wiec przelaczenie nie gubi
     // ani pozycji listy, ani wpisanej frazy szukania.
@@ -67,7 +65,7 @@ class HomeShell extends ConsumerWidget {
       return Scaffold(
         body: Row(
           children: [
-            _HomeRail(index: index, onSelected: select),
+            _HomeRail(index: index, onSelected: select, l10n: l10n),
             Expanded(child: body),
           ],
         ),
@@ -76,7 +74,7 @@ class HomeShell extends ConsumerWidget {
 
     return Scaffold(
       body: body,
-      bottomNavigationBar: _HomeNavigationBar(index: index, onSelected: select),
+      bottomNavigationBar: _HomeNavigationBar(index: index, onSelected: select, l10n: l10n),
     );
   }
 }
@@ -84,14 +82,17 @@ class HomeShell extends ConsumerWidget {
 /// Dolny pasek z makiety telefonowej: wysokosc 80, tlo `surfaceContainer`, wskaznik 64x32
 /// na `secondaryContainer`, etykieta wybranej destynacji pogrubiona do 700.
 class _HomeNavigationBar extends StatelessWidget {
-  const _HomeNavigationBar({required this.index, required this.onSelected});
+  const _HomeNavigationBar({required this.index, required this.onSelected, required this.l10n});
 
   final int index;
   final ValueChanged<int> onSelected;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navSettings];
+    final icons = [Symbols.mic_rounded, Symbols.library_music_rounded, Symbols.settings_rounded];
     return NavigationBar(
       selectedIndex: index,
       onDestinationSelected: onSelected,
@@ -116,13 +117,13 @@ class _HomeNavigationBar extends StatelessWidget {
         );
       }),
       destinations: [
-        for (final destination in _destinations)
+        for (var i = 0; i < labels.length; i++)
           NavigationDestination(
-            icon: Icon(destination.icon,
+            icon: Icon(icons[i],
                 fill: 1, size: 24, color: scheme.onSurfaceVariant),
-            selectedIcon: Icon(destination.icon,
+            selectedIcon: Icon(icons[i],
                 fill: 1, size: 24, color: scheme.onSecondaryContainer),
-            label: destination.label,
+            label: labels[i],
           ),
       ],
     );
@@ -136,14 +137,17 @@ class _HomeNavigationBar extends StatelessWidget {
 /// nalezy dana sprawa: mikrofon na ekran Nagrywaj, paleta do Ustawien, gdzie stoi wybor
 /// motywu. Decyzja odnotowana w raporcie.
 class _HomeRail extends StatelessWidget {
-  const _HomeRail({required this.index, required this.onSelected});
+  const _HomeRail({required this.index, required this.onSelected, required this.l10n});
 
   final int index;
   final ValueChanged<int> onSelected;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navSettings];
+    final icons = [Symbols.mic_rounded, Symbols.library_music_rounded, Symbols.settings_rounded];
     return NavigationRail(
       selectedIndex: index,
       onDestinationSelected: onSelected,
@@ -173,7 +177,7 @@ class _HomeRail extends StatelessWidget {
           iconSize: 28,
           background: scheme.primary,
           foreground: scheme.onPrimary,
-          tooltip: 'Nagrywaj',
+          tooltip: l10n.navRecord,
           onTap: () => onSelected(HomeTab.recorder),
         ),
       ),
@@ -189,17 +193,17 @@ class _HomeRail extends StatelessWidget {
               iconSize: 26,
               background: scheme.primaryContainer,
               foreground: scheme.onPrimaryContainer,
-              tooltip: 'Wyglad',
+              tooltip: l10n.navAppearance,
               onTap: () => onSelected(HomeTab.settings),
             ),
           ),
         ),
       ),
       destinations: [
-        for (final destination in _destinations)
+        for (var i = 0; i < labels.length; i++)
           NavigationRailDestination(
-            icon: Icon(destination.icon, fill: 1),
-            label: Text(destination.label),
+            icon: Icon(icons[i], fill: 1),
+            label: Text(labels[i]),
           ),
       ],
     );

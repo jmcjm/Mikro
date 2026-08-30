@@ -3,6 +3,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/recording_status.dart';
 import '../../core/theme/app_theme.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Wspolne elementy wizualne biblioteki i szczegolow nagrania, przepisane 1:1 z makiet
 /// (`design/Mikro-MD3.dc.html`, sekcje "Biblioteka" i "Szczegoly"). Oba ekrany rysuja te same
@@ -34,12 +35,12 @@ TextStyle tabularStyle({
 
 /// Etykieta statusu w odznace. Makieta pisze je wielka litera ("Tagowanie…", "Gotowe",
 /// "Blad"), bo w restylowanym ukladzie status jest odznaka, a nie zdaniem w tresci karty.
-String statusLabel(RecordingStatus status) => switch (status) {
-      RecordingStatus.recorded => 'W kolejce…',
-      RecordingStatus.transcribing => 'Transkrypcja…',
-      RecordingStatus.tagging => 'Tagowanie…',
-      RecordingStatus.done => 'Gotowe',
-      RecordingStatus.error => 'Błąd',
+String statusLabel(RecordingStatus status, AppLocalizations l10n) => switch (status) {
+      RecordingStatus.recorded => l10n.statusQueued,
+      RecordingStatus.transcribing => l10n.statusTranscribing,
+      RecordingStatus.tagging => l10n.statusTagging,
+      RecordingStatus.done => l10n.statusDone,
+      RecordingStatus.error => l10n.statusError,
     };
 
 /// Czy nagranie jest w trakcie przetwarzania — decyduje o pasku postepu na karcie.
@@ -63,6 +64,7 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final (background, foreground, icon) = switch (status) {
       RecordingStatus.error => (scheme.error, scheme.onError, Symbols.error_rounded),
       RecordingStatus.done => (
@@ -91,7 +93,7 @@ class StatusBadge extends StatelessWidget {
             const SizedBox(width: 5),
           ],
           Text(
-            statusLabel(status),
+            statusLabel(status, l10n),
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,

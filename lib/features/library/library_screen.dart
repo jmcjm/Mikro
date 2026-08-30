@@ -6,9 +6,11 @@ import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import '../../l10n/app_localizations.dart';
 import '../shell/home_tab.dart';
 import 'library_styles.dart';
 import 'recording_detail_screen.dart';
+import 'recording_error.dart';
 import 'selected_recording.dart';
 
 class LibraryScreen extends ConsumerWidget {
@@ -21,8 +23,8 @@ class LibraryScreen extends ConsumerWidget {
     // a nie miejsce zostawione przez rail, zeby oba przelaczenia zaszly w tej samej chwili.
     final twoPane = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
     if (!twoPane) {
-      return const Scaffold(
-        body: SafeArea(bottom: false, child: _LibraryList(twoPane: false)),
+      return Scaffold(
+        body: SafeArea(bottom: false, child: const _LibraryList(twoPane: false)),
       );
     }
     return Scaffold(
@@ -79,6 +81,7 @@ class _LibraryList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final stream = ref.watch(recordingsStreamProvider);
     final items = ref.watch(filteredRecordingsProvider);
     final tagFilter = ref.watch(tagFilterProvider);
@@ -104,7 +107,7 @@ class _LibraryList extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Biblioteka',
+                l10n.libraryTitle,
                 style: TextStyle(
                   fontSize: 32,
                   height: 40 / 32,
@@ -127,7 +130,7 @@ class _LibraryList extends ConsumerWidget {
             // Blad strumienia musi byc widoczny. Bez tej galezi awaria bazy wygladalaby
             // jak pusta biblioteka, bo filteredRecordingsProvider zwraca wtedy pusta liste.
             AsyncValue(hasError: true, :final error) =>
-              _DatabaseErrorState(message: 'Błąd bazy: $error'),
+              _DatabaseErrorState(message: l10n.libraryDatabaseError('$error')),
             AsyncValue(isLoading: true) =>
               const Center(child: CircularProgressIndicator()),
             _ => items.isEmpty
@@ -172,7 +175,7 @@ class _SearchField extends ConsumerWidget {
       decoration: InputDecoration(
         filled: true,
         fillColor: scheme.surfaceContainer,
-        hintText: 'Szukaj w transkrypcjach i tagach',
+        hintText: AppLocalizations.of(context).librarySearchHint,
         hintStyle: TextStyle(fontSize: 16, color: scheme.onSurfaceVariant),
         prefixIcon: Icon(Symbols.search_rounded,
             fill: 1, size: 24, color: scheme.onSurfaceVariant),
@@ -197,6 +200,7 @@ class _TagFilterBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     void select(String? tag) => ref.read(tagFilterProvider.notifier).state = tag;
     return SizedBox(
       height: 32,
@@ -206,7 +210,7 @@ class _TagFilterBar extends ConsumerWidget {
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, i) => i == 0
             ? _FilterChip(
-                label: 'Wszystkie',
+                label: l10n.libraryFilterAll,
                 selected: selected == null,
                 onTap: () => select(null),
               )
@@ -287,6 +291,7 @@ class RecordingCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final r = item.recording;
     final failed = r.status == RecordingStatus.error;
     // Karta bledu stoi na `errorContainer`, wiec cala jej typografia schodzi na
@@ -306,7 +311,9 @@ class RecordingCard extends ConsumerWidget {
     // Tresc karty to transkrypt albo komunikat bledu. Dopoki nagranie sie przetwarza, nie ma
     // czego pokazac — status niesie odznaka i pasek postepu, wiec powtarzanie go w tresci
     // dublowaloby to samo slowo dwa razy na tej samej karcie.
-    final body = failed ? (r.errorMessage ?? 'błąd') : r.transcript;
+    final body = failed
+        ? recordingErrorText(l10n, kind: r.errorKind, detail: r.errorMessage)
+        : r.transcript;
 
     return Material(
       color: failed
@@ -398,7 +405,7 @@ class RecordingCard extends ConsumerWidget {
                   const Spacer(),
                   if (failed)
                     ErrorActionButton(
-                      label: 'Ponów',
+                      label: l10n.libraryRetry,
                       onPressed: () => ref.read(pipelineProvider).enqueue(r.id),
                     )
                   else if (r.providerUsed != null)
@@ -430,6 +437,7 @@ class _EmptyState extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -452,7 +460,7 @@ class _EmptyState extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              filtering ? 'Nic nie znaleziono.' : 'Brak nagrań',
+              filtering ? l10n.libraryEmptyNoResults : l10n.libraryEmptyNoRecordings,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 22,
@@ -465,8 +473,7 @@ class _EmptyState extends ConsumerWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 280),
                 child: Text(
-                  'Wciśnij mikrofon na ekranie Nagrywaj — pierwsza notatka pojawi się '
-                  'tutaj z tagami.',
+                  l10n.libraryEmptyDescription,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -515,7 +522,7 @@ class _RecordCta extends StatelessWidget {
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
-                  'Nagraj pierwszą notatkę',
+                  AppLocalizations.of(context).libraryRecordCta,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w500,

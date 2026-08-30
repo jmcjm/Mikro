@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mikro/features/recorder/recorder_controller.dart';
 import 'package:mikro/features/recorder/recorder_screen.dart';
+
+import '../../support/l10n_harness.dart';
 
 /// Podstawiony kontroler: test dotyczy cyklu zycia tickera na ekranie, a nie nagrywania,
 /// wiec stan podajemy wprost, zamiast ciagnac za soba mikrofon, baze i pipeline.
@@ -63,7 +64,7 @@ void main() {
         overrides: [
           recorderControllerProvider.overrideWith(() => controller = _FakeController()),
         ],
-        child: const MaterialApp(home: RecorderScreen()),
+        child: localizedApp(const RecorderScreen()),
       ));
       await tester.pumpAndSettle();
       return controller;

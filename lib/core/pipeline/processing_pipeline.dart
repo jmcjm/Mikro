@@ -10,6 +10,14 @@ import '../settings/settings_repository.dart';
 
 const maxUploadBytes = 25 * 1024 * 1024;
 
+/// Rodzaje bledow zapisywane w kolumnie `errorKind` poza domena [ApiErrorKind]. Kolumna niesie
+/// rodzaj, a nie gotowe zdanie: komunikat sklada dopiero UI w jezyku, ktory obowiazuje przy
+/// ogladaniu, a nie w tym, ktory obowiazywal przy awarii. Wartosci sa czescia formatu bazy,
+/// wiec nie zmieniaja sie razem z tekstami.
+const errorKindNoConfig = 'noConfig';
+const errorKindSizeLimit = 'sizeLimit';
+const errorKindUnknown = 'unknown';
+
 class ProcessingPipeline {
   ProcessingPipeline({
     required this.db,
@@ -135,8 +143,7 @@ class ProcessingPipeline {
 
       final config = await settings.load();
       if (config == null) {
-        await db.updateStatus(id, RecordingStatus.error,
-            errorMessage: 'Brak konfiguracji API — ustaw klucz w Ustawieniach.');
+        await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindNoConfig);
         return;
       }
 
@@ -144,8 +151,7 @@ class ProcessingPipeline {
       if (transcript == null) {
         final size = await File(recording.audioPath).length();
         if (size > maxUploadBytes) {
-          await db.updateStatus(id, RecordingStatus.error,
-              errorMessage: 'Nagranie przekracza limit 25 MB — za długie do transkrypcji.');
+          await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindSizeLimit);
           return;
         }
         await db.updateStatus(id, RecordingStatus.transcribing);
@@ -159,10 +165,10 @@ class ProcessingPipeline {
     } on MikroApiException catch (e) {
       // Rodzaj bledu decyduje, czy warto ponowic po powrocie sieci — patrz networkFailedRecordings.
       await db.updateStatus(id, RecordingStatus.error,
-          errorMessage: e.userMessage, errorKind: e.kind.name);
+          errorMessage: e.message, errorKind: e.kind.name);
     } catch (e) {
       await db.updateStatus(id, RecordingStatus.error,
-          errorMessage: 'Nieoczekiwany błąd: $e', errorKind: 'unknown');
+          errorMessage: '$e', errorKind: errorKindUnknown);
     }
   }
 }

@@ -8,6 +8,19 @@ import 'package:uuid/uuid.dart';
 import '../../core/audio/waveform.dart';
 import '../../core/providers.dart';
 
+/// Powod, dla ktorego nagrywanie nie ruszylo. Kontroler nie zna jezyka interfejsu ani
+/// BuildContextu, wiec oddaje rodzaj bledu, a zdanie sklada z niego ekran.
+enum RecorderErrorKind { micPermission, startFailed }
+
+class RecorderError {
+  const RecorderError(this.kind, [this.detail]);
+
+  final RecorderErrorKind kind;
+
+  /// Techniczny opis wyjatku dla [RecorderErrorKind.startFailed]; nietlumaczony.
+  final String? detail;
+}
+
 class RecorderState {
   const RecorderState({
     this.isRecording = false,
@@ -19,12 +32,17 @@ class RecorderState {
   final bool isRecording;
   final Duration elapsed;
   final double amplitude;
-  final String? lastError;
+  final RecorderError? lastError;
 
   /// Note the deliberate asymmetry: [lastError] is NOT preserved when omitted, unlike every
   /// other field. Any state change that is not itself an error clears the previous one, so a
   /// stale message never outlives the situation that produced it.
-  RecorderState copyWith({bool? isRecording, Duration? elapsed, double? amplitude, String? lastError}) =>
+  RecorderState copyWith({
+    bool? isRecording,
+    Duration? elapsed,
+    double? amplitude,
+    RecorderError? lastError,
+  }) =>
       RecorderState(
         isRecording: isRecording ?? this.isRecording,
         elapsed: elapsed ?? this.elapsed,
@@ -65,7 +83,8 @@ class RecorderController extends Notifier<RecorderState> {
     try {
       final recorder = ref.read(recorderProvider);
       if (!await recorder.hasPermission()) {
-        state = state.copyWith(lastError: 'Brak uprawnień do mikrofonu.');
+        state = state.copyWith(
+            lastError: const RecorderError(RecorderErrorKind.micPermission));
         return;
       }
       final id = const Uuid().v4();
@@ -81,7 +100,8 @@ class RecorderController extends Notifier<RecorderState> {
         } catch (_) {
           // Cleanup is best-effort; a leftover directory must not mask the real error.
         }
-        state = state.copyWith(lastError: 'Nie udało się uruchomić nagrywania: $e');
+        state = state.copyWith(
+            lastError: RecorderError(RecorderErrorKind.startFailed, '$e'));
         return;
       }
       _currentId = id;

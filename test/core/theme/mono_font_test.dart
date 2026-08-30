@@ -10,6 +10,8 @@ import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/l10n_harness.dart';
+
 class _FakeKeyStore implements KeyStore {
   String? value;
 
@@ -33,7 +35,7 @@ Future<void> pumpSettings(WidgetTester tester) async {
       sharedPrefsProvider.overrideWithValue(prefs),
       keyStoreProvider.overrideWithValue(_FakeKeyStore()),
     ],
-    child: const MaterialApp(home: SettingsScreen()),
+    child: localizedApp(const SettingsScreen()),
   ));
   await tester.pumpAndSettle();
 }

@@ -38,7 +38,7 @@ class TaggingApi {
       final tags = parseTags(content);
       if (tags != null) return tags;
     }
-    throw MikroApiException(ApiErrorKind.badResponse, 'Model nie zwrócił poprawnych tagów.');
+    throw MikroApiException(ApiErrorKind.badTags, 'tag list unparsable');
   }
 
   Future<String> _chat(String transcript, ProviderConfig config) async {
@@ -64,11 +64,11 @@ class TaggingApi {
       // a generyk post<Map<String, dynamic>> zamienial nie-mapowe cialo w falszywy blad sieci.
       final data = response.data;
       if (data is! Map<String, dynamic>) {
-        throw MikroApiException(ApiErrorKind.badResponse, 'Nieoczekiwany format odpowiedzi API.');
+        throw MikroApiException(ApiErrorKind.badFormat, 'response body is not an object');
       }
       final content = _extractContent(data);
       if (content is! String) {
-        throw MikroApiException(ApiErrorKind.badResponse, 'Odpowiedź API bez treści wiadomości.');
+        throw MikroApiException(ApiErrorKind.noContent, 'no message content in response');
       }
       return content;
     } on DioException catch (e) {

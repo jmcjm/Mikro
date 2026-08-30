@@ -57,7 +57,7 @@ void main() {
       expect(await api.generateTags(transcript: 'tekst', config: config), ['praca']);
     });
 
-    test('smieciowa odpowiedz -> retry raz -> badResponse, dokladnie 2 requesty', () async {
+    test('smieciowa odpowiedz -> retry raz -> badTags, dokladnie 2 requesty', () async {
       final dio = Dio();
       var calls = 0;
       dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
@@ -70,36 +70,36 @@ void main() {
       final api = TaggingApi(dio);
       await expectLater(
         api.generateTags(transcript: 'tekst', config: config),
-        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badTags)),
       );
       expect(calls, 2);
     });
 
     // --- P1: klasyfikacja i osloniecie ekstrakcji (ruling koordynatora) ---
 
-    test('cialo odpowiedzi nie bedace mapa -> badResponse, nie network', () async {
+    test('cialo odpowiedzi nie bedace mapa -> badFormat, nie network', () async {
       final dio = Dio();
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
           (server) => server.reply(200, [1, 2, 3]),
           data: Matchers.any);
       await expectLater(
         TaggingApi(dio).generateTags(transcript: 'tekst', config: config),
-        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badFormat)),
       );
     });
 
-    test('pusta lista choices -> badResponse bez surowego bledu', () async {
+    test('pusta lista choices -> noContent bez surowego bledu', () async {
       final dio = Dio();
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
           (server) => server.reply(200, {'choices': <dynamic>[]}),
           data: Matchers.any);
       await expectLater(
         TaggingApi(dio).generateTags(transcript: 'tekst', config: config),
-        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+        throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.noContent)),
       );
     });
 
-    test('pozostale niekonformne ksztalty odpowiedzi tez daja badResponse', () async {
+    test('pozostale niekonformne ksztalty odpowiedzi tez daja noContent', () async {
       // Ruling P1 wymienia cztery ksztalty, ktore nie moga wypuscic surowego bledu.
       // Dwa maja wlasne testy wyzej; te trzy domykaja liste.
       final shapes = <String, Map<String, dynamic>>{
@@ -118,7 +118,7 @@ void main() {
             data: Matchers.any);
         await expectLater(
           TaggingApi(dio).generateTags(transcript: 'tekst', config: config),
-          throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badResponse)),
+          throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.noContent)),
           reason: entry.key,
         );
       }

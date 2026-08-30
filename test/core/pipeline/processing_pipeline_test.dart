@@ -177,14 +177,15 @@ void main() {
     expect(tags, containsAll(['praca', 'notatki']));
   });
 
-  test('brak konfiguracji -> error z komunikatem o ustawieniach', () async {
+  test('brak konfiguracji -> error z rodzajem noConfig', () async {
     settings.config = null;
     await insert('a');
     pipeline.enqueue('a');
     await pipeline.idle;
     final r = await db.getRecording('a');
     expect(r!.status, RecordingStatus.error);
-    expect(r.errorMessage, contains('Ustawieniach'));
+    expect(r.errorKind, errorKindNoConfig,
+        reason: 'zdanie dla uzytkownika sklada UI, baza trzyma sam rodzaj bledu');
   });
 
   test('plik ponad limit -> error bez wolania API', () async {
@@ -195,17 +196,19 @@ void main() {
     pipeline.enqueue('a');
     await pipeline.idle;
     expect((await db.getRecording('a'))!.status, RecordingStatus.error);
+    expect((await db.getRecording('a'))!.errorKind, errorKindSizeLimit);
     expect(stt.calls, 0);
   });
 
-  test('blad transkrypcji -> error z userMessage', () async {
+  test('blad transkrypcji -> error z rodzajem auth', () async {
     stt.error = MikroApiException(ApiErrorKind.auth, 'HTTP 401');
     await insert('a');
     pipeline.enqueue('a');
     await pipeline.idle;
     final r = await db.getRecording('a');
     expect(r!.status, RecordingStatus.error);
-    expect(r.errorMessage, contains('klucz API'));
+    expect(r.errorKind, ApiErrorKind.auth.name);
+    expect(r.errorMessage, 'HTTP 401');
   });
 
   test('retry po bledzie tagowania nie powtarza transkrypcji', () async {
@@ -255,7 +258,7 @@ void main() {
     final r = await db.getRecording('a');
     expect(r!.status, RecordingStatus.error,
         reason: 'awaria odczytu klucza to blad przetwarzania, nie cisza');
-    expect(r.errorMessage, isNotNull, reason: 'uzytkownik musi zobaczyc powod');
+    expect(r.errorKind, errorKindUnknown, reason: 'uzytkownik musi zobaczyc powod');
     expect(r.errorMessage, isNotEmpty);
   });
 

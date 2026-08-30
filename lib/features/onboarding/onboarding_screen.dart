@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../settings/settings_screen.dart';
 import 'onboarding_providers.dart';
 import 'onboarding_steps.dart';
@@ -65,6 +66,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final isLastStep = _step == _stepCount - 1;
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -91,7 +93,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       StepDots(count: _stepCount, current: _step),
                       const Spacer(),
                       OnboardingNextButton(
-                        label: isLastStep ? 'Zaczynamy' : 'Dalej',
+                        label: isLastStep ? l10n.onboardingStart : l10n.onboardingNext,
                         onPressed: _next,
                       ),
                     ],

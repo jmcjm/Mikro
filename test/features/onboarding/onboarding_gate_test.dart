@@ -8,6 +8,8 @@ import 'package:mikro/features/onboarding/onboarding_providers.dart';
 import 'package:mikro/features/onboarding/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/l10n_harness.dart';
+
 class StubRecorder implements MikroRecorder {
   @override
   String get fileExtension => 'm4a';
@@ -33,8 +35,8 @@ Future<ProviderContainer> pumpGate(WidgetTester tester, Map<String, Object> stor
   addTearDown(container.dispose);
   await tester.pumpWidget(UncontrolledProviderScope(
     container: container,
-    child: const MaterialApp(
-      home: OnboardingGate(child: Text('powloka', textDirection: TextDirection.ltr)),
+    child: localizedApp(
+      const OnboardingGate(child: Text('powloka', textDirection: TextDirection.ltr)),
     ),
   ));
   await tester.pump();

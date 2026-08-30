@@ -9,6 +9,8 @@ import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_screen.dart';
 
+import '../../support/l10n_harness.dart';
+
 void main() {
   late AppDatabase db;
 
@@ -30,9 +32,9 @@ void main() {
   Future<void> pumpLibrary(WidgetTester tester) async {
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: MaterialApp(
+      child: localizedApp(
+        const LibraryScreen(),
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
-        home: const LibraryScreen(),
       ),
     ));
     // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
@@ -51,8 +53,8 @@ void main() {
   testWidgets('pusta biblioteka pokazuje stan pusty z makiety', (tester) async {
     await pumpLibrary(tester);
 
-    expect(find.text('Brak nagrań'), findsOneWidget);
-    expect(find.textContaining('Wciśnij mikrofon'), findsOneWidget);
+    expect(find.text(plL10n.libraryEmptyNoRecordings), findsOneWidget);
+    expect(find.text(plL10n.libraryEmptyDescription), findsOneWidget);
     expect(find.byIcon(Symbols.library_music_rounded), findsOneWidget);
 
     await unmount(tester);
@@ -67,7 +69,7 @@ void main() {
     await pumpLibrary(tester);
 
     expect(find.text('2026-08-29 09:15'), findsOneWidget);
-    expect(find.text('Gotowe'), findsOneWidget);
+    expect(find.text(plL10n.statusDone), findsOneWidget);
     expect(find.text('Notatka ze standupu'), findsOneWidget);
     expect(find.text('3:27'), findsOneWidget);
     expect(find.text('whisper-large-v3-turbo'), findsOneWidget);
@@ -82,7 +84,7 @@ void main() {
 
     await pumpLibrary(tester);
 
-    expect(find.text('Tagowanie…'), findsOneWidget);
+    expect(find.text(plL10n.statusTagging), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsOneWidget);
 
     await unmount(tester);
@@ -94,9 +96,9 @@ void main() {
 
     await pumpLibrary(tester);
 
-    expect(find.text('Błąd'), findsOneWidget);
+    expect(find.text(plL10n.statusError), findsOneWidget);
     expect(find.text('Limit 25 MB'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Ponów'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, plL10n.libraryRetry), findsOneWidget);
 
     await unmount(tester);
   });
@@ -112,7 +114,7 @@ void main() {
 
     await pumpLibrary(tester);
 
-    expect(find.text('Wszystkie'), findsOneWidget);
+    expect(find.text(plL10n.libraryFilterAll), findsOneWidget);
     expect(find.text('Notatka ze standupu'), findsOneWidget);
     expect(find.text('Lista zakupow'), findsOneWidget);
 
@@ -124,7 +126,7 @@ void main() {
     expect(find.text('Notatka ze standupu'), findsOneWidget);
     expect(find.text('Lista zakupow'), findsNothing);
 
-    await tester.tap(find.text('Wszystkie'));
+    await tester.tap(find.text(plL10n.libraryFilterAll));
     await tester.pump();
 
     expect(find.text('Lista zakupow'), findsOneWidget);
@@ -141,8 +143,8 @@ void main() {
     await tester.enterText(find.byType(TextField), 'zupelnie-czegos-innego');
     await tester.pump();
 
-    expect(find.text('Nic nie znaleziono.'), findsOneWidget);
-    expect(find.text('Brak nagrań'), findsNothing);
+    expect(find.text(plL10n.libraryEmptyNoResults), findsOneWidget);
+    expect(find.text(plL10n.libraryEmptyNoRecordings), findsNothing);
 
     await unmount(tester);
   });
@@ -170,8 +172,8 @@ void main() {
 
     // Brak wyjatku RenderFlex to sedno tego testu; asercje pilnuja, ze karty faktycznie
     // sie zbudowaly, a nie ze test przeszedl na pustym ekranie.
-    expect(find.text('Gotowe'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Ponów'), findsOneWidget);
+    expect(find.text(plL10n.statusDone), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, plL10n.libraryRetry), findsOneWidget);
 
     await unmount(tester);
   });

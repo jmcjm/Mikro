@@ -11,6 +11,8 @@ import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 
+import '../../support/l10n_harness.dart';
+
 void main() {
   late AppDatabase db;
 
@@ -45,9 +47,9 @@ void main() {
     stubAudioPlayers(tester);
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
-      child: MaterialApp(
+      child: localizedApp(
+        RecordingDetailScreen(recordingId: id),
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
-        home: RecordingDetailScreen(recordingId: id),
       ),
     ));
     // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
@@ -70,10 +72,10 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    expect(find.text('Nagranie'), findsOneWidget);
+    expect(find.text(plL10n.detailTitle), findsOneWidget);
     expect(find.text('2026-08-29 09:15'), findsOneWidget);
-    expect(find.text('Gotowe'), findsOneWidget);
-    expect(find.text('TRANSKRYPCJA'), findsOneWidget);
+    expect(find.text(plL10n.statusDone), findsOneWidget);
+    expect(find.text(plL10n.detailTranscriptLabel), findsOneWidget);
     expect(find.text('Notatka ze standupu'), findsOneWidget);
     expect(find.text('model: whisper-large-v3-turbo'), findsOneWidget);
     expect(find.text('3:27'), findsOneWidget);
@@ -88,7 +90,7 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    expect(find.text('Transkrypcja…'), findsNWidgets(2)); // odznaka i podpis pod spinnerem
+    expect(find.text(plL10n.statusTranscribing), findsNWidgets(2)); // odznaka i podpis pod spinnerem
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     // Bez transkryptu nie ma czego udostepniac ani kopiowac.
     expect(find.byIcon(Symbols.share_rounded), findsNothing);
@@ -103,9 +105,9 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    expect(find.text('Błąd'), findsOneWidget);
+    expect(find.text(plL10n.statusError), findsOneWidget);
     expect(find.text('Limit 25 MB'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Ponów przetwarzanie'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, plL10n.detailRetryProcessing), findsOneWidget);
 
     await unmount(tester);
   });
@@ -113,7 +115,7 @@ void main() {
   testWidgets('usuniete nagranie znika z ekranu z komunikatem', (tester) async {
     await pumpDetail(tester, 'nie-ma-takiego');
 
-    expect(find.text('Nagranie usunięte.'), findsOneWidget);
+    expect(find.text(plL10n.detailRecordingDeleted), findsOneWidget);
 
     await unmount(tester);
   });
@@ -145,7 +147,7 @@ void main() {
     await tester.pump();
 
     expect(copied, ['Notatka ze standupu']);
-    expect(find.text('Skopiowano transkrypt do schowka.'), findsOneWidget);
+    expect(find.text(plL10n.detailCopiedTranscript), findsOneWidget);
 
     await unmount(tester);
   });
@@ -174,7 +176,7 @@ void main() {
     await tester.pump();
 
     expect(copied, ['Notatka ze standupu']);
-    expect(find.text('Skopiowano.'), findsOneWidget);
+    expect(find.text(plL10n.detailCopied), findsOneWidget);
 
     await unmount(tester);
   });
@@ -199,7 +201,7 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    expect(find.text('TRANSKRYPCJA'), findsOneWidget);
+    expect(find.text(plL10n.detailTranscriptLabel), findsOneWidget);
     expect(find.text('model: whisper-large-v3-turbo'), findsOneWidget);
 
     await unmount(tester);

@@ -16,6 +16,8 @@ import 'package:mikro/features/recorder/recorder_screen.dart';
 import 'package:mikro/features/shell/home_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/l10n_harness.dart';
+
 class FakeRecorder implements MikroRecorder {
   @override
   String get fileExtension => 'm4a';
@@ -83,7 +85,7 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: const MaterialApp(home: HomeShell()),
+      child: localizedApp(const HomeShell()),
     ));
     await tester.pump();
   }
@@ -104,7 +106,7 @@ void main() {
     container.read(homeTabProvider.notifier).select(HomeTab.library);
     await tester.pump();
 
-    await tester.tap(find.text('Nagraj pierwszą notatkę'));
+    await tester.tap(find.text(plL10n.libraryRecordCta));
     await tester.pump();
 
     expect(container.read(homeTabProvider), HomeTab.recorder);
@@ -153,8 +155,8 @@ void main() {
         reason: 'bez wejscia w stan nagrywania nie ma czego zatrzymywac');
 
     await tester.tap(inRecorder(Symbols.stop_rounded));
-    await pumpUntil(find.text('Pokaż'));
-    expect(find.text('Pokaż'), findsOneWidget,
+    await pumpUntil(find.text(plL10n.recorderSavedAction));
+    expect(find.text(plL10n.recorderSavedAction), findsOneWidget,
         reason: 'makieta pokazuje snackbar z akcja po zapisaniu nagrania');
 
     // Po zatrzymaniu nagrania puls juz nie tyka, wiec settle jest bezpieczne — a jest tu
@@ -162,7 +164,7 @@ void main() {
     // trafialby w pustke.
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Pokaż'));
+    await tester.tap(find.text(plL10n.recorderSavedAction));
     await tester.pump();
 
     expect(container.read(homeTabProvider), HomeTab.library);
@@ -206,7 +208,7 @@ void main() {
 
     await tester.tap(find.descendant(
       of: find.byType(NavigationRail),
-      matching: find.text('Biblioteka'),
+      matching: find.text(plL10n.navLibrary),
     ));
     await tester.pumpAndSettle();
 

@@ -6,6 +6,7 @@ import '../../core/models/provider_config.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Jedna karta w siatce wyboru motywu. Makieta pokazuje szesc kart w ukladzie 2x3 i nie
 /// rozdziela trybu od palety — kazda karta to gotowa para (tryb, paleta), stad oba pola.
@@ -31,19 +32,23 @@ class _ThemeChoice {
       mode == ThemeMode.light ? Brightness.light : Brightness.dark;
 }
 
-const _themeChoices = [
-  _ThemeChoice(label: 'Jasny', mode: ThemeMode.light, palette: AppPalette.md3),
-  _ThemeChoice(label: 'Ciemny', mode: ThemeMode.dark, palette: AppPalette.md3),
-  _ThemeChoice(label: 'Dracula', mode: ThemeMode.dark, palette: AppPalette.dracula),
-  _ThemeChoice(label: 'Nord', mode: ThemeMode.dark, palette: AppPalette.nord),
-  _ThemeChoice(label: 'Gruvbox', mode: ThemeMode.dark, palette: AppPalette.gruvbox),
-  _ThemeChoice(
-    label: 'Systemowy',
-    mode: ThemeMode.system,
-    palette: AppPalette.md3,
-    icon: Symbols.brightness_auto_rounded,
-  ),
-];
+/// Dracula, Nord i Gruvbox to nazwy wlasne palet — zostaja takie same w kazdym jezyku i nie
+/// maja po co siedziec w ARB. Tlumaczy sie tylko trzy pozostale etykiety, wiec lista powstaje
+/// przy budowaniu ekranu, zamiast byc stala.
+List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
+      _ThemeChoice(
+          label: l10n.settingsThemeLight, mode: ThemeMode.light, palette: AppPalette.md3),
+      _ThemeChoice(label: l10n.settingsThemeDark, mode: ThemeMode.dark, palette: AppPalette.md3),
+      _ThemeChoice(label: 'Dracula', mode: ThemeMode.dark, palette: AppPalette.dracula),
+      _ThemeChoice(label: 'Nord', mode: ThemeMode.dark, palette: AppPalette.nord),
+      _ThemeChoice(label: 'Gruvbox', mode: ThemeMode.dark, palette: AppPalette.gruvbox),
+      _ThemeChoice(
+        label: l10n.settingsThemeSystem,
+        mode: ThemeMode.system,
+        palette: AppPalette.md3,
+        icon: Symbols.brightness_auto_rounded,
+      ),
+    ];
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -100,8 +105,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           tagModel: _tagModel.text.trim(),
         ));
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Ustawienia zapisane.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).settingsSaved)));
     }
   }
 
@@ -123,6 +128,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -133,7 +139,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
               child: Text(
-                'Ustawienia',
+                l10n.settingsTitle,
                 style: TextStyle(
                   fontSize: 32,
                   height: 40 / 32,
@@ -154,9 +160,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _providerSection(colors),
+                            _providerSection(colors, l10n),
                             const SizedBox(height: 20),
-                            _themeSection(colors),
+                            _themeSection(colors, l10n),
                           ],
                         ),
                       ),
@@ -173,16 +179,20 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _providerSection(ColorScheme colors) => Column(
+  Widget _providerSection(ColorScheme colors, AppLocalizations l10n) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _sectionLabel('Provider', colors),
+          _sectionLabel(l10n.settingsProviderSection, colors),
           const SizedBox(height: 10),
           SegmentedButton<ProviderPreset>(
-            segments: const [
-              ButtonSegment(value: ProviderPreset.groq, label: Text('Groq')),
-              ButtonSegment(value: ProviderPreset.openai, label: Text('OpenAI')),
-              ButtonSegment(value: ProviderPreset.custom, label: Text('Własny')),
+            // Groq i OpenAI to nazwy wlasne dostawcow i nie ida przez ARB.
+            segments: [
+              const ButtonSegment(value: ProviderPreset.groq, label: Text('Groq')),
+              const ButtonSegment(value: ProviderPreset.openai, label: Text('OpenAI')),
+              ButtonSegment(
+                value: ProviderPreset.custom,
+                label: Text(l10n.settingsProviderCustom),
+              ),
             ],
             selected: {_preset},
             onSelectionChanged: (selection) => _applyPreset(selection.first),
@@ -204,7 +214,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             controller: _baseUrl,
             enabled: _preset == ProviderPreset.custom,
             style: _monoValueStyle(colors),
-            decoration: _fieldDecoration('Base URL', colors),
+            decoration: _fieldDecoration(l10n.settingsBaseUrl, colors),
           ),
           const SizedBox(height: 10),
           TextField(
@@ -212,7 +222,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             obscureText: _apiKeyHidden,
             style: TextStyle(fontSize: 15, letterSpacing: 2, color: colors.onSurface),
             decoration: _fieldDecoration(
-              'Klucz API',
+              l10n.settingsApiKey,
               colors,
               suffixIcon: IconButton(
                 onPressed: () => setState(() => _apiKeyHidden = !_apiKeyHidden),
@@ -222,7 +232,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   size: 22,
                 ),
                 color: colors.onSurfaceVariant,
-                tooltip: _apiKeyHidden ? 'Pokaż klucz' : 'Ukryj klucz',
+                tooltip: _apiKeyHidden ? l10n.settingsShowKey : l10n.settingsHideKey,
               ),
             ),
           ),
@@ -236,7 +246,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Trzymany w keystore systemu, nie w SharedPreferences',
+                    l10n.settingsKeyStorage,
                     style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
                   ),
                 ),
@@ -247,32 +257,33 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           TextField(
             controller: _sttModel,
             style: _monoValueStyle(colors),
-            decoration: _fieldDecoration('Model STT', colors),
+            decoration: _fieldDecoration(l10n.settingsSttModel, colors),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _tagModel,
             style: _monoValueStyle(colors),
-            decoration: _fieldDecoration('Model tagowania', colors),
+            decoration: _fieldDecoration(l10n.settingsTagModel, colors),
           ),
         ],
       );
 
-  Widget _themeSection(ColorScheme colors) {
+  Widget _themeSection(ColorScheme colors, AppLocalizations l10n) {
     final mode = ref.watch(themeModeProvider);
     final palette = ref.watch(themePaletteProvider);
+    final choices = _themeChoices(l10n);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionLabel('Motyw', colors),
+        _sectionLabel(l10n.settingsThemeSection, colors),
         const SizedBox(height: 10),
-        for (var row = 0; row < _themeChoices.length; row += 3) ...[
+        for (var row = 0; row < choices.length; row += 3) ...[
           if (row > 0) const SizedBox(height: 10),
           Row(
             children: [
-              for (final choice in _themeChoices.skip(row).take(3)) ...[
-                if (choice != _themeChoices[row]) const SizedBox(width: 10),
+              for (final choice in choices.skip(row).take(3)) ...[
+                if (choice != choices[row]) const SizedBox(width: 10),
                 Expanded(
                   child: _themeCard(
                     choice,
@@ -354,7 +365,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: FilledButton.icon(
           onPressed: _save,
           icon: const Icon(Symbols.save_rounded, fill: 1, size: 20),
-          label: const Text('Zapisz'),
+          label: Text(AppLocalizations.of(context).settingsSave),
           style: FilledButton.styleFrom(
             shape: const StadiumBorder(),
             textStyle: const TextStyle(
@@ -366,10 +377,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
 
+  /// Naglowek sekcji. Wersaliki przychodza z ARB, a nie z `toUpperCase()` — o tym, gdzie
+  /// kapitaliki pasuja, decyduje jezyk, nie kod.
   Widget _sectionLabel(String text, ColorScheme colors) => Padding(
         padding: const EdgeInsets.only(left: 4),
         child: Text(
-          text.toUpperCase(),
+          text,
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,

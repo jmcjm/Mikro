@@ -17,10 +17,11 @@ void main() {
     final e = DioException(requestOptions: RequestOptions(path: '/x'), type: DioExceptionType.connectionError);
     expect(mapDioError(e).kind, ApiErrorKind.network);
   });
-  test('userMessage auth wskazuje ustawienia', () {
-    expect(mapDioError(_withStatus(401)).userMessage, contains('Ustawieniach'));
+  test('auth niesie sam kod, a nie zdanie dla uzytkownika', () {
+    // Zdanie sklada UI z kind przez l10n; warstwa sieciowa oddaje wylacznie techniczny detal.
+    expect(mapDioError(_withStatus(401)).message, 'HTTP 401');
   });
-  test('404 -> badResponse z polskim komunikatem bez surowego body', () {
+  test('404 -> badResponse bez sladu surowego body', () {
     final e = DioException(
       requestOptions: RequestOptions(path: '/x'),
       response: Response(
@@ -31,6 +32,7 @@ void main() {
     );
     final mapped = mapDioError(e);
     expect(mapped.kind, ApiErrorKind.badResponse);
-    expect(mapped.userMessage, 'Nieoczekiwana odpowiedź serwera (HTTP 404).');
+    expect(mapped.message, 'HTTP 404');
+    expect(mapped.message, isNot(contains('sekret')));
   });
 }

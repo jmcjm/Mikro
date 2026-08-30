@@ -6,6 +6,8 @@ import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:mikro/features/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/l10n_harness.dart';
+
 class FakeKeyStore implements KeyStore {
   String? value;
 
@@ -30,7 +32,7 @@ Future<SharedPreferences> pumpSettings(WidgetTester tester) async {
       sharedPrefsProvider.overrideWithValue(prefs),
       keyStoreProvider.overrideWithValue(FakeKeyStore()),
     ],
-    child: const MaterialApp(home: SettingsScreen()),
+    child: localizedApp(const SettingsScreen()),
   ));
   await tester.pumpAndSettle();
   return prefs;
@@ -57,8 +59,8 @@ void main() {
     expect(prefs.getString('theme_mode'), 'dark');
 
     // Powrot na baseline musi cofnac obie wartosci, nie tylko palete.
-    await tester.ensureVisible(find.text('Systemowy'));
-    await tester.tap(find.text('Systemowy'));
+    await tester.ensureVisible(find.text(plL10n.settingsThemeSystem));
+    await tester.tap(find.text(plL10n.settingsThemeSystem));
     await tester.pumpAndSettle();
     expect(prefs.getString('theme_palette'), 'md3');
     expect(prefs.getString('theme_mode'), 'system');
@@ -69,11 +71,11 @@ void main() {
 
     expect(find.text('Groq'), findsOneWidget);
     expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text('Własny'), findsOneWidget);
-    expect(find.text('Base URL'), findsOneWidget);
-    expect(find.text('Klucz API'), findsOneWidget);
-    expect(find.text('Model STT'), findsOneWidget);
-    expect(find.text('Model tagowania'), findsOneWidget);
+    expect(find.text(plL10n.settingsProviderCustom), findsOneWidget);
+    expect(find.text(plL10n.settingsBaseUrl), findsOneWidget);
+    expect(find.text(plL10n.settingsApiKey), findsOneWidget);
+    expect(find.text(plL10n.settingsSttModel), findsOneWidget);
+    expect(find.text(plL10n.settingsTagModel), findsOneWidget);
     // Brak zapisanej konfiguracji -> ekran startuje na presecie Groq.
     expect(find.text('https://api.groq.com/openai/v1'), findsOneWidget);
   });
@@ -86,8 +88,8 @@ void main() {
         );
 
     expect(keyField().obscureText, isTrue);
-    await tester.ensureVisible(find.byTooltip('Pokaż klucz'));
-    await tester.tap(find.byTooltip('Pokaż klucz'));
+    await tester.ensureVisible(find.byTooltip(plL10n.settingsShowKey));
+    await tester.tap(find.byTooltip(plL10n.settingsShowKey));
     await tester.pumpAndSettle();
     expect(keyField().obscureText, isFalse);
   });

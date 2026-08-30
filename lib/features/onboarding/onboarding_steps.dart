@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/providers.dart';
+import '../../l10n/app_localizations.dart';
 import 'onboarding_widgets.dart';
 
 /// Step 1 — what the app is for, in the words of the design.
@@ -10,12 +11,14 @@ class WelcomeStep extends StatelessWidget {
   const WelcomeStep({super.key});
 
   @override
-  Widget build(BuildContext context) => const OnboardingStepLayout(
-        icon: Symbols.graphic_eq_rounded,
-        headline: 'Mów.\nMikro zapisze\ni otaguje.',
-        body: 'Nagrania trafiają na Twoje urządzenie, transkrypcja i tagi lecą do wybranego '
-            'providera.',
-      );
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return OnboardingStepLayout(
+      icon: Symbols.graphic_eq_rounded,
+      headline: l10n.onboardingWelcomeHeadline,
+      body: l10n.onboardingWelcomeBody,
+    );
+  }
 }
 
 enum _MicrophoneAccess { unknown, granted, denied }
@@ -46,7 +49,7 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep> {
     });
   }
 
-  Widget _trailing(ColorScheme colors, TextTheme text) {
+  Widget _trailing(ColorScheme colors, TextTheme text, AppLocalizations l10n) {
     if (_asking) {
       return const SizedBox(
         width: 20,
@@ -61,7 +64,7 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep> {
           Icon(Symbols.check_circle_rounded, fill: 1, size: 20, color: colors.primary),
           const SizedBox(width: 6),
           Text(
-            'Przyznany',
+            l10n.onboardingMicGranted,
             style: text.labelLarge?.copyWith(fontSize: 14, color: colors.primary),
           ),
         ],
@@ -75,7 +78,9 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep> {
         shape: const StadiumBorder(),
         textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
-      child: Text(_access == _MicrophoneAccess.denied ? 'Ponów' : 'Zezwól'),
+      child: Text(_access == _MicrophoneAccess.denied
+          ? l10n.onboardingMicRetry
+          : l10n.onboardingMicAllow),
     );
   }
 
@@ -83,21 +88,22 @@ class _MicrophoneStepState extends ConsumerState<MicrophoneStep> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final l10n = AppLocalizations.of(context);
     return OnboardingStepLayout(
       icon: Symbols.mic_rounded,
-      headline: 'Najpierw\nmikrofon.',
-      body: 'System zapyta o zgodę raz. Bez niej Mikro nie nagra ani słowa.',
+      headline: l10n.onboardingMicHeadline,
+      body: l10n.onboardingMicBody,
       children: [
         OnboardingCard(
           icon: Symbols.mic_rounded,
-          title: 'Dostęp do mikrofonu',
-          subtitle: 'Wymagany do nagrywania',
-          trailing: _trailing(colors, theme.textTheme),
+          title: l10n.onboardingMicTitle,
+          subtitle: l10n.onboardingMicSubtitle,
+          trailing: _trailing(colors, theme.textTheme, l10n),
         ),
         if (_access == _MicrophoneAccess.denied) ...[
           const SizedBox(height: 12),
           Text(
-            'Odmówiono. Dostęp włączysz w ustawieniach systemu.',
+            l10n.onboardingMicDenied,
             style: theme.textTheme.bodySmall?.copyWith(fontSize: 13, color: colors.error),
           ),
         ],
@@ -116,15 +122,16 @@ class ProviderStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return OnboardingStepLayout(
       icon: Symbols.key_rounded,
-      headline: 'Klucz API\ndodasz\nkiedy chcesz.',
-      body: 'Transkrypcja i tagi lecą do Groqa albo OpenAI. Samo nagrywanie działa bez klucza.',
+      headline: l10n.onboardingProviderHeadline,
+      body: l10n.onboardingProviderBody,
       children: [
         OnboardingCard(
           icon: Symbols.key_rounded,
-          title: 'Klucz API',
-          subtitle: 'Groq lub OpenAI — możesz dodać później',
+          title: l10n.onboardingProviderTitle,
+          subtitle: l10n.onboardingProviderSubtitle,
           highlighted: false,
           onTap: onOpenSettings,
           trailing: Icon(

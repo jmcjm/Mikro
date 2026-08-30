@@ -10,6 +10,8 @@ import 'package:mikro/features/onboarding/onboarding_widgets.dart';
 import 'package:mikro/features/settings/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../support/l10n_harness.dart';
+
 /// Stoi za krokiem uprawnien: wtyczka nagrywania sama pokazuje systemowy dialog, wiec test
 /// podmienia tylko jej odpowiedz i liczy zapytania.
 class StubRecorder implements MikroRecorder {
@@ -67,7 +69,7 @@ Future<SharedPreferences> pumpOnboarding(WidgetTester tester, {StubRecorder? rec
       recorderProvider.overrideWithValue(recorder ?? StubRecorder(granted: true)),
       keyStoreProvider.overrideWithValue(FakeKeyStore()),
     ],
-    child: const MaterialApp(home: OnboardingScreen()),
+    child: localizedApp(const OnboardingScreen()),
   ));
   await tester.pump();
   return prefs;
@@ -82,71 +84,71 @@ void main() {
   testWidgets('pierwszy krok wita tekstem z designu', (tester) async {
     await pumpOnboarding(tester);
 
-    expect(find.text('Mów.\nMikro zapisze\ni otaguje.'), findsOneWidget);
-    expect(find.text('Dalej'), findsOneWidget);
+    expect(find.text(plL10n.onboardingWelcomeHeadline), findsOneWidget);
+    expect(find.text(plL10n.onboardingNext), findsOneWidget);
   });
 
   testWidgets('trzy kroki, a flage podnosi dopiero ostatni', (tester) async {
     final prefs = await pumpOnboarding(tester);
 
-    await tapNext(tester, 'Dalej');
-    expect(find.text('Dostęp do mikrofonu'), findsOneWidget);
-    expect(find.text('Wymagany do nagrywania'), findsOneWidget);
+    await tapNext(tester, plL10n.onboardingNext);
+    expect(find.text(plL10n.onboardingMicTitle), findsOneWidget);
+    expect(find.text(plL10n.onboardingMicSubtitle), findsOneWidget);
 
-    await tapNext(tester, 'Dalej');
-    expect(find.text('Klucz API'), findsOneWidget);
-    expect(find.text('Groq lub OpenAI — możesz dodać później'), findsOneWidget);
-    expect(find.text('Dalej'), findsNothing);
+    await tapNext(tester, plL10n.onboardingNext);
+    expect(find.text(plL10n.onboardingProviderTitle), findsOneWidget);
+    expect(find.text(plL10n.onboardingProviderSubtitle), findsOneWidget);
+    expect(find.text(plL10n.onboardingNext), findsNothing);
     expect(prefs.get(onboardingCompletedKey), isNull,
         reason: 'przerwany onboarding ma sie powtorzyc po restarcie');
 
-    await tapNext(tester, 'Zaczynamy');
+    await tapNext(tester, plL10n.onboardingStart);
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
   });
 
   testWidgets('Zezwol pyta wtyczke i potwierdza przyznana zgode', (tester) async {
     final recorder = StubRecorder(granted: true);
     await pumpOnboarding(tester, recorder: recorder);
-    await tapNext(tester, 'Dalej');
+    await tapNext(tester, plL10n.onboardingNext);
 
     expect(recorder.asked, 0, reason: 'systemowy dialog dopiero po tapnieciu, nie na wejsciu');
 
-    await tester.tap(find.text('Zezwól'));
+    await tester.tap(find.text(plL10n.onboardingMicAllow));
     await settleFrames(tester);
 
     expect(recorder.asked, 1);
-    expect(find.text('Przyznany'), findsOneWidget);
-    expect(find.text('Zezwól'), findsNothing);
+    expect(find.text(plL10n.onboardingMicGranted), findsOneWidget);
+    expect(find.text(plL10n.onboardingMicAllow), findsNothing);
   });
 
   testWidgets('odmowa podpowiada ustawienia systemu i pozwala ponowic', (tester) async {
     final recorder = StubRecorder(granted: false);
     await pumpOnboarding(tester, recorder: recorder);
-    await tapNext(tester, 'Dalej');
+    await tapNext(tester, plL10n.onboardingNext);
 
-    await tester.tap(find.text('Zezwól'));
+    await tester.tap(find.text(plL10n.onboardingMicAllow));
     await settleFrames(tester);
 
-    expect(find.text('Odmówiono. Dostęp włączysz w ustawieniach systemu.'), findsOneWidget);
-    expect(find.text('Ponów'), findsOneWidget);
+    expect(find.text(plL10n.onboardingMicDenied), findsOneWidget);
+    expect(find.text(plL10n.onboardingMicRetry), findsOneWidget);
   });
 
   testWidgets('brak zgody nie blokuje przejscia dalej', (tester) async {
     final prefs = await pumpOnboarding(tester, recorder: StubRecorder(granted: false));
 
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Zaczynamy');
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingStart);
 
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
   });
 
   testWidgets('kafelek klucza konczy onboarding i otwiera Ustawienia', (tester) async {
     final prefs = await pumpOnboarding(tester);
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Dalej');
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingNext);
 
-    await tester.tap(find.text('Klucz API'));
+    await tester.tap(find.text(plL10n.onboardingProviderTitle));
     await settleFrames(tester);
 
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
@@ -155,8 +157,8 @@ void main() {
 
   testWidgets('podwojny tap na kafelku klucza otwiera Ustawienia raz', (tester) async {
     await pumpOnboarding(tester);
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Dalej');
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingNext);
 
     // Dwa tapniecia w jednej porcji zdarzen wolaja onTap synchronicznie, jeszcze zanim
     // pierwsze wywolanie dojdzie do swojego awaita. Przez tester.tap tego nie odtworzymy:
@@ -186,9 +188,9 @@ void main() {
       (tester) async {
     final prefs = await pumpOnboarding(tester);
 
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Dalej');
-    await tapNext(tester, 'Zaczynamy');
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingNext);
+    await tapNext(tester, plL10n.onboardingStart);
 
     expect(prefs.getBool('onboarding_completed'), isTrue,
         reason: 'literal klucza to format danych na dysku — przezywa aktualizacje aplikacji');

@@ -14,6 +14,8 @@ import 'package:mikro/features/library/library_screen.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 import 'package:mikro/features/library/selected_recording.dart';
 
+import '../../support/l10n_harness.dart';
+
 /// Liczy trasy dolozone PO starcie aplikacji. Trasa startowa przychodzi z `previousRoute`
 /// rownym null i nie jest tu zadnym otwarciem szczegolow.
 class RouteCounter extends NavigatorObserver {
@@ -83,10 +85,10 @@ void main() {
 
     await tester.pumpWidget(UncontrolledProviderScope(
       container: container,
-      child: MaterialApp(
+      child: localizedApp(
+        const LibraryScreen(),
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
         navigatorObservers: [routes],
-        home: const LibraryScreen(),
       ),
     ));
     // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
@@ -115,7 +117,7 @@ void main() {
 
     await tester.tap(find.byIcon(Symbols.delete_rounded));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Usuń'));
+    await tester.tap(find.widgetWithText(FilledButton, plL10n.detailDelete));
     // `testWidgets` biegnie w strefie fake-async, w ktorej prawdziwe I/O bazy nie dostaje
     // obrotu petli zdarzen — samo pompowanie klatek nigdy by sie tego nie doczekalo, choc
     // wyglada na to, ze powinno. Drift wykonuje operacje po kolei, a kasowanie weszlo do
@@ -135,7 +137,7 @@ void main() {
     expect(find.byType(RecordingDetailView), findsNothing);
     expect(await db.getRecording('a'), isNull);
     // Lista zostaje na miejscu i pokazuje juz stan pusty biblioteki.
-    expect(find.text('Brak nagrań'), findsOneWidget);
+    expect(find.text(plL10n.libraryEmptyNoRecordings), findsOneWidget);
 
     await unmount(tester);
   });
@@ -157,7 +159,7 @@ void main() {
     expect(container.read(selectedRecordingProvider), 'a');
 
     // Naglowek listy zostaje widoczny obok panelu — to jest sedno ukladu dwupanelowego.
-    expect(find.text('Biblioteka'), findsOneWidget);
+    expect(find.text(plL10n.libraryTitle), findsOneWidget);
     expect(tester.getTopLeft(find.byType(RecordingDetailView)).dx, 400,
         reason: 'makieta daje liscie 400 px, panel zaczyna sie tuz za nia');
 
@@ -173,7 +175,7 @@ void main() {
     await tester.pump();
 
     expect(find.byType(AppBar), findsNothing, reason: 'panel nie ma wlasnego paska aplikacji');
-    expect(find.text('2026-08-29 09:15 · 3:27 · Gotowe'), findsOneWidget,
+    expect(find.text('2026-08-29 09:15 · 3:27 · ${plL10n.statusDone}'), findsOneWidget,
         reason: 'makieta sklada date, dlugosc i status w jedna linie techniczna');
     // Data nie moze pojawic sie w panelu drugi raz, na karcie odtwarzacza. Na liscie obok
     // zostaje — tam jest jedynym opisem nagrania.
@@ -185,7 +187,7 @@ void main() {
       findsNothing,
     );
     expect(find.byIcon(Symbols.delete_rounded), findsOneWidget);
-    expect(find.text('TRANSKRYPCJA'), findsOneWidget);
+    expect(find.text(plL10n.detailTranscriptLabel), findsOneWidget);
 
     await unmount(tester);
   });

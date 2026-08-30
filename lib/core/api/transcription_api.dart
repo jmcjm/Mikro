@@ -24,11 +24,11 @@ class TranscriptionApi {
       // za awarie sieci — uzytkownik zobaczylby "Brak polaczenia z siecia." zamiast bledu API.
       final data = response.data;
       if (data is! Map<String, dynamic>) {
-        throw MikroApiException(ApiErrorKind.badResponse, 'Nieoczekiwany format odpowiedzi API.');
+        throw MikroApiException(ApiErrorKind.badFormat, 'response body is not an object');
       }
       final text = data['text'];
       if (text is! String) {
-        throw MikroApiException(ApiErrorKind.badResponse, 'Odpowiedź API bez pola text.');
+        throw MikroApiException(ApiErrorKind.noTranscript, 'no text field in response');
       }
       return text;
     } on DioException catch (e) {

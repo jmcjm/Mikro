@@ -13,7 +13,9 @@ import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import '../../l10n/app_localizations.dart';
 import 'library_styles.dart';
+import 'recording_error.dart';
 import 'selected_recording.dart';
 
 /// Rama, w ktorej stoja szczegoly nagrania. Rozstrzyga wylacznie o tym, co jest u gory
@@ -107,14 +109,23 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Usunąć nagranie?'),
-        content: const Text('Plik audio i transkrypt zostaną trwale usunięte.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Anuluj')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Usuń')),
-        ],
-      ),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n.detailDeleteTitle),
+          content: Text(l10n.detailDeleteMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.detailCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.detailDelete),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
 
@@ -143,7 +154,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nie udało się usunąć nagrania.')),
+        SnackBar(content: Text(AppLocalizations.of(context).detailDeleteError)),
       );
     }
   }
@@ -172,7 +183,9 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
       ));
       return;
     }
-    await _copyTranscript(transcript, message: 'Skopiowano transkrypt do schowka.');
+    if (!mounted) return;
+    await _copyTranscript(transcript,
+        message: AppLocalizations.of(context).detailCopiedTranscript);
   }
 
   @override
@@ -180,9 +193,10 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     final all = ref.watch(recordingsStreamProvider).value ?? [];
     final match = all.where((r) => r.recording.id == widget.recordingId).toList();
     if (match.isEmpty) {
-      const message = Center(child: Text('Nagranie usunięte.'));
+      final message =
+          Center(child: Text(AppLocalizations.of(context).detailRecordingDeleted));
       return switch (widget.chrome) {
-        DetailChrome.screen => const Scaffold(body: message),
+        DetailChrome.screen => Scaffold(body: message),
         DetailChrome.panel => message,
       };
     }
@@ -194,6 +208,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
   Widget _screen(RecordingWithTags item) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final r = item.recording;
     return Scaffold(
       appBar: AppBar(
@@ -201,21 +216,21 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         toolbarHeight: 64, // makieta ma naglowek 64 px, domyslne 56 sciskaloby go za mocno
         leading: IconButton(
           icon: Icon(Symbols.arrow_back_rounded, fill: 1, color: scheme.onSurface),
-          tooltip: 'Wstecz',
+          tooltip: l10n.detailBackTooltip,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Nagranie',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+        title: Text(l10n.detailTitle,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
         actions: [
           if (r.transcript != null)
             IconButton(
               icon: Icon(Symbols.share_rounded, fill: 1, color: scheme.onSurfaceVariant),
-              tooltip: 'Udostępnij transkrypt',
+              tooltip: l10n.detailShareTooltip,
               onPressed: () => _share(r),
             ),
           IconButton(
             icon: Icon(Symbols.delete_rounded, fill: 1, color: scheme.onSurfaceVariant),
-            tooltip: 'Usuń',
+            tooltip: l10n.detailDeleteTooltip,
             onPressed: () => _delete(r),
           ),
         ],
@@ -246,6 +261,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
   Widget _panelHeader(Recording r) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Row(
       children: [
         Expanded(
@@ -255,7 +271,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
               Text(
                 '${formatDateTime(r.createdAt)} · '
                 '${formatDuration(Duration(milliseconds: r.durationMs))} · '
-                '${statusLabel(r.status)}',
+                '${statusLabel(r.status, l10n)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
@@ -264,7 +280,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
               // Makieta ma w tym miejscu tytul nagrania, ktorego model danych nie zna —
               // patrz raport. Zostaje ta sama nazwa, ktora niesie pasek pelnego ekranu.
               Text(
-                'Nagranie',
+                l10n.detailTitle,
                 style: TextStyle(
                   fontSize: 28,
                   height: 34 / 28,
@@ -280,14 +296,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         if (r.transcript != null) ...[
           _PanelAction(
             icon: Symbols.share_rounded,
-            tooltip: 'Udostępnij transkrypt',
+            tooltip: l10n.detailShareTooltip,
             onTap: () => _share(r),
           ),
           const SizedBox(width: 16),
         ],
         _PanelAction(
           icon: Symbols.delete_rounded,
-          tooltip: 'Usuń',
+          tooltip: l10n.detailDeleteTooltip,
           onTap: () => _delete(r),
         ),
       ],
@@ -444,6 +460,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
   Widget _errorBanner(Recording r) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Align(
       alignment: Alignment.topCenter,
       child: Container(
@@ -462,7 +479,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    r.errorMessage ?? 'Nieznany błąd',
+                    recordingErrorText(l10n, kind: r.errorKind, detail: r.errorMessage),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -471,7 +488,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
                   ),
                   const SizedBox(height: 8),
                   ErrorActionButton(
-                    label: 'Ponów przetwarzanie',
+                    label: l10n.detailRetryProcessing,
                     onPressed: () => ref.read(pipelineProvider).enqueue(r.id),
                   ),
                 ],
@@ -485,6 +502,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
   Widget _transcriptCard(Recording r) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     final transcript = r.transcript;
     return Container(
       width: double.infinity,
@@ -499,7 +517,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
           Row(
             children: [
               Text(
-                'TRANSKRYPCJA',
+                l10n.detailTranscriptLabel,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -512,11 +530,11 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
                 IconButton(
                   icon: Icon(Symbols.content_copy_rounded,
                       fill: 1, size: 20, color: scheme.onSurfaceVariant),
-                  tooltip: 'Kopiuj transkrypt',
+                  tooltip: l10n.detailCopyTooltip,
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () => _copyTranscript(transcript, message: 'Skopiowano.'),
+                  onPressed: () => _copyTranscript(transcript, message: l10n.detailCopied),
                 ),
             ],
           ),
@@ -530,7 +548,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
                         const CircularProgressIndicator(),
                         const SizedBox(height: 16),
                         Text(
-                          statusLabel(r.status),
+                          statusLabel(r.status, l10n),
                           style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
                         ),
                       ],

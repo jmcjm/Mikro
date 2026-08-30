@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/util/format.dart';
+import '../../l10n/app_localizations.dart';
 import '../shell/home_tab.dart';
 import 'recorder_controller.dart';
 
@@ -124,7 +125,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
           // wiec tam prowadzi.
           IconButton(
             onPressed: () => ref.read(homeTabProvider.notifier).select(HomeTab.library),
-            tooltip: 'Biblioteka',
+            tooltip: AppLocalizations.of(context).recorderHistoryTooltip,
             iconSize: 24,
             icon: Icon(Symbols.history_rounded, fill: 1, color: scheme.onSurfaceVariant),
           ),
@@ -183,7 +184,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
                 ),
                 if (state.lastError != null) ...[
                   const SizedBox(height: 32),
-                  _ErrorCard(message: state.lastError!),
+                  _ErrorCard(error: state.lastError!),
                 ],
               ],
             ),
@@ -200,17 +201,18 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
     }
     await controller.stopRecording();
     if (!mounted) return;
+    final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       backgroundColor: scheme.inverseSurface,
       behavior: SnackBarBehavior.floating,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
       content: Text(
-        'Nagranie zapisane — transkrypcja w toku.',
+        l10n.recorderSavedSnackbar,
         style: TextStyle(fontSize: 14, color: scheme.onInverseSurface),
       ),
       action: SnackBarAction(
-        label: 'Pokaż',
+        label: l10n.recorderSavedAction,
         // Makieta rozjasnia primary filtrem, bo etykieta stoi na ciemnym inverseSurface.
         // W MD3 rola dla dokladnie tego przypadku nazywa sie inversePrimary.
         textColor: scheme.inversePrimary,
@@ -230,7 +232,8 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final label = isRecording ? 'Nagrywanie' : 'Gotowy do nagrywania';
+    final l10n = AppLocalizations.of(context);
+    final label = isRecording ? l10n.recorderStatusRecording : l10n.recorderStatusReady;
     return Container(
       height: 32,
       padding: EdgeInsets.only(left: isRecording ? 12 : 14, right: 14),
@@ -482,13 +485,18 @@ class _LevelBars extends StatelessWidget {
 
 /// Karta bledu z sekcji "Stany puste i bledy".
 class _ErrorCard extends StatelessWidget {
-  const _ErrorCard({required this.message});
+  const _ErrorCard({required this.error});
 
-  final String message;
+  final RecorderError error;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    final message = switch (error.kind) {
+      RecorderErrorKind.micPermission => l10n.recorderErrorMicPermission,
+      RecorderErrorKind.startFailed => l10n.recorderErrorStartFailed(error.detail ?? ''),
+    };
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
