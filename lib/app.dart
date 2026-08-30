@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'features/library/library_screen.dart';
 import 'features/recorder/recorder_screen.dart';
 
 class MikroApp extends StatelessWidget {
@@ -27,7 +28,7 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) => Scaffold(
         body: IndexedStack(index: _index, children: [
           const RecorderScreen(),
-          const Center(child: Text('Biblioteka — Task 11')),
+          const LibraryScreen(),
           const Center(child: Text('Ustawienia — Task 13')),
         ]),
         bottomNavigationBar: NavigationBar(

@@ -46,5 +46,14 @@ void main() {
     expect(find.text('Nagrywaj'), findsOneWidget);
     expect(find.text('Biblioteka'), findsOneWidget);
     expect(find.text('Ustawienia'), findsOneWidget);
+
+    // The library tab subscribes to a drift query stream, and IndexedStack builds every tab,
+    // so that subscription is live for the whole test. When the ProviderScope is torn down,
+    // drift schedules a zero-duration Timer to unregister the stream, which the binding then
+    // reports as "A Timer is still pending". Unmounting here lets that timer be created while
+    // the binding is still running. A bare pump() is not enough — the timer only fires once
+    // virtual time actually advances.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
   });
 }
