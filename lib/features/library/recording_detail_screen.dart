@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../core/audio/waveform.dart';
 import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
@@ -145,6 +146,7 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: scheme.surface,
+        toolbarHeight: 64, // makieta ma naglowek 64 px, domyslne 56 sciskaloby go za mocno
         leading: IconButton(
           icon: Icon(Symbols.arrow_back_rounded, fill: 1, color: scheme.onSurface),
           tooltip: 'Wstecz',
@@ -188,14 +190,15 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     );
   }
 
-  /// Karta odtwarzania: data, status, przycisk transportu i suwak pozycji.
+  /// Karta odtwarzania: data, status, pasek przebiegu, przycisk transportu i suwak pozycji.
   ///
-  /// Makieta ma nad transportem pasek 40 slupkow przebiegu. Aplikacja nie zapisuje obwiedni
-  /// amplitudy, wiec nie ma z czego go narysowac — blok jest swiadomie pominiety i wchodzi
-  /// tutaj, miedzy naglowek a transport, gdy nagrywanie zacznie te dane utrwalac.
+  /// Przebieg rysuje sie tylko wtedy, gdy nagranie ma zapisana obwiednie. Nagrania sprzed
+  /// schematu v3 maja tu NULL i karta wraca do ukladu bez slupkow — zmyslony ksztalt
+  /// klamalby o tym, co slychac w pliku.
   Widget _playerCard(Recording r) {
     final scheme = Theme.of(context).colorScheme;
     final position = _dragMs == null ? _position : Duration(milliseconds: _dragMs!.round());
+    final levels = decodeWaveform(r.waveform);
     return Container(
       decoration: BoxDecoration(
         color: scheme.surfaceContainer,
@@ -221,6 +224,10 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
             ],
           ),
           const SizedBox(height: 16),
+          if (levels != null) ...[
+            WaveformBars(levels: levels),
+            const SizedBox(height: 16),
+          ],
           Row(
             children: [
               Material(
@@ -420,6 +427,47 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
             const SizedBox(height: 12),
             Text('model: ${r.providerUsed}',
                 style: monoStyle(size: 13, color: scheme.onSurfaceVariant)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Pasek obwiedni amplitudy z makiety: slupki w pasie 56 px, po 3 px odstepu, wysrodkowane
+/// w pionie i zaokraglone na 2 px. Liczba slupkow bierze sie z danych, nie z widoku — po
+/// stronie zapisu pilnuje jej [kWaveformBuckets].
+class WaveformBars extends StatelessWidget {
+  const WaveformBars({super.key, required this.levels});
+
+  /// Wysokosci slupkow, 0..1.
+  final List<double> levels;
+
+  static const double _height = 56;
+  static const double _gap = 3;
+
+  /// Cichy fragment tez musi cos narysowac. Slupek zerowej wysokosci robi w pasku dziure,
+  /// ktora czyta sie jak blad rysowania, a nie jak cisze.
+  static const double _minBar = 2;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary.withValues(alpha: 0.85);
+    final radius = BorderRadius.circular(2);
+    return SizedBox(
+      height: _height,
+      child: Row(
+        children: [
+          for (var i = 0; i < levels.length; i++) ...[
+            if (i > 0) const SizedBox(width: _gap),
+            Expanded(
+              child: SizedBox(
+                height: (levels[i].clamp(0.0, 1.0) * _height).clamp(_minBar, _height),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: color, borderRadius: radius),
+                ),
+              ),
+            ),
           ],
         ],
       ),

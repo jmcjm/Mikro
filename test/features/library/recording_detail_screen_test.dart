@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/providers.dart';
@@ -16,11 +17,12 @@ void main() {
   setUp(() => db = AppDatabase.forTesting(NativeDatabase.memory()));
   tearDown(() => db.close());
 
-  Future<void> insert(String id) => db.insertRecording(
+  Future<void> insert(String id, {String? waveform}) => db.insertRecording(
         id: id,
         createdAt: DateTime(2026, 8, 29, 9, 15),
         durationMs: 207000,
         audioPath: '/tmp/$id.m4a',
+        waveform: waveform,
       );
 
   /// audioplayers nie ma implementacji w srodowisku testowym: konstruktor AudioPlayer wola
@@ -199,6 +201,86 @@ void main() {
 
     expect(find.text('TRANSKRYPCJA'), findsOneWidget);
     expect(find.text('model: whisper-large-v3-turbo'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+
+  // --- przebieg na karcie odtwarzacza (D2f) ---
+
+  /// Slupek to jedyny DecoratedBox wewnatrz [WaveformBars], wiec liczy sie i mierzy
+  /// bezposrednio po nim.
+  Finder bars() => find.descendant(
+        of: find.byType(WaveformBars),
+        matching: find.byType(DecoratedBox),
+      );
+
+  testWidgets('karta odtwarzacza rysuje slupki zapisanego przebiegu', (tester) async {
+    tester.view.physicalSize = const Size(412, 892);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // Pierwsze trzy slupki maja znane wysokosci, reszta wypelnia pasek do liczby z makiety.
+    final levels = <double>[1.0, 0.5, 0.25, ...List.filled(kWaveformBuckets - 4, 0.4), 0.0];
+    await insert('a', waveform: encodeWaveform(levels));
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(bars(), findsNWidgets(kWaveformBuckets),
+        reason: 'makieta ma $kWaveformBuckets slupkow');
+    expect(tester.getSize(bars().at(0)).height, 56, reason: 'pelna amplituda to caly pasek');
+    expect(tester.getSize(bars().at(1)).height, 28);
+    expect(tester.getSize(bars().at(2)).height, 14);
+    expect(tester.getSize(bars().at(kWaveformBuckets - 1)).height, 2,
+        reason: 'cisza zostaje widoczna jako kreska, inaczej w pasku byla by dziura');
+
+    // Slupki dziela szerokosc po rowno i sa oddzielone odstepem z makiety (3 px).
+    final first = tester.getRect(bars().at(0));
+    final second = tester.getRect(bars().at(1));
+    expect(second.width, moreOrLessEquals(first.width, epsilon: 0.5));
+    expect(second.left - first.right, moreOrLessEquals(3, epsilon: 0.5));
+
+    // Slupki sa wysrodkowane w pionie, tak jak w makiecie (align-items:center).
+    expect(first.center.dy, moreOrLessEquals(second.center.dy, epsilon: 0.5));
+
+    await unmount(tester);
+  });
+
+  testWidgets('nagranie bez zapisanego przebiegu nie dostaje wymyslonych slupkow',
+      (tester) async {
+    await insert('a');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(WaveformBars), findsNothing,
+        reason: 'nagrania sprzed migracji nie maja obwiedni i nie wolno jej zmyslac');
+    // Karta ma dzialac dalej: transport i czasy zostaja na miejscu.
+    expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
+    expect(find.text('3:27'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('uszkodzony zapis przebiegu nie wywraca ekranu', (tester) async {
+    await insert('a', waveform: 'to-nie-jest-json');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(WaveformBars), findsNothing);
+    expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('naglowek ma wysokosc z makiety', (tester) async {
+    await insert('a');
+
+    await pumpDetail(tester, 'a');
+
+    expect(tester.getSize(find.byType(AppBar)).height, 64);
 
     await unmount(tester);
   });
