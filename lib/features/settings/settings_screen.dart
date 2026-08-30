@@ -379,12 +379,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
 
-  /// Wartosci techniczne (URL, nazwy modeli) design sklada krojem Roboto Mono. Fontu nie
-  /// bundlujemy, wiec podajemy zapas na systemowy monospace zamiast cicho wracac do proporcjonalnego.
+  /// Wartosci techniczne (URL, nazwy modeli) design sklada krojem Roboto Mono. Rodzina idzie ze
+  /// stalej [monoFontFamily], bo font jest bundlowany pod ta jedna nazwa.
   TextStyle _monoValueStyle(ColorScheme colors) => TextStyle(
         fontSize: 15,
-        fontFamily: 'Roboto Mono',
-        fontFamilyFallback: const ['monospace'],
+        fontFamily: monoFontFamily,
+        fontFamilyFallback: monoFontFallback,
         color: colors.onSurface,
       );
 

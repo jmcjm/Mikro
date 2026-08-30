@@ -2,22 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/recording_status.dart';
+import '../../core/theme/app_theme.dart';
 
 /// Wspolne elementy wizualne biblioteki i szczegolow nagrania, przepisane 1:1 z makiet
 /// (`design/Mikro-MD3.dc.html`, sekcje "Biblioteka" i "Szczegoly"). Oba ekrany rysuja te same
 /// odznaki statusu i chipy tagow, wiec mieszkaja tutaj zamiast byc kopiowane.
 
-/// Design opisuje techniczne podpisy (data, nazwa modelu) krojem Roboto Mono. D1a swiadomie
-/// nie bundluje zadnego fontu, wiec rodzine podajemy po nazwie z ogolnym fallbackiem: gdzie
-/// system ja ma, podpisy zgadzaja sie z makieta, a gdzie nie — schodza na monospace platformy
-/// zamiast na domyslny font proporcjonalny.
-const _monoFamily = 'Roboto Mono';
-const _monoFallback = <String>['RobotoMono', 'monospace'];
-
-/// Podpis techniczny krojem monospace.
+/// Podpis techniczny (data, nazwa modelu) krojem monospace — tak sklada je design. Rodzina idzie
+/// ze stalej [monoFontFamily], bo font jest bundlowany pod ta jedna nazwa.
 TextStyle monoStyle({required double size, required Color color}) => TextStyle(
-      fontFamily: _monoFamily,
-      fontFamilyFallback: _monoFallback,
+      fontFamily: monoFontFamily,
+      fontFamilyFallback: monoFontFallback,
       fontSize: size,
       color: color,
     );

@@ -1,5 +1,17 @@
 import 'package:flutter/material.dart';
 
+/// Rodzina monospace bundlowana z aplikacja (`pubspec.yaml`, sekcja `fonts`). Design sklada nia
+/// wartosci techniczne: adresy, nazwy modeli, znaczniki czasu i parametry nagrania. Nazwa musi
+/// zgadzac sie co do znaku z `family:` w pubspecu — Flutter dopasowuje rodziny po literalnej
+/// nazwie i przy literowce cicho spada na font domyslny, wiec ekrany biora ja stad, a nie z
+/// wlasnych literalow. Pinowane testem.
+const monoFontFamily = 'RobotoMono';
+
+/// Zapas na wypadek, gdyby zbundlowanej rodziny zabraklo (np. przyciety build): lepiej zejsc na
+/// systemowy monospace niz na proporcjonalny font domyslny, bo kolumny cyfr i tak maja sie
+/// zgadzac.
+const monoFontFallback = <String>['monospace'];
+
 /// Available colour palettes. The design source (`design/Mikro-MD3.dc.html`) defines five
 /// token sets in its `THEMES` map: `light` and `dark` form the MD3 baseline, while `dracula`,
 /// `nord` and `gruvbox` are single, dark-only sets — see [_isDarkOnly].
