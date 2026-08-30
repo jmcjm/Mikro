@@ -987,4 +987,134 @@ void main() {
 
     await unmount(tester);
   });
+
+  // --- plynna animacja przebiegu (zlecenie usera) ---
+
+  /// Wciska przycisk transportu i daje rozkazom dojsc do zaslepki. Odtwarzanie zaczyna sie
+  /// dopiero po wczytaniu zrodla, wiec samo `pump()` by nie wystarczylo.
+  Future<void> tapTransport(WidgetTester tester, IconData icon) async {
+    await tester.tap(find.byIcon(icon));
+    await settlePlayer(tester);
+  }
+
+  /// Lewa krawedz kursora pozycji. Patrz test „kursor stoi na pozycji" — kursor jest ostatnim
+  /// DecoratedBoksem powierzchni przewijania.
+  double cursorLeft(WidgetTester tester) => tester
+      .getRect(find
+          .descendant(of: find.byType(WaveformSeekBar), matching: find.byType(DecoratedBox))
+          .last)
+      .left;
+
+  testWidgets('w spoczynku nic sie nie animuje', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    // Aktywny Ticker trzyma zarejestrowany transient callback na kazda klatke. Licznik
+    // z bindinga jest wiec bezposrednim pomiarem „czy cos sie animuje".
+    expect(tester.binding.transientCallbackCount, 0,
+        reason: 'nagranie, ktore nie gra, nie ma czego interpolowac — ticker na wyrost kazalby '
+            'przeliczac karte 60 razy na sekunde przez cale zycie ekranu');
+
+    await unmount(tester);
+  });
+
+  testWidgets('ticker rusza z odtwarzaniem i milknie po pauzie', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+    // Sekunda na zgasniecie rozbryzgu z dotkniecia przycisku: to tez jest animacja i tez
+    // liczy sie do licznika, a pytanie brzmi o ticker, nie o Material.
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(tester.binding.transientCallbackCount, greaterThan(0),
+        reason: 'w trakcie odtwarzania cos ma sie animowac; ze jest to NASZ ticker, a nie sam '
+            'licznik pozycji audioplayers, dowodzi test ruchu kursora nizej');
+
+    await tapTransport(tester, Symbols.pause_rounded);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(tester.binding.transientCallbackCount, 0,
+        reason: 'pauza zatrzymuje ticker, a nie tylko zamraza obrazek');
+
+    await unmount(tester);
+  });
+
+  testWidgets('kursor sunie miedzy zdarzeniami pozycji i staje na pauzie', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    final start = cursorLeft(tester);
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+
+    // Zaslepka NIE wysyla ani jednego zdarzenia pozycji, wiec wszystko, co widac ponizej,
+    // jest interpolacja — dokladnie to, co ma dawac animacja.
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('0:01'), findsOneWidget);
+    final afterSecond = cursorLeft(tester);
+    expect(afterSecond, greaterThan(start), reason: 'kursor przesuwa sie po przebiegu');
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('0:02'), findsOneWidget);
+    expect(cursorLeft(tester), greaterThan(afterSecond));
+
+    await tapTransport(tester, Symbols.pause_rounded);
+    final frozen = cursorLeft(tester);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('0:02'), findsOneWidget,
+        reason: 'po pauzie kursor stoi, i to tam, gdzie go zostawiono — nie cofa sie do '
+            'ostatniego zdarzenia pozycji');
+    expect(cursorLeft(tester), frozen);
+
+    await unmount(tester);
+  });
+
+  testWidgets('predkosc z pigulki rozciaga interpolacje', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    for (var i = 0; i < 3; i++) {
+      await tester.tap(find.byTooltip(plL10n.detailSpeedTooltip));
+      await settlePlayer(tester);
+    }
+    expect(find.text(plL10n.detailSpeedLabel('2,0')), findsOneWidget);
+
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(find.text('0:02'), findsOneWidget,
+        reason: 'przy 2,0x sekunda zegara to dwie sekundy nagrania');
+
+    await tapTransport(tester, Symbols.pause_rounded);
+
+    await unmount(tester);
+  });
+
+  testWidgets('przeciaganie ma pierwszenstwo nad interpolacja', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+    await tester.pump(const Duration(seconds: 1));
+
+    // Palec zatrzymany w polowie paska: ticker dalej chodzi, ale kursor ma stac pod palcem.
+    final bar = tester.getRect(find.byType(WaveformSeekBar));
+    final gesture = await tester.startGesture(bar.centerLeft + const Offset(60, 0));
+    await gesture.moveBy(Offset(bar.width / 2 - 60, 0));
+    await tester.pump();
+    final underFinger = cursorLeft(tester);
+
+    await tester.pump(const Duration(seconds: 1));
+    expect(cursorLeft(tester), underFinger,
+        reason: 'w trakcie gestu interpolacja nie walczy z palcem');
+
+    await gesture.up();
+    await settlePlayer(tester);
+
+    await tapTransport(tester, Symbols.pause_rounded);
+
+    await unmount(tester);
+  });
 }

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -57,11 +58,39 @@ class RecordingDetailView extends ConsumerStatefulWidget {
   ConsumerState<RecordingDetailView> createState() => _RecordingDetailViewState();
 }
 
-class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
+class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
+    with SingleTickerProviderStateMixin {
   final _player = AudioPlayer();
-  Duration _position = Duration.zero;
+
+  /// Pozycja z ostatniego PRAWDZIWEGO zdarzenia odtwarzacza (albo z przewiniecia). Miedzy
+  /// zdarzeniami karta ja interpoluje — patrz [_publish].
+  Duration _eventPosition = Duration.zero;
   Duration _total = Duration.zero;
   final _subs = <StreamSubscription<dynamic>>[];
+
+  /// Zegar animacji przebiegu. Chodzi WYLACZNIE w trakcie odtwarzania: poza nim nie ma czego
+  /// interpolowac, a ticker trzymany na wyrost kazalby przeliczac karte 60 razy na sekunde
+  /// przez cale zycie ekranu.
+  late final Ticker _ticker;
+
+  /// Ostatni odczyt tickera i jego wartosc w chwili ustawienia [_eventPosition]. Roznica tych
+  /// dwoch to czas, ktory uplynal od ostatniego zdarzenia.
+  Duration _tick = Duration.zero;
+  Duration _baseTick = Duration.zero;
+
+  /// Pozycja, za ktora ida przebieg i czasy. Osobny notifier, a nie `setState`: klatka
+  /// animacji ma odbudowac przebieg i wiersz czasow, a nie cala karte z transkryptem.
+  final _shown = ValueNotifier<Duration>(Duration.zero);
+
+  /// Obwiednia rozpakowana z bazy, trzymana obok surowego zapisu, z ktorego powstala.
+  /// Klatka animacji odbudowuje przebieg 60 razy na sekunde, a rozpakowywanie tego samego
+  /// JSON-a przy kazdej z nich byloby czysta strata.
+  String? _waveformRaw;
+  List<double>? _waveformLevels;
+
+  /// Dlugosc nagrania zapamietana przy budowaniu karty. Interpolacja biegnie z tickera, czyli
+  /// poza budowaniem, a nie ma prawa wybiec poza koniec nagrania.
+  Duration _duration = Duration.zero;
 
   /// Single source of truth for the transport button. `play(source)` re-sets the source and
   /// restarts from zero, so it may only be used when nothing is loaded yet or playback has
@@ -103,9 +132,10 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   Duration _totalOf(Recording r) =>
       r.durationMs > 0 ? Duration(milliseconds: r.durationMs) : _total;
 
-  /// Pozycja pokazywana na karcie: w trakcie gestu prowadzi palec, poza gestem odtwarzacz.
+  /// Pozycja pokazywana na karcie: w trakcie gestu prowadzi palec, poza gestem odtwarzacz —
+  /// plynnie, bo miedzy jego zdarzeniami wchodzi interpolacja z tickera.
   Duration _shownPosition(Duration total) {
-    final ms = _dragMs?.round() ?? _position.inMilliseconds;
+    final ms = _dragMs?.round() ?? _shown.value.inMilliseconds;
     return Duration(milliseconds: ms.clamp(0, total.inMilliseconds));
   }
 
@@ -133,9 +163,10 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     }
     if (!mounted) return;
     setState(() {
-      if (reached) _position = target;
+      if (reached) _rebase(target);
       _dragMs = null; // od teraz znowu prowadzi onPositionChanged
     });
+    _publish();
   }
 
   /// Przewiniecie razem z leniwym wczytaniem zrodla.
@@ -160,29 +191,84 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   /// zatrzymanym odtwarzaczu wchodzi w zycie przy najblizszym starcie.
   Future<void> _cycleRate() async {
     final next = nextPlaybackRate(_rate);
-    setState(() => _rate = next);
+    setState(() {
+      // Nowa predkosc obowiazuje OD TERAZ. Bez przestawienia bazy interpolacja policzylaby ja
+      // takze dla czasu, ktory uplynal jeszcze przy poprzedniej, i kursor by podskoczyl.
+      _rebase(_shown.value);
+      _rate = next;
+    });
+    _publish();
     await _player.setPlaybackRate(next);
+  }
+
+  /// Wystawia pozycje dla przebiegu i czasow: w trakcie odtwarzania interpolowana, poza nim
+  /// wprost z ostatniego zdarzenia. Palec ma pierwszenstwo nad jednym i drugim.
+  void _publish() {
+    if (_dragMs != null) return;
+    _shown.value = _ticker.isActive
+        ? interpolatePosition(
+            base: _eventPosition,
+            elapsed: _tick - _baseTick,
+            rate: _rate,
+            total: _duration,
+          )
+        : _eventPosition;
+  }
+
+  /// Przestawia baze interpolacji na [position] i zeruje uplyw czasu od niej.
+  void _rebase(Duration position) {
+    _eventPosition = position;
+    _baseTick = _tick;
+  }
+
+  /// Ticker chodzi dokladnie na zboczach stanu odtwarzania. Start zeruje jego zegar, wiec
+  /// razem z nim trzeba przestawic punkt odniesienia.
+  void _syncTicker() {
+    if (_playing) {
+      if (!_ticker.isActive) {
+        _tick = Duration.zero;
+        _baseTick = Duration.zero;
+        _ticker.start();
+      }
+    } else if (_ticker.isActive) {
+      // Zatrzymanie zamraza kursor TAM, GDZIE STOI, a nie tam, gdzie bylo ostatnie zdarzenie
+      // pozycji: te dwa punkty dzieli nawet sekunda, a cofniecie kursora w chwili pauzy widac
+      // golym okiem. Roznica jest szacunkiem i pierwsze prawdziwe zdarzenie ja poprawi.
+      _rebase(_shown.value);
+      _ticker.stop();
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    _subs.add(_player.onPositionChanged.listen((p) {
+    _ticker = createTicker((elapsed) {
+      _tick = elapsed;
+      _publish();
+    });
+    _subs.add(_player.onPositionChanged.listen((event) {
       if (_dragMs != null) return; // przeciaganie ma pierwszenstwo nad strumieniem
-      setState(() => _position = p);
+      _rebase(reconcilePosition(shown: _shown.value, event: event));
+      // Bez setState: zdarzenie pozycji nie zmienia niczego poza tym, co wisi na [_shown].
+      _publish();
     }));
     _subs.add(_player.onDurationChanged.listen((d) => setState(() => _total = d)));
-    _subs.add(_player.onPlayerStateChanged.listen((s) => setState(() {
-          _playerState = s;
-          // Po zakonczeniu nagrania suwak wraca na poczatek, zeby stan wizualny zgadzal sie
-          // z tym, co zrobi kolejne wcisniecie przycisku: odtworzenie od zera. Zrodlo tez
-          // przestaje istniec — przy domyslnym ReleaseMode.release audioplayers zwalnia je
-          // razem z koncem odtwarzania.
-          if (s == PlayerState.completed) {
-            _position = Duration.zero;
-            _sourceLoaded = false;
-          }
-        })));
+    _subs.add(_player.onPlayerStateChanged.listen((s) {
+      setState(() {
+        _playerState = s;
+        // Ticker najpierw, zeby pauza zamrozila kursor tam, gdzie stoi...
+        _syncTicker();
+        // ...a dopiero potem koniec nagrania odeslal go na poczatek — tak, zeby stan wizualny
+        // zgadzal sie z tym, co zrobi kolejne wcisniecie przycisku: odtworzenie od zera.
+        // Zrodlo tez przestaje istniec: przy domyslnym ReleaseMode.release audioplayers
+        // zwalnia je razem z koncem odtwarzania.
+        if (s == PlayerState.completed) {
+          _rebase(Duration.zero);
+          _sourceLoaded = false;
+        }
+      });
+      _publish();
+    }));
   }
 
   @override
@@ -190,6 +276,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     for (final s in _subs) {
       s.cancel();
     }
+    _ticker.dispose();
+    _shown.dispose();
     _player.dispose();
     super.dispose();
   }
@@ -348,6 +436,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
       return _standalone(
           Center(child: Text(AppLocalizations.of(context).detailRecordingDeleted)));
     }
+    _duration = _totalOf(match.first.recording);
     return switch (widget.chrome) {
       DetailChrome.screen => _screen(match.first),
       DetailChrome.panel => _panel(match.first),
@@ -541,9 +630,10 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
             ],
           ),
           const SizedBox(height: 16),
-          _seekSurface(r, total, height: 64), // makieta: pas 64 px w karcie telefonu
+          _followingPosition(
+              () => _seekSurface(r, total, height: 64)), // makieta: pas 64 px w karcie telefonu
           const SizedBox(height: 16),
-          _times(total),
+          _followingPosition(() => _times(total)),
           const SizedBox(height: 16),
           _transportRow(r, total, playButton: true),
         ],
@@ -576,9 +666,10 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
               Expanded(
                 child: Column(
                   children: [
-                    _seekSurface(r, total, height: 52), // makieta: pas 52 px w panelu
+                    _followingPosition(
+                        () => _seekSurface(r, total, height: 52)), // makieta: pas 52 px w panelu
                     const SizedBox(height: 10),
-                    _times(total),
+                    _followingPosition(() => _times(total)),
                   ],
                 ),
               ),
@@ -591,6 +682,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     );
   }
 
+  /// Owija fragment karty, ktory ma isc za plynna pozycja odtwarzania. Klatka animacji
+  /// odbudowuje wtedy sam przebieg albo sam wiersz czasow — a nie cala karte razem
+  /// z transkryptem, ktory przez cale odtwarzanie stoi w miejscu.
+  Widget _followingPosition(Widget Function() build) => ValueListenableBuilder<Duration>(
+        valueListenable: _shown,
+        builder: (context, _, _) => build(),
+      );
+
   /// Powierzchnia przewijania.
   ///
   /// Nagranie z zapisana obwiednia przewija sie po slupkach — tam, gdzie widac, co w nagraniu
@@ -598,7 +697,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   /// zostaje przy dotychczasowym suwaku: makieta nie rysuje takiego wariantu, a przewijac
   /// trzeba dac sie tak samo.
   Widget _seekSurface(Recording r, Duration total, {required double height}) {
-    final levels = decodeWaveform(r.waveform);
+    final levels = _levelsOf(r);
     if (levels == null) return _positionSlider(r, total);
     return WaveformSeekBar(
       levels: levels,
@@ -610,6 +709,15 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
           setState(() => _dragMs = position.inMilliseconds.toDouble()),
       onSeek: (target) => _seekTo(r, target),
     );
+  }
+
+  /// Obwiednia nagrania, rozpakowywana najwyzej raz na jej zmiane. Patrz [_waveformLevels].
+  List<double>? _levelsOf(Recording r) {
+    if (_waveformRaw != r.waveform) {
+      _waveformRaw = r.waveform;
+      _waveformLevels = decodeWaveform(r.waveform);
+    }
+    return _waveformLevels;
   }
 
   /// Suwak pozycji dla nagran bez obwiedni. Uchwyt i tor wprost z poprzedniej wersji karty —

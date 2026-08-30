@@ -135,4 +135,121 @@ void main() {
       expect(positionAt(dx: 10, width: 0, total: total), Duration.zero);
     });
   });
+
+  group('interpolatePosition', () {
+    const total = Duration(seconds: 100);
+
+    test('miedzy zdarzeniami pozycja rosnie o uplyw czasu', () {
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: 10),
+              elapsed: const Duration(milliseconds: 500),
+              rate: 1.0,
+              total: total),
+          const Duration(milliseconds: 10500));
+    });
+
+    test('predkosc odtwarzania rozciaga uplyw czasu', () {
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: 10),
+              elapsed: const Duration(seconds: 2),
+              rate: 2.0,
+              total: total),
+          const Duration(seconds: 14));
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: 10),
+              elapsed: const Duration(seconds: 4),
+              rate: 1.25,
+              total: total),
+          const Duration(seconds: 15));
+    });
+
+    test('interpolacja nie wybiega poza koniec nagrania', () {
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: 99),
+              elapsed: const Duration(seconds: 30),
+              rate: 2.0,
+              total: total),
+          total);
+    });
+
+    test('nagranie o nieznanej dlugosci nie ma gornej granicy, ale ma dolna', () {
+      // Dlugosc zerowa znaczy "jeszcze nie wiadomo" — przycinanie do zera zatrzymaloby
+      // kursor na starcie zamiast pozwolic mu isc.
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: 5),
+              elapsed: const Duration(seconds: 5),
+              rate: 1.0,
+              total: Duration.zero),
+          const Duration(seconds: 10));
+      expect(
+          interpolatePosition(
+              base: const Duration(seconds: -5),
+              elapsed: Duration.zero,
+              rate: 1.0,
+              total: Duration.zero),
+          Duration.zero);
+    });
+
+    test('rozdzielczosc schodzi ponizej klatki', () {
+      // Klatka przy 60 Hz to okolo 16,7 ms. Liczenie na calych milisekundach elapsed
+      // wystarcza, ale zaokraglenie nie ma prawa gubic calej klatki.
+      expect(
+          interpolatePosition(
+              base: Duration.zero,
+              elapsed: const Duration(microseconds: 16667),
+              rate: 1.0,
+              total: total),
+          const Duration(milliseconds: 17));
+    });
+  });
+
+  group('reconcilePosition', () {
+    test('zdarzenie do przodu przejmuje prowadzenie', () {
+      expect(
+          reconcilePosition(
+              shown: const Duration(seconds: 10), event: const Duration(milliseconds: 10200)),
+          const Duration(milliseconds: 10200));
+    });
+
+    test('drobne cofniecie nie szarpie kursorem', () {
+      // Zdarzenie o wlos ZA interpolacja to normalka; cofniecie kursora o kilkadziesiat
+      // milisekund widac jako drganie.
+      expect(
+          reconcilePosition(
+              shown: const Duration(milliseconds: 10200), event: const Duration(seconds: 10)),
+          const Duration(milliseconds: 10200));
+    });
+
+    test('duzy skok w tyl jest prawdziwy i kursor idzie za nim od razu', () {
+      expect(
+          reconcilePosition(
+              shown: const Duration(seconds: 100), event: const Duration(seconds: 3)),
+          const Duration(seconds: 3));
+    });
+
+    test('duzy skok do przodu tez jest natychmiastowy', () {
+      expect(
+          reconcilePosition(
+              shown: const Duration(seconds: 3), event: const Duration(seconds: 100)),
+          const Duration(seconds: 100));
+    });
+
+    test('granica wygladzania jest domyslnie polsekundowa', () {
+      expect(kPositionSnap, const Duration(milliseconds: 500));
+      // Rowno na granicy jeszcze wygladzamy, dopiero powyzej snapujemy.
+      expect(
+          reconcilePosition(
+              shown: const Duration(milliseconds: 1500), event: const Duration(seconds: 1)),
+          const Duration(milliseconds: 1500));
+      expect(
+          reconcilePosition(
+              shown: const Duration(milliseconds: 1501), event: const Duration(seconds: 1)),
+          const Duration(seconds: 1));
+    });
+  });
 }

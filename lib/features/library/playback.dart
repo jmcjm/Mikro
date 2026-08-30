@@ -56,3 +56,47 @@ Duration positionAt({required double dx, required double width, required Duratio
   final fraction = (dx / width).clamp(0.0, 1.0);
   return Duration(milliseconds: (total.inMilliseconds * fraction).round());
 }
+
+/// Roznica, powyzej ktorej zdarzenie pozycji przestaje byc korekta, a staje sie skokiem.
+/// Polsekundy: zdarzenia przychodza co 200 ms - 1 s, wiec drobne rozjechanie sie miesci sie
+/// grubo ponizej, a prawdziwy skok (przewiniecie, koniec nagrania) grubo powyzej.
+const Duration kPositionSnap = Duration(milliseconds: 500);
+
+/// Pozycja odtwarzania miedzy zdarzeniami: baza plus uplyw czasu przemnozony przez predkosc.
+///
+/// Odtwarzacz melduje pozycje co 200 ms - 1 s. Kursor postawiony wprost na tych zdarzeniach
+/// skacze; ten sam kursor liczony z uplywu czasu miedzy nimi sunie. Predkosc wchodzi tu
+/// wprost, bo przy 2,0x sekunda zegara to dwie sekundy nagrania.
+///
+/// [total] zerowe znaczy „dlugosc jeszcze nieznana" i zdejmuje gorna granice — przycinanie
+/// do zera zatrzymaloby kursor na starcie zamiast pozwolic mu isc.
+Duration interpolatePosition({
+  required Duration base,
+  required Duration elapsed,
+  required double rate,
+  required Duration total,
+}) {
+  // Mikrosekundy, bo klatka przy 60 Hz to 16,7 ms i zaokraglenie do milisekund na wejsciu
+  // gubiloby co szesnasta.
+  final ms = base.inMilliseconds + (elapsed.inMicroseconds * rate / 1000).round();
+  final maxMs = total.inMilliseconds;
+  if (ms < 0) return Duration.zero;
+  if (maxMs > 0 && ms > maxMs) return total;
+  return Duration(milliseconds: ms);
+}
+
+/// Nowa baza interpolacji po prawdziwym zdarzeniu pozycji.
+///
+/// Zdarzenie potrafi byc o wlos ZA tym, co karta juz pokazala — cofniecie kursora o kilkadziesiat
+/// milisekund widac jako drganie, wiec przy malych roznicach zostaje wartosc dalsza. Duza roznica
+/// to nie drganie, tylko prawdziwy skok (przewiniecie spoza karty, koniec nagrania) i tam kursor
+/// idzie za odtwarzaczem natychmiast.
+Duration reconcilePosition({
+  required Duration shown,
+  required Duration event,
+  Duration snapAbove = kPositionSnap,
+}) {
+  final delta = event - shown;
+  if (delta.abs() > snapAbove) return event;
+  return delta.isNegative ? shown : event;
+}
