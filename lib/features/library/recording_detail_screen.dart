@@ -5,11 +5,13 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import 'library_styles.dart';
 
 class RecordingDetailScreen extends ConsumerStatefulWidget {
   const RecordingDetailScreen({super.key, required this.recordingId});
@@ -104,8 +106,16 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     }
   }
 
+  Future<void> _copyTranscript(String transcript, {required String message}) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: transcript));
+    if (!mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final all = ref.watch(recordingsStreamProvider).value ?? [];
     final match = all.where((r) => r.recording.id == widget.recordingId).toList();
     if (match.isEmpty) return const Scaffold(body: Center(child: Text('Nagranie usunięte.')));
@@ -113,86 +123,318 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     final r = item.recording;
     return Scaffold(
       appBar: AppBar(
-        title: Text(formatDateTime(r.createdAt)),
+        backgroundColor: scheme.surface,
+        leading: IconButton(
+          icon: Icon(Symbols.arrow_back_rounded, fill: 1, color: scheme.onSurface),
+          tooltip: 'Wstecz',
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('Nagranie',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
         actions: [
-          if (r.transcript != null)
-            IconButton(
-              icon: const Icon(Icons.copy),
-              tooltip: 'Kopiuj transkrypt',
-              onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: r.transcript!));
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context)
-                      .showSnackBar(const SnackBar(content: Text('Skopiowano.')));
-                }
-              },
-            ),
           IconButton(
-              icon: const Icon(Icons.delete), tooltip: 'Usuń', onPressed: () => _delete(r)),
+            icon: Icon(Symbols.delete_rounded, fill: 1, color: scheme.onSurfaceVariant),
+            tooltip: 'Usuń',
+            onPressed: () => _delete(r),
+          ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _playerCard(r),
+            if (item.tags.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [for (final t in item.tags) TagChip(label: t)],
+              ),
+            ],
+            const SizedBox(height: 16),
+            Expanded(child: _content(r)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Karta odtwarzania: data, status, przycisk transportu i suwak pozycji.
+  ///
+  /// Makieta ma nad transportem pasek 40 slupkow przebiegu. Aplikacja nie zapisuje obwiedni
+  /// amplitudy, wiec nie ma z czego go narysowac — blok jest swiadomie pominiety i wchodzi
+  /// tutaj, miedzy naglowek a transport, gdy nagrywanie zacznie te dane utrwalac.
+  Widget _playerCard(Recording r) {
+    final scheme = Theme.of(context).colorScheme;
+    final position = _dragMs == null ? _position : Duration(milliseconds: _dragMs!.round());
+    return Container(
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(28),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            IconButton.filled(
-              iconSize: 36,
-              icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
-              onPressed: () async {
-                switch (_playerState) {
-                  case PlayerState.playing:
-                    await _player.pause();
-                  case PlayerState.paused:
-                    // Wznowienie od miejsca pauzy — play(source) wczytalby zrodlo od nowa.
-                    await _player.resume();
-                  case PlayerState.stopped:
-                  case PlayerState.completed:
-                  case PlayerState.disposed:
-                    await _player.play(DeviceFileSource(r.audioPath));
-                }
-              },
-            ),
+          Row(
+            children: [
+              // Jak na karcie w bibliotece: przy ciasnocie skraca sie data, nie odznaka.
+              Expanded(
+                child: Text(
+                  formatDateTime(r.createdAt),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusBadge(status: r.status, showIcon: false),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Material(
+                color: scheme.primary,
+                borderRadius: BorderRadius.circular(20),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: () async {
+                    switch (_playerState) {
+                      case PlayerState.playing:
+                        await _player.pause();
+                      case PlayerState.paused:
+                        // Wznowienie od miejsca pauzy — play(source) wczytalby zrodlo od nowa.
+                        await _player.resume();
+                      case PlayerState.stopped:
+                      case PlayerState.completed:
+                      case PlayerState.disposed:
+                        await _player.play(DeviceFileSource(r.audioPath));
+                    }
+                  },
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: Icon(
+                      _playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+                      fill: 1,
+                      size: 32,
+                      color: scheme.onPrimary,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  children: [
+                    SliderTheme(
+                      data: SliderThemeData(
+                        trackHeight: 4,
+                        activeTrackColor: scheme.primary,
+                        inactiveTrackColor: scheme.outlineVariant,
+                        thumbColor: scheme.primary,
+                        thumbShape: _BarThumbShape(scheme.primary),
+                        overlayShape: SliderComponentShape.noOverlay,
+                        padding: EdgeInsets.zero,
+                      ),
+                      child: Slider(
+                        max: _total.inMilliseconds.toDouble().clamp(1, double.infinity),
+                        value: _dragMs ??
+                            _position.inMilliseconds
+                                .toDouble()
+                                .clamp(0, _total.inMilliseconds.toDouble()),
+                        onChanged: (v) => setState(() => _dragMs = v),
+                        onChangeEnd: (v) async {
+                          await _player.seek(Duration(milliseconds: v.round()));
+                          if (mounted) {
+                            setState(() {
+                              _position = Duration(milliseconds: v.round());
+                              _dragMs = null; // od teraz znowu prowadzi onPositionChanged
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(formatDuration(position),
+                            style: tabularStyle(size: 12, color: scheme.onSurfaceVariant)),
+                        Text(formatDuration(Duration(milliseconds: r.durationMs)),
+                            style: tabularStyle(size: 12, color: scheme.onSurfaceVariant)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dolna czesc ekranu: banner bledu, oczekiwanie na transkrypcje albo gotowy transkrypt.
+  Widget _content(Recording r) {
+    if (r.status == RecordingStatus.error) return _errorBanner(r);
+    return _transcriptCard(r);
+  }
+
+  Widget _errorBanner(Recording r) {
+    final scheme = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.topCenter,
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.errorContainer,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Symbols.error_rounded, fill: 1, size: 24, color: scheme.error),
+            const SizedBox(width: 14),
             Expanded(
-              child: Slider(
-                max: _total.inMilliseconds.toDouble().clamp(1, double.infinity),
-                value: _dragMs ??
-                    _position.inMilliseconds
-                        .toDouble()
-                        .clamp(0, _total.inMilliseconds.toDouble()),
-                onChanged: (v) => setState(() => _dragMs = v),
-                onChangeEnd: (v) async {
-                  await _player.seek(Duration(milliseconds: v.round()));
-                  if (mounted) {
-                    setState(() {
-                      _position = Duration(milliseconds: v.round());
-                      _dragMs = null; // od teraz znowu prowadzi onPositionChanged
-                    });
-                  }
-                },
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    r.errorMessage ?? 'Nieznany błąd',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                      color: scheme.onErrorContainer,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ErrorActionButton(
+                    label: 'Ponów przetwarzanie',
+                    onPressed: () => ref.read(pipelineProvider).enqueue(r.id),
+                  ),
+                ],
               ),
             ),
-            Text('${formatDuration(_dragMs == null ? _position : Duration(milliseconds: _dragMs!.round()))}'
-                ' / ${formatDuration(Duration(milliseconds: r.durationMs))}'),
-          ]),
-          const SizedBox(height: 8),
-          if (item.tags.isNotEmpty)
-            Wrap(spacing: 4, children: [for (final t in item.tags) Chip(label: Text(t))]),
-          const SizedBox(height: 16),
-          if (r.status == RecordingStatus.error) ...[
-            Text(r.errorMessage ?? 'Nieznany błąd',
-                style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              icon: const Icon(Icons.refresh),
-              label: const Text('Ponów przetwarzanie'),
-              onPressed: () => ref.read(pipelineProvider).enqueue(r.id),
-            ),
-          ] else if (r.transcript == null)
-            const Center(child: Padding(padding: EdgeInsets.all(24), child: CircularProgressIndicator()))
-          else
-            SelectableText(r.transcript!, style: Theme.of(context).textTheme.bodyLarge),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _transcriptCard(Recording r) {
+    final scheme = Theme.of(context).colorScheme;
+    final transcript = r.transcript;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'TRANSKRYPCJA',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              const Spacer(),
+              if (transcript != null)
+                IconButton(
+                  icon: Icon(Symbols.content_copy_rounded,
+                      fill: 1, size: 20, color: scheme.onSurfaceVariant),
+                  tooltip: 'Kopiuj transkrypt',
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () => _copyTranscript(transcript, message: 'Skopiowano.'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: transcript == null
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 16),
+                        Text(
+                          statusLabel(r.status),
+                          style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  )
+                : SingleChildScrollView(
+                    child: SelectableText(
+                      transcript,
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 26 / 16,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                  ),
+          ),
+          if (r.providerUsed != null) ...[
+            const SizedBox(height: 12),
+            Text('model: ${r.providerUsed}',
+                style: monoStyle(size: 13, color: scheme.onSurfaceVariant)),
+          ],
         ],
       ),
+    );
+  }
+}
+
+/// Uchwyt suwaka z makiety: pionowy pasek 4x14 o zaokraglonych rogach, zamiast domyslnego
+/// okraglego uchwytu Material.
+class _BarThumbShape extends SliderComponentShape {
+  const _BarThumbShape(this.color);
+
+  /// Kolor wprost, a nie z `sliderTheme.thumbColor` — to pole jest nullowalne, a uchwyt nie ma
+  /// sensownej wartosci awaryjnej poza rola schematu, ktora i tak podaje wolajacy.
+  final Color color;
+
+  static const _size = Size(4, 14);
+
+  @override
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => _size;
+
+  @override
+  void paint(
+    PaintingContext context,
+    Offset center, {
+    required Animation<double> activationAnimation,
+    required Animation<double> enableAnimation,
+    required bool isDiscrete,
+    required TextPainter labelPainter,
+    required RenderBox parentBox,
+    required SliderThemeData sliderTheme,
+    required TextDirection textDirection,
+    required double value,
+    required double textScaleFactor,
+    required Size sizeWithOverflow,
+  }) {
+    context.canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: center, width: _size.width, height: _size.height),
+        const Radius.circular(2),
+      ),
+      Paint()..color = color,
     );
   }
 }
