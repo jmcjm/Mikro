@@ -38,8 +38,14 @@ class ProcessingPipeline {
   }
 
   Future<void> resumePending() async {
-    for (final recording in await db.pendingRecordings()) {
-      enqueue(recording.id);
+    try {
+      for (final recording in await db.pendingRecordings()) {
+        enqueue(recording.id);
+      }
+    } catch (_) {
+      // Startup resume is best-effort; a dead DB at boot has nothing to resume.
+      // Callers (main) fire this without awaiting, so a throw here would surface as an
+      // unhandled async error on every launch.
     }
   }
 

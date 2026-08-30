@@ -350,4 +350,21 @@ void main() {
     await expectLater(resilient.idle, completes,
         reason: 'kolejka musi przyjmowac kolejne zadania po awarii obslugi bledu');
   });
+
+  test('resumePending przy martwej bazie nie rzuca i nie blokuje startu', () async {
+    // main() wola resumePending() bez await i bez obslugi bledu, wiec wyjatek stad bylby
+    // nieobsluzonym bledem asynchronicznym przy kazdym uruchomieniu aplikacji.
+    //
+    // Zapis PRZED zamknieciem jest konieczny: drift otwiera baze leniwie, wiec close() na
+    // bazie, ktorej nikt jeszcze nie odpytal, niczego nie zabija — kolejne zapytanie po prostu
+    // otwiera ja na nowo i zwraca pusty wynik. Dopiero zamkniecie JUZ OTWARTEJ bazy daje
+    // StateError, czyli warunek, ktory ten test ma pokrywac.
+    await insert('a');
+    await db.close();
+
+    await expectLater(pipeline.resumePending(), completes,
+        reason: 'wznawianie przy starcie jest best-effort, nie moze wywracac bootstrapu');
+    await expectLater(pipeline.idle, completes,
+        reason: 'martwa baza nie ma czego wznowic, wiec kolejka zostaje pusta');
+  });
 }

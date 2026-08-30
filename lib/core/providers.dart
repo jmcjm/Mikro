@@ -17,13 +17,21 @@ final sharedPrefsProvider =
 final baseDirProvider =
     Provider<Directory>((ref) => throw UnimplementedError('override in main'));
 
-final databaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
+final databaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
 
-final dioProvider = Provider<Dio>((ref) => Dio(BaseOptions(
-      connectTimeout: const Duration(seconds: 30),
-      sendTimeout: const Duration(minutes: 5),
-      receiveTimeout: const Duration(minutes: 5),
-    )));
+final dioProvider = Provider<Dio>((ref) {
+  final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    sendTimeout: const Duration(minutes: 5),
+    receiveTimeout: const Duration(minutes: 5),
+  ));
+  ref.onDispose(dio.close);
+  return dio;
+});
 
 final keyStoreProvider = Provider<KeyStore>((ref) => SecureKeyStore());
 
