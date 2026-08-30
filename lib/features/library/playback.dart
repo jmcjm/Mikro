@@ -100,3 +100,44 @@ Duration reconcilePosition({
   if (delta.abs() > snapAbove) return event;
   return delta.isNegative ? shown : event;
 }
+
+/// Okresy „oddechu" slupkow w sekundach. Wolniejsze niz skoki poziomu na ekranie nagrywania
+/// (tam ~1 s): tam slupki SA animacja, tu sa wykresem, ktory ma tylko zyc.
+const List<double> kBarDanceSeconds = [2.6, 2.2, 3.1, 2.4, 2.9, 2.3, 2.8, 2.5, 3.0];
+
+/// Ujemne opoznienia startu w sekundach. SIEDEM wartosci przy dziewieciu okresach: para
+/// (okres, opoznienie) powtarza sie dopiero co 63 slupki, czyli nigdy w pasie [kWaveformBuckets]
+/// slupkow. Przy rownej dlugosci obu list co dziewiaty slupek oddychalby identycznie i w pasie
+/// widac by bylo wzor; bez opoznien caly pas pulsowalby unisono jak jeden klocek.
+const List<double> kBarDanceDelays = [-2.1, -0.5, -1.3, 0.0, -1.7, -0.9, -0.3];
+
+/// Glebokosc oddechu: slupek plywa miedzy `1 - kBarDanceDepth` a pelna wysokoscia z obwiedni.
+///
+/// Waskie pasmo jest tu calym sednem. Przy szerokim (proba z zakresem 0,25-1,0 jak na ekranie
+/// nagrywania) pas przestawal byc wykresem i stawal sie ekwalizerem: slupek cichy w szczycie
+/// swojego cyklu bywal wyzszy od glosnego w dolku, czyli animacja ZAMAZYWALA to, co w nagraniu
+/// slychac. Przy 0,15 stosunek skrajnych mnoznikow to 1,18, wiec porzadek wysokosci zgadza sie
+/// z obwiednia wszedzie tam, gdzie slupki roznia sie o wiecej niz osiemnascie procent —
+/// a zatrzymana klatka animacji jest prawie nie do odroznienia od statycznego wykresu.
+const double kBarDanceDepth = 0.15;
+
+/// Wysokosc slupka przebiegu w trakcie odtwarzania, 0..1.
+///
+/// Slupek oddycha WOKOL swojej prawdziwej wysokosci, w waskim pasmie pod nia — mnozenie przez
+/// [level] znaczy, ze animacja skaluje obwiednie, a nie zastepuje jej wlasnym ksztaltem.
+///
+/// Ksztalt cyklu wprost z makiety (`@keyframes bar { 0%,100% { scaleY(.25) } 50% { scaleY(1) } }`):
+/// trojkat, a nie pila — na zawinieciu cyklu slupek nie spada skokiem. Argumentem jest
+/// MONOTONICZNY czas od startu odtwarzania, dokladnie jak w `phaseAt` z ekranu nagrywania:
+/// zegar, ktory nigdy nie wraca do zera, nie tnie zadnego okresu.
+double dancingBarLevel({
+  required double level,
+  required double elapsedSeconds,
+  required int index,
+}) {
+  final period = kBarDanceSeconds[index % kBarDanceSeconds.length];
+  final delay = kBarDanceDelays[index % kBarDanceDelays.length];
+  final phase = ((elapsedSeconds - delay) / period) % 1.0;
+  final wave = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+  return level.clamp(0.0, 1.0) * (1 - kBarDanceDepth + kBarDanceDepth * wave);
+}

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/features/library/playback.dart';
 
 void main() {
@@ -250,6 +251,93 @@ void main() {
           reconcilePosition(
               shown: const Duration(milliseconds: 1501), event: const Duration(seconds: 1)),
           const Duration(seconds: 1));
+    });
+  });
+
+  group('dancingBarLevel', () {
+    test('slupek plywa w waskim pasmie POD swoja prawdziwa wysokoscia', () {
+      for (var index = 0; index < kWaveformBuckets; index++) {
+        for (var step = 0; step < 120; step++) {
+          final value =
+              dancingBarLevel(level: 0.8, elapsedSeconds: step * 0.05, index: index);
+          expect(value, greaterThanOrEqualTo(0.8 * (1 - kBarDanceDepth) - 1e-9),
+              reason: 'szersze pasmo robi z wykresu ekwalizer');
+          expect(value, lessThanOrEqualTo(0.8 + 1e-9),
+              reason: 'powyzej wlasnej wysokosci slupek klamalby o nagraniu');
+        }
+      }
+    });
+
+    test('STRAZNIK: porzadek slupkow zgadza sie z obwiednia w KAZDEJ klatce', () {
+      // Nie „srednio": zatrzymana klatka animacji ma byc prawie nie do odroznienia od
+      // statycznego wykresu, wiec glosniejszy fragment musi byc wyzszy ZAWSZE. Ten test pada,
+      // gdy pasmo oddechu rozszerzy sie na tyle, ze cichy slupek w szczycie przerosnie glosny
+      // w dolku — dokladnie to, co user zobaczyl przy pierwszej wersji.
+      const levels = [1.0, 0.75, 0.5, 0.25];
+      for (var step = 0; step < 400; step++) {
+        final t = step * 0.031;
+        final heights = [
+          for (var i = 0; i < levels.length; i++)
+            dancingBarLevel(level: levels[i], elapsedSeconds: t, index: i),
+        ];
+        for (var i = 1; i < heights.length; i++) {
+          expect(heights[i - 1], greaterThan(heights[i]),
+              reason: 'w chwili $t slupek $i przerosl glosniejszego od siebie');
+        }
+      }
+    });
+
+    test('taniec skaluje slupek, a nie przestawia go na inna wysokosc', () {
+      for (var step = 0; step < 40; step++) {
+        final t = step * 0.07;
+        expect(dancingBarLevel(level: 0.9, elapsedSeconds: t, index: 3) / 0.9,
+            closeTo(dancingBarLevel(level: 0.3, elapsedSeconds: t, index: 3) / 0.3, 1e-9));
+      }
+    });
+
+    test('slupki nie oddychaja rowno: sasiedzi maja rozne fazy', () {
+      final atMoment = [
+        for (var i = 0; i < 12; i++)
+          dancingBarLevel(level: 1, elapsedSeconds: 0.3, index: i),
+      ];
+      expect(atMoment.toSet().length, greaterThan(6),
+          reason: 'gdyby wszystkie slupki mialy ta sama faze, pas pulsowalby jak jeden klocek');
+    });
+
+    test('para okres-opoznienie nie powtarza sie w pasie slupkow', () {
+      final pairs = <String>{};
+      for (var i = 0; i < kWaveformBuckets; i++) {
+        pairs.add('${kBarDanceSeconds[i % kBarDanceSeconds.length]}'
+            '/${kBarDanceDelays[i % kBarDanceDelays.length]}');
+      }
+      expect(pairs.length, kWaveformBuckets,
+          reason: 'powtorzona para robi w pasie widoczny wzor');
+    });
+
+    test('oddech jest spokojny: pelny cykl trwa ponad dwie sekundy', () {
+      expect(kBarDanceSeconds.reduce((a, b) => a < b ? a : b), greaterThan(2.0));
+    });
+
+    test('cykl domyka sie bez skoku', () {
+      // Makieta ma `@keyframes bar { 0%,100% { scaleY(.25) } 50% { scaleY(1) } }`, czyli
+      // trojkat: na zawinieciu cyklu slupek NIE spada skokiem.
+      final period = kBarDanceSeconds[0];
+      final before = dancingBarLevel(level: 1, elapsedSeconds: period - 0.001, index: 0);
+      final after = dancingBarLevel(level: 1, elapsedSeconds: period + 0.001, index: 0);
+      expect((after - before).abs(), lessThan(0.005));
+    });
+
+    test('polowa cyklu to szczyt, poczatek i koniec to dol', () {
+      // Slupek 3: okres 2,4 s i opoznienie 0,0 s, wiec liczy sie najlatwiej.
+      expect(dancingBarLevel(level: 1, elapsedSeconds: 0.0, index: 3),
+          closeTo(1 - kBarDanceDepth, 1e-9));
+      expect(dancingBarLevel(level: 1, elapsedSeconds: 1.2, index: 3), closeTo(1.0, 1e-9));
+      expect(dancingBarLevel(level: 1, elapsedSeconds: 2.4, index: 3),
+          closeTo(1 - kBarDanceDepth, 1e-9));
+    });
+
+    test('cisza zostaje cisza', () {
+      expect(dancingBarLevel(level: 0, elapsedSeconds: 0.4, index: 5), 0);
     });
   });
 }

@@ -78,6 +78,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   Duration _tick = Duration.zero;
   Duration _baseTick = Duration.zero;
 
+  /// Zegar „tanca" slupkow: ten sam uplyw czasu, co interpolacja pozycji, ale osobny
+  /// listenable. Osobny, bo taniec ma isc takze wtedy, gdy pozycja akurat nie drgnela —
+  /// na przyklad gdy interpolacja dobila do konca nagrania i tam stoi.
+  final _beat = ValueNotifier<Duration>(Duration.zero);
+
+  /// Przebieg odrysowuje sie i na ruch pozycji, i na takt tanca; czasy tylko na pozycje.
+  late final Listenable _waveBeat = Listenable.merge([_shown, _beat]);
+
   /// Pozycja, za ktora ida przebieg i czasy. Osobny notifier, a nie `setState`: klatka
   /// animacji ma odbudowac przebieg i wiersz czasow, a nie cala karte z transkryptem.
   final _shown = ValueNotifier<Duration>(Duration.zero);
@@ -244,6 +252,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     super.initState();
     _ticker = createTicker((elapsed) {
       _tick = elapsed;
+      _beat.value = elapsed;
       _publish();
     });
     _subs.add(_player.onPositionChanged.listen((event) {
@@ -278,6 +287,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     }
     _ticker.dispose();
     _shown.dispose();
+    _beat.dispose();
     _player.dispose();
     super.dispose();
   }
@@ -630,7 +640,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
             ],
           ),
           const SizedBox(height: 16),
-          _followingPosition(
+          _followingWave(
               () => _seekSurface(r, total, height: 64)), // makieta: pas 64 px w karcie telefonu
           const SizedBox(height: 16),
           _followingPosition(() => _times(total)),
@@ -666,7 +676,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
               Expanded(
                 child: Column(
                   children: [
-                    _followingPosition(
+                    _followingWave(
                         () => _seekSurface(r, total, height: 52)), // makieta: pas 52 px w panelu
                     const SizedBox(height: 10),
                     _followingPosition(() => _times(total)),
@@ -681,6 +691,12 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
       ),
     );
   }
+
+  /// Owija przebieg: odrysowuje sie na ruch pozycji ORAZ na takt tanca slupkow.
+  Widget _followingWave(Widget Function() build) => ListenableBuilder(
+        listenable: _waveBeat,
+        builder: (context, _) => build(),
+      );
 
   /// Owija fragment karty, ktory ma isc za plynna pozycja odtwarzania. Klatka animacji
   /// odbudowuje wtedy sam przebieg albo sam wiersz czasow — a nie cala karte razem
@@ -702,6 +718,9 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     return WaveformSeekBar(
       levels: levels,
       height: height,
+      // Slupki tancza tylko w trakcie odtwarzania. Poza nim `null` znaczy „stoj na wlasnej
+      // wysokosci" — obwiednia ma byc wtedy zwyklym, czytelnym wykresem.
+      beat: _playing ? _tick : null,
       position: _shownPosition(total),
       total: total,
       label: AppLocalizations.of(context).detailSeekLabel,
@@ -994,6 +1013,7 @@ class WaveformSeekBar extends StatefulWidget {
     super.key,
     required this.levels,
     required this.height,
+    required this.beat,
     required this.position,
     required this.total,
     required this.label,
@@ -1006,6 +1026,9 @@ class WaveformSeekBar extends StatefulWidget {
 
   /// Wysokosc pasa: 64 w karcie telefonu, 52 w panelu desktopowym.
   final double height;
+
+  /// Czas od startu odtwarzania, ktorym plynie taniec slupkow. `null` poza odtwarzaniem.
+  final Duration? beat;
 
   /// Pozycja, na ktorej stoi kursor. W trakcie gestu jest to wartosc z ostatniego [onScrub],
   /// bo rodzic oddaje ja z powrotem — i dlatego koniec przeciagania ma czym przewinac.
@@ -1068,6 +1091,7 @@ class _WaveformSeekBarState extends State<WaveformSeekBar> {
                   WaveformBars(
                     levels: widget.levels,
                     height: widget.height,
+                    beat: widget.beat,
                     played: playedBars(
                       count: widget.levels.length,
                       position: widget.position,
@@ -1123,6 +1147,7 @@ class WaveformBars extends StatelessWidget {
     required this.levels,
     required this.height,
     required this.played,
+    this.beat,
   });
 
   /// Wysokosci slupkow, 0..1.
@@ -1133,6 +1158,18 @@ class WaveformBars extends StatelessWidget {
 
   /// Ile pierwszych slupkow jest juz zagranych.
   final int played;
+
+  /// Czas od startu odtwarzania. `null` znaczy „nagranie nie gra": slupki stoja wtedy na
+  /// swoich prawdziwych wysokosciach, bo obwiednia jest przede wszystkim wykresem.
+  final Duration? beat;
+
+  /// Wysokosc slupka 0..1: w spoczynku prawdziwa, w trakcie odtwarzania rozkolysana wokol
+  /// niej przez [dancingBarLevel].
+  double _levelAt(int index, double? beatSeconds) {
+    final level = levels[index].clamp(0.0, 1.0);
+    if (beatSeconds == null) return level;
+    return dancingBarLevel(level: level, elapsedSeconds: beatSeconds, index: index);
+  }
 
   static const double _gap = 3;
 
@@ -1146,6 +1183,9 @@ class WaveformBars extends StatelessWidget {
     final radius = BorderRadius.circular(2);
     final playedColor = scheme.primary;
     final restColor = scheme.outlineVariant.withValues(alpha: 0.75);
+    final beatSeconds = beat == null
+        ? null
+        : beat!.inMicroseconds / Duration.microsecondsPerSecond;
     return SizedBox(
       height: height,
       child: Row(
@@ -1154,7 +1194,7 @@ class WaveformBars extends StatelessWidget {
             if (i > 0) const SizedBox(width: _gap),
             Expanded(
               child: SizedBox(
-                height: (levels[i].clamp(0.0, 1.0) * height).clamp(_minBar, height),
+                height: (_levelAt(i, beatSeconds) * height).clamp(_minBar, height),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
                     color: i < played ? playedColor : restColor,

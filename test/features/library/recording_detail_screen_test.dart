@@ -15,6 +15,7 @@ import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_styles.dart';
+import 'package:mikro/features/library/playback.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 import 'package:mikro/l10n/app_localizations_en.dart';
 
@@ -1114,6 +1115,122 @@ void main() {
     await settlePlayer(tester);
 
     await tapTransport(tester, Symbols.pause_rounded);
+
+    await unmount(tester);
+  });
+
+  // --- oddech slupkow w trakcie odtwarzania (runda fix 2) ---
+
+  /// Nagranie o OPADAJACEJ obwiedni: cztery pierwsze slupki 1,0 / 0,75 / 0,5 / 0,25, reszta
+  /// posrodku. Rowna obwiednia nie pokazalaby, czy animacja zachowuje ksztalt, czy go zamazuje.
+  Future<void> insertVariedWave(String id) async {
+    final levels = <double>[1.0, 0.75, 0.5, 0.25, ...List.filled(kWaveformBuckets - 4, 0.5)];
+    await insert(id, waveform: encodeWaveform(levels));
+    await db.setTranscript(id, 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus(id, RecordingStatus.done);
+  }
+
+  double barHeight(WidgetTester tester, int index) =>
+      tester.getSize(bars().at(index)).height;
+
+  testWidgets('slupki oddychaja w trakcie odtwarzania', (tester) async {
+    await insertVariedWave('a');
+
+    await pumpDetail(tester, 'a');
+    expect(barHeight(tester, 0), 64,
+        reason: 'przed odtwarzaniem slupek stoi na swojej prawdziwej wysokosci');
+
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+
+    final samples = <double>[];
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      samples.add(barHeight(tester, 0));
+    }
+
+    expect(samples.toSet().length, greaterThan(6),
+        reason: 'slupek ma sie ruszac miedzy klatkami, a nie stac');
+    expect(samples.reduce((a, b) => a < b ? a : b),
+        greaterThan(64 * (1 - kBarDanceDepth) - 0.5),
+        reason: 'oddech jest waski: ponizej tego pasma wykres zamienia sie w ekwalizer');
+    expect(samples.reduce((a, b) => a > b ? a : b), lessThan(64 + 0.5),
+        reason: 'powyzej wlasnej wysokosci slupek klamalby o nagraniu');
+
+    await tapTransport(tester, Symbols.pause_rounded);
+
+    await unmount(tester);
+  });
+
+  testWidgets('STRAZNIK: w kazdej klatce ksztalt obwiedni jest zachowany', (tester) async {
+    await insertVariedWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+
+    // Nie „srednio", tylko w KAZDEJ klatce: zatrzymany kadr animacji ma byc prawie nie do
+    // odroznienia od statycznego wykresu.
+    for (var frame = 0; frame < 20; frame++) {
+      await tester.pump(const Duration(milliseconds: 73));
+      final heights = [for (var i = 0; i < 4; i++) barHeight(tester, i)];
+      for (var i = 1; i < heights.length; i++) {
+        expect(heights[i - 1], greaterThan(heights[i]),
+            reason: 'klatka $frame: slupek $i przerosl glosniejszego od siebie, czyli animacja '
+                'zamazala to, co w nagraniu slychac');
+      }
+    }
+
+    await tapTransport(tester, Symbols.pause_rounded);
+
+    await unmount(tester);
+  });
+
+  testWidgets('pauza odstawia slupki na prawdziwe wysokosci', (tester) async {
+    await insertVariedWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+
+    // Szukamy klatki, w ktorej slupek NIE stoi akurat na szczycie swojego cyklu.
+    var moved = false;
+    for (var i = 0; i < 12 && !moved; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      moved = barHeight(tester, 0) < 64;
+    }
+    expect(moved, isTrue, reason: 'w trakcie odtwarzania slupek gdzies schodzi ponizej szczytu');
+
+    await tapTransport(tester, Symbols.pause_rounded);
+
+    expect(barHeight(tester, 0), 64, reason: 'pelna amplituda to caly pasek');
+    expect(barHeight(tester, 3), moreOrLessEquals(64 * 0.25, epsilon: 0.01));
+
+    final frozen = [for (var i = 0; i < 5; i++) barHeight(tester, i)];
+    await tester.pump(const Duration(milliseconds: 700));
+    expect([for (var i = 0; i < 5; i++) barHeight(tester, i)], frozen,
+        reason: 'po pauzie obwiednia jest zwyklym wykresem i ma stac');
+
+    await unmount(tester);
+  });
+
+  testWidgets('panel: slupki oddychaja tak samo jak na telefonie', (tester) async {
+    await insertVariedWave('a');
+
+    await pumpPanel(tester, 'a');
+    expect(barHeight(tester, 0), 52, reason: 'panel ma nizszy pas');
+
+    await tapTransport(tester, Symbols.play_arrow_rounded);
+    final samples = <double>[];
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      samples.add(barHeight(tester, 0));
+    }
+
+    expect(samples.toSet().length, greaterThan(4));
+    expect(samples.reduce((a, b) => a < b ? a : b),
+        greaterThan(52 * (1 - kBarDanceDepth) - 0.5));
+    expect(samples.reduce((a, b) => a > b ? a : b), lessThan(52 + 0.5));
+
+    await tapTransport(tester, Symbols.pause_rounded);
+    expect(barHeight(tester, 0), 52);
 
     await unmount(tester);
   });
