@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mikro/core/api/api_errors.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/recording_status.dart';
 
@@ -170,6 +171,16 @@ void main() {
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
     expect(version.data.values.first, 4,
         reason: 'baza z v1 dochodzi jednym otwarciem do biezacego schematu');
+
+    // Sam user_version niczego nie dowodzi: drift podbija go po wyjsciu z onUpgrade nawet
+    // wtedy, gdy zaden szczebel nie dolozyl swojej kolumny. Odczyt nagrania tez tego nie
+    // zlapie, bo wszystkie nowe kolumny sa nullowalne i brak kolumny wyglada jak NULL.
+    // Dlatego pytamy schemat wprost — to jedyna asercja, ktora pada, gdy ktorys szczebel
+    // migracji zniknie.
+    final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
+    expect(columns.map((c) => c.data['name']),
+        containsAll(['error_kind', 'waveform', 'title']),
+        reason: 'baza z v1 musi przejsc KAZDY szczebel migracji, nie tylko podbic wersje');
   });
 
   test('updateStatus zapisuje errorKind i czysci go przy przejsciu na stan nie-bledowy',
@@ -183,6 +194,14 @@ void main() {
     await db.updateStatus('a', RecordingStatus.transcribing);
     expect((await db.getRecording('a'))!.errorKind, isNull,
         reason: 'stary rodzaj bledu nie moze przezyc sytuacji, ktora go wywolala');
+  });
+
+  test('STRAZNIK: networkErrorKind zgadza sie z nazwa stalej enuma ApiErrorKind', () {
+    // Predykaty w bazie porownuja kolumne z tekstem, a pipeline zapisuje do niej
+    // `ApiErrorKind.network.name`. Nic w typach nie laczy tych dwoch stron: przemianowanie
+    // stalej enuma zostawiloby zapytania, ktore kompiluja sie i nie znajduja niczego.
+    expect(AppDatabase.networkErrorKind, ApiErrorKind.network.name,
+        reason: 'zmiana nazwy w enumie musi pociagnac za soba stala uzywana w predykatach');
   });
 
   test('networkFailedRecordings zwraca tylko bledy sieciowe', () async {

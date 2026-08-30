@@ -65,6 +65,13 @@ class AppDatabase extends _$AppDatabase {
   @override
   int get schemaVersion => 4;
 
+  /// Wartosc kolumny `error_kind` dla bledow sieciowych — jedynego rodzaju, ktory ma sens
+  /// wznawiac po powrocie lacznosci. Rodzaj zapisuje pipeline jako `ApiErrorKind.network.name`,
+  /// ale w predykatach SQL to zwykly tekst bez zwiazku z enumem: przemianowanie stalej enuma
+  /// przeszloby tedy bez sladu i zapytania po cichu przestalyby cokolwiek znajdowac. Straznik
+  /// w `test/core/db/database_test.dart` pilnuje, ze obie strony mowia to samo.
+  static const networkErrorKind = 'network';
+
   @override
   MigrationStrategy get migration => MigrationStrategy(
         onUpgrade: (m, from, to) async {
@@ -172,6 +179,13 @@ class AppDatabase extends _$AppDatabase {
         }
       });
 
+  /// Kasuje nagranie i zbiera osierocone tagi.
+  ///
+  /// Surowy `customStatement` jest tu bezpieczny WYLACZNIE dlatego, ze w tej samej transakcji
+  /// stoi typowane `delete(recordings)`: to ono mowi driftowi, ze tabela recordings sie
+  /// zmienila, i unewaznia strumienie. Sam customStatement nie unewaznia niczego — przyszly
+  /// strumien watchujacy wylacznie tabele Tags nie dostalby po tym kasowaniu zadnego
+  /// powiadomienia i pokazywalby tagi, ktorych juz nie ma.
   Future<void> deleteRecording(String id) => transaction(() async {
         await (delete(recordings)..where((r) => r.id.equals(id))).go();
         await customStatement(
@@ -182,7 +196,8 @@ class AppDatabase extends _$AppDatabase {
   /// lacznosci. Blad autoryzacji czy zbyt duzy plik ponowi sie tak samo.
   Future<List<Recording>> networkFailedRecordings() => (select(recordings)
         ..where((r) =>
-            r.status.equalsValue(RecordingStatus.error) & r.errorKind.equals('network')))
+            r.status.equalsValue(RecordingStatus.error) &
+            r.errorKind.equals(networkErrorKind)))
       .get();
 
   /// Ile nagran czeka na przetworzenie: niedokonczone plus te wstrzymane brakiem sieci.
@@ -196,7 +211,7 @@ class AppDatabase extends _$AppDatabase {
       ..addColumns([recordings.id.count()])
       ..where(recordings.status.isInValues(pending) |
           (recordings.status.equalsValue(RecordingStatus.error) &
-              recordings.errorKind.equals('network')));
+              recordings.errorKind.equals(networkErrorKind)));
     return query.map((row) => row.read(recordings.id.count()) ?? 0).watchSingle();
   }
 
