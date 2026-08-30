@@ -151,4 +151,20 @@ void main() {
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
     expect(find.byType(SettingsScreen), findsOneWidget);
   });
+
+  // --- Straznik regresji (runda fix 1) ---
+  // Reszta testow czyta flage przez stala onboardingCompletedKey, wiec podmiana jej WARTOSCI
+  // (przy tej samej nazwie) przeszlaby caly suite na zielono, a onboarding wrocilby kazdemu
+  // istniejacemu uzytkownikowi po aktualizacji. Ten test pilnuje litery zapisu na dysku.
+  testWidgets('STRAZNIK: przejscie do konca zapisuje surowy klucz onboarding_completed',
+      (tester) async {
+    final prefs = await pumpOnboarding(tester);
+
+    await tapNext(tester, 'Dalej');
+    await tapNext(tester, 'Dalej');
+    await tapNext(tester, 'Zaczynamy');
+
+    expect(prefs.getBool('onboarding_completed'), isTrue,
+        reason: 'literal klucza to format danych na dysku — przezywa aktualizacje aplikacji');
+  });
 }

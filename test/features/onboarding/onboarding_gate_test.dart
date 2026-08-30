@@ -56,6 +56,18 @@ void main() {
     expect(find.byType(OnboardingScreen), findsNothing);
   });
 
+  // --- Straznik regresji (runda fix 1) ---
+  // Pozostale testy chodza przez stala onboardingCompletedKey, wiec podmiana jej WARTOSCI
+  // (przy tej samej nazwie) zostawilaby je zielone, a kazdy istniejacy uzytkownik dostalby
+  // onboarding od nowa po aktualizacji. Ten test czyta format z dysku, nie symbol z kodu.
+  testWidgets('STRAZNIK: surowy klucz onboarding_completed pomija onboarding', (tester) async {
+    await pumpGate(tester, {'onboarding_completed': true});
+
+    expect(find.text('powloka'), findsOneWidget,
+        reason: 'literal klucza to format danych na dysku — przezywa aktualizacje aplikacji');
+    expect(find.byType(OnboardingScreen), findsNothing);
+  });
+
   testWidgets('zakonczenie onboardingu przelacza gate bez restartu', (tester) async {
     final container = await pumpGate(tester, {});
 

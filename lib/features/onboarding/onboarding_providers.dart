@@ -2,8 +2,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
 
-/// Preference key for the first-run flag. This is the on-disk format: renaming it replays
-/// onboarding for every existing user, so it is pinned by a test.
+/// Preference key for the first-run flag. This is the on-disk format: changing its value
+/// replays onboarding for every existing user. Two guards spell the literal out instead of
+/// going through this constant, so such a change fails the suite — see the tests named
+/// STRAZNIK in onboarding_gate_test.dart (read side) and onboarding_screen_test.dart (write
+/// side).
 const onboardingCompletedKey = 'onboarding_completed';
 
 /// Whether the user has already been through onboarding. False on a fresh install, flipped
