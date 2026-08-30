@@ -11,10 +11,25 @@ class TaggingApi {
   final Dio _dio;
 
   static const _maxTranscriptChars = 8000;
+
+  /// Gorny limit tagow na nagranie. Jedno zrodlo prawdy: ta sama liczba idzie do promptu
+  /// i tnie wynik po sparsowaniu.
+  static const maxTags = 5;
+
+  // Prompt po angielsku celowo. Instrukcja po polsku ciagnela model do polskich tagow
+  // niezaleznie od jezyka nagrania, a aplikacja idzie w l10n — jezyk tagow ma isc
+  // za transkryptem, nie za jezykiem instrukcji.
   static const _systemPrompt =
-      'Generujesz tagi do transkrypcji nagrania glosowego. Zwroc WYLACZNIE '
-      'tablice JSON zawierajaca 3-6 krotkich tagow (1-3 slowa kazdy), malymi '
-      'literami, w jezyku transkrypcji. Zadnego innego tekstu.';
+      'You label a transcript of a voice note. Return ONLY a JSON array of at '
+      'most $maxTags short tags (1-3 words each), lowercase, written in the '
+      'same language as the transcript. Tag only what the recording is '
+      'specifically about: concrete topics, proper names, projects, people, '
+      'places, events, technical terms. Never return generic labels that would '
+      'fit any recording whatsoever, such as "note", "recording", '
+      '"conversation", "audio", "voice", "thoughts", or their equivalents in '
+      'the language of the transcript. Fewer sharp tags beat filling the '
+      'limit; return [] when the transcript contains nothing specific. '
+      'No other text.';
 
   Future<List<String>> generateTags(
       {required String transcript, required ProviderConfig config}) async {
@@ -73,6 +88,8 @@ class TaggingApi {
     return message['content'];
   }
 
+  /// Limit [maxTags] egzekwujemy tutaj, nie tylko w prompcie: prompt to prosba, ktora model
+  /// potrafi zignorowac, a pipeline zapisuje do bazy wszystko, co dostanie.
   static List<String>? parseTags(String content) {
     var s = content.trim();
     final fence = RegExp(r'^```[a-z]*\s*([\s\S]*?)\s*```$').firstMatch(s);
@@ -83,12 +100,16 @@ class TaggingApi {
     try {
       final decoded = jsonDecode(s.substring(start, end + 1));
       if (decoded is! List) return null;
+      // Puste [] to swiadoma odpowiedz "nie ma tu nic konkretnego" i leci dalej bez ponawiania.
+      // Lista, ktora dopiero po odsianiu smieci robi sie pusta, to zepsuty output modelu — null,
+      // czyli druga proba. Te dwie sciezki nie moga sie skleic.
+      if (decoded.isEmpty) return const [];
       final tags = decoded
           .whereType<String>()
           .map((t) => t.trim().toLowerCase())
           .where((t) => t.isNotEmpty)
           .toSet()
-          .take(6)
+          .take(maxTags)
           .toList();
       return tags.isEmpty ? null : tags;
     } on FormatException {
