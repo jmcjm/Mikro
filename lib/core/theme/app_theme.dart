@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
 /// Available colour palettes. The design source (`design/Mikro-MD3.dc.html`) defines five
-/// token sets; D1a ships the MD3 baseline and leaves the enum open — the settings lane adds
-/// Dracula, Nord and Gruvbox by extending [_tokensFor] and this enum, without touching
-/// [buildTheme] itself.
-enum AppPalette { md3 }
+/// token sets in its `THEMES` map: `light` and `dark` form the MD3 baseline, while `dracula`,
+/// `nord` and `gruvbox` are single, dark-only sets — see [_isDarkOnly].
+///
+/// The enum value name is the on-disk format used by `themePaletteProvider`, so renaming one
+/// silently resets the user's choice. Pinned by tests.
+enum AppPalette { md3, dracula, nord, gruvbox }
 
 /// Colour roles taken verbatim from the design's `THEMES` map. Field names follow Flutter's
 /// [ColorScheme] roles; the design's short keys are noted next to each value so the mapping
@@ -117,14 +119,134 @@ const _md3Dark = _PaletteTokens(
   onInverseSurface: Color(0xFF322F35), // oninv
 );
 
+/// Dracula, Nord and Gruvbox each ship a single dark token set. Their seed is the palette's own
+/// `primary`, so the roles the design leaves unnamed stay in the same colour family.
+const _draculaSeed = Color(0xFFBD93F9);
+const _nordSeed = Color(0xFF88C0D0);
+const _gruvboxSeed = Color(0xFFD3869B);
+
+const _dracula = _PaletteTokens(
+  primary: Color(0xFFBD93F9), // p
+  onPrimary: Color(0xFF282A36), // op
+  primaryContainer: Color(0xFF44475A), // pc
+  onPrimaryContainer: Color(0xFFF8F8F2), // opc
+  secondaryContainer: Color(0xFF3C3F51), // s2c
+  onSecondaryContainer: Color(0xFFF8F8F2), // os2c
+  tertiary: Color(0xFFFF79C6), // t
+  tertiaryContainer: Color(0xFF4A2F42), // tc
+  onTertiaryContainer: Color(0xFFFFD7EE), // otc
+  surface: Color(0xFF282A36), // sf
+  surfaceContainerLow: Color(0xFF21222C), // sc1
+  surfaceContainer: Color(0xFF2E303E), // sc2
+  surfaceContainerHigh: Color(0xFF383A4A), // sc3
+  onSurface: Color(0xFFF8F8F2), // on
+  onSurfaceVariant: Color(0xFFBFC3D9), // onv
+  outline: Color(0xFF6272A4), // ol
+  outlineVariant: Color(0xFF44475A), // olv
+  error: Color(0xFFFF5555), // err
+  onError: Color(0xFF2A1414), // onerr
+  errorContainer: Color(0xFF4E2429), // errc
+  onErrorContainer: Color(0xFFFFD9D9), // onerrc
+  inverseSurface: Color(0xFFF8F8F2), // inv
+  onInverseSurface: Color(0xFF282A36), // oninv
+);
+
+const _nord = _PaletteTokens(
+  primary: Color(0xFF88C0D0), // p
+  onPrimary: Color(0xFF2E3440), // op
+  primaryContainer: Color(0xFF3B4252), // pc
+  onPrimaryContainer: Color(0xFFECEFF4), // opc
+  secondaryContainer: Color(0xFF434C5E), // s2c
+  onSecondaryContainer: Color(0xFFECEFF4), // os2c
+  tertiary: Color(0xFFB48EAD), // t
+  tertiaryContainer: Color(0xFF463C4B), // tc
+  onTertiaryContainer: Color(0xFFF0DCEE), // otc
+  surface: Color(0xFF2E3440), // sf
+  surfaceContainerLow: Color(0xFF292E39), // sc1
+  surfaceContainer: Color(0xFF343B49), // sc2
+  surfaceContainerHigh: Color(0xFF3E4756), // sc3
+  onSurface: Color(0xFFECEFF4), // on
+  onSurfaceVariant: Color(0xFFD8DEE9), // onv
+  outline: Color(0xFF4C566A), // ol
+  outlineVariant: Color(0xFF434C5E), // olv
+  error: Color(0xFFBF616A), // err
+  onError: Color(0xFF2A1518), // onerr
+  errorContainer: Color(0xFF4A2A2E), // errc
+  onErrorContainer: Color(0xFFF6D8DB), // onerrc
+  inverseSurface: Color(0xFFECEFF4), // inv
+  onInverseSurface: Color(0xFF2E3440), // oninv
+);
+
+const _gruvbox = _PaletteTokens(
+  primary: Color(0xFFD3869B), // p
+  onPrimary: Color(0xFF282828), // op
+  primaryContainer: Color(0xFF503541), // pc
+  onPrimaryContainer: Color(0xFFFBE9EF), // opc
+  secondaryContainer: Color(0xFF504945), // s2c
+  onSecondaryContainer: Color(0xFFEBDBB2), // os2c
+  tertiary: Color(0xFFFABD2F), // t
+  tertiaryContainer: Color(0xFF4C3A17), // tc
+  onTertiaryContainer: Color(0xFFFFE9B0), // otc
+  surface: Color(0xFF282828), // sf
+  surfaceContainerLow: Color(0xFF232323), // sc1
+  surfaceContainer: Color(0xFF32302F), // sc2
+  surfaceContainerHigh: Color(0xFF3C3836), // sc3
+  onSurface: Color(0xFFEBDBB2), // on
+  onSurfaceVariant: Color(0xFFD5C4A1), // onv
+  outline: Color(0xFF665C54), // ol
+  outlineVariant: Color(0xFF504945), // olv
+  error: Color(0xFFFB4934), // err
+  onError: Color(0xFF2A1210), // onerr
+  errorContainer: Color(0xFF4E241E), // errc
+  onErrorContainer: Color(0xFFFFD6CF), // onerrc
+  inverseSurface: Color(0xFFEBDBB2), // inv
+  onInverseSurface: Color(0xFF282828), // oninv
+);
+
+/// Palettes the design defines with a single, dark token set. [buildTheme] therefore ignores the
+/// requested brightness for them: `MikroApp` always builds both `theme` and `darkTheme`, so the
+/// light slot has to hold something, and returning the dark set is the only answer the design
+/// actually supports. Inventing a light variant would put colours on screen that the source
+/// never specifies.
+bool _isDarkOnly(AppPalette palette) => switch (palette) {
+      AppPalette.md3 => false,
+      AppPalette.dracula || AppPalette.nord || AppPalette.gruvbox => true,
+    };
+
+/// Preview dots shown on the theme cards, taken straight from the "Motyw" section of the design.
+/// They are not derived from the roles: the design picks a different pair per card (baseline uses
+/// primary + primaryContainer, Dracula and Gruvbox use primary + tertiary), and Nord's middle dot
+/// is `#5E81AC`, a colour that appears on the card but not in the `THEMES` map at all.
+const _md3LightSwatch = [Color(0xFF65558F), Color(0xFFE9DDFF), Color(0xFFFEF7FF)];
+const _md3DarkSwatch = [Color(0xFFCFBCFF), Color(0xFF4D3D75), Color(0xFF141218)];
+const _draculaSwatch = [Color(0xFFBD93F9), Color(0xFFFF79C6), Color(0xFF282A36)];
+const _nordSwatch = [Color(0xFF88C0D0), Color(0xFF5E81AC), Color(0xFF2E3440)];
+const _gruvboxSwatch = [Color(0xFFD3869B), Color(0xFFFABD2F), Color(0xFF282828)];
+
+/// The three preview colours for [palette]'s card in the settings screen.
+List<Color> paletteSwatch(AppPalette palette, Brightness brightness) => switch (palette) {
+      AppPalette.md3 =>
+        brightness == Brightness.light ? _md3LightSwatch : _md3DarkSwatch,
+      AppPalette.dracula => _draculaSwatch,
+      AppPalette.nord => _nordSwatch,
+      AppPalette.gruvbox => _gruvboxSwatch,
+    };
+
 _PaletteTokens _tokensFor(AppPalette palette, Brightness brightness) =>
     switch ((palette, brightness)) {
       (AppPalette.md3, Brightness.light) => _md3Light,
       (AppPalette.md3, Brightness.dark) => _md3Dark,
+      // Brightness is irrelevant here — these palettes are dark-only, see [_isDarkOnly].
+      (AppPalette.dracula, _) => _dracula,
+      (AppPalette.nord, _) => _nord,
+      (AppPalette.gruvbox, _) => _gruvbox,
     };
 
 Color _seedFor(AppPalette palette) => switch (palette) {
       AppPalette.md3 => _md3Seed,
+      AppPalette.dracula => _draculaSeed,
+      AppPalette.nord => _nordSeed,
+      AppPalette.gruvbox => _gruvboxSeed,
     };
 
 /// Builds the Material 3 theme for [palette] in [brightness].
@@ -133,10 +255,13 @@ Color _seedFor(AppPalette palette) => switch (palette) {
 /// onTertiary, scrim, shadow…) come from `ColorScheme.fromSeed`, so the scheme is complete and
 /// internally consistent instead of being padded with guesses.
 ThemeData buildTheme({required AppPalette palette, required Brightness brightness}) {
-  final tokens = _tokensFor(palette, brightness);
+  // Dark-only palettes pin the brightness, so their scheme stays internally consistent: the roles
+  // the design does not name are generated against the same brightness as the ones it does.
+  final effective = _isDarkOnly(palette) ? Brightness.dark : brightness;
+  final tokens = _tokensFor(palette, effective);
   final scheme = ColorScheme.fromSeed(
     seedColor: _seedFor(palette),
-    brightness: brightness,
+    brightness: effective,
   ).copyWith(
     primary: tokens.primary,
     onPrimary: tokens.onPrimary,
