@@ -34,10 +34,15 @@ class FakeRecorder implements MikroRecorder {
     if (permissionGate != null) await permissionGate!.future;
     return permission;
   }
+  /// Gdy ustawione, start() rzuca zamiast zaczac nagranie. Sciezka jest zapamietywana
+  /// mimo bledu, zeby test mial czego szukac na dysku.
+  Object? startError;
+
   @override
   Future<void> start(String path) async {
     startCalls++;
     startedPath = path;
+    if (startError != null) throw startError!;
     File(path).createSync(recursive: true);
   }
 
@@ -126,6 +131,16 @@ void main() {
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isFalse);
     expect(container.read(recorderControllerProvider).lastError, isNotNull);
+
+    // Odmowa nie moze zablokowac kontrolera na stale: flaga _starting musi zostac zwolniona
+    // rowniez na sciezce bledu. Bez tego uzytkownik, ktory pozniej przyznal uprawnienia,
+    // nie nagralby juz nigdy niczego.
+    recorder.permission = true;
+    await controller.startRecording();
+    expect(container.read(recorderControllerProvider).isRecording, isTrue,
+        reason: 'po przyznaniu uprawnien nagrywanie musi ruszyc');
+    expect(recorder.startCalls, 1,
+        reason: 'pierwsze podejscie odbilo sie na uprawnieniach i nie doszlo do start()');
   });
 
   test('STRAZNIK: subskrypcja amplitudy zyje w trakcie nagrania i znika po stopie', () async {
@@ -157,5 +172,25 @@ void main() {
     expect(recorder.startCalls, 1,
         reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej pierwszy timer, '
             'subskrypcja i plik zostaja osierocone');
+  });
+
+  test('STRAZNIK: nieudany start nie zostawia osieroconego katalogu ani zablokowanego kontrolera',
+      () async {
+    recorder.startError = StateError('mikrofon zajety');
+    final controller = container.read(recorderControllerProvider.notifier);
+
+    await controller.startRecording();
+
+    final failedPath = recorder.startedPath!;
+    expect(container.read(recorderControllerProvider).isRecording, isFalse);
+    expect(container.read(recorderControllerProvider).lastError, isNotNull);
+    expect(File(failedPath).parent.existsSync(), isFalse,
+        reason: 'katalog utworzony pod nagranie musi zniknac, skoro nagranie nie ruszylo');
+
+    // Nieudany start tez nie moze zostawic kontrolera w stanie zablokowanym.
+    recorder.startError = null;
+    await controller.startRecording();
+    expect(container.read(recorderControllerProvider).isRecording, isTrue,
+        reason: 'po ustaniu awarii nagrywanie musi ruszyc');
   });
 }
