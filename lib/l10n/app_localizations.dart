@@ -350,6 +350,36 @@ abstract class AppLocalizations {
   /// **'Ponów przetwarzanie'**
   String get detailRetryProcessing;
 
+  /// Podpowiedz przycisku replay_10 w wierszu transportu na karcie odtwarzacza.
+  ///
+  /// In pl, this message translates to:
+  /// **'Cofnij o 10 sekund'**
+  String get detailRewindTooltip;
+
+  /// Podpowiedz przycisku forward_10 w wierszu transportu na karcie odtwarzacza.
+  ///
+  /// In pl, this message translates to:
+  /// **'Przewiń o 10 sekund'**
+  String get detailForwardTooltip;
+
+  /// Podpowiedz pigulki predkosci; stukniecie cykluje po 1,0 / 1,25 / 1,5 / 2,0.
+  ///
+  /// In pl, this message translates to:
+  /// **'Prędkość odtwarzania'**
+  String get detailSpeedTooltip;
+
+  /// Etykieta pigulki predkosci: liczba ze znakiem mnozenia. Liczbe sklada intl wedlug jezyka, wiec polski dostaje przecinek.
+  ///
+  /// In pl, this message translates to:
+  /// **'{rate}×'**
+  String detailSpeedLabel(String rate);
+
+  /// Etykieta dostepnosci przebiegu, ktory sluzy takze do przewijania nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Pasek odtwarzania'**
+  String get detailSeekLabel;
+
   /// Odznaka statusu: nagranie czeka na transkrypcje.
   ///
   /// In pl, this message translates to:

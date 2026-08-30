@@ -143,6 +143,23 @@ class AppLocalizationsPl extends AppLocalizations {
   String get detailRetryProcessing => 'Ponów przetwarzanie';
 
   @override
+  String get detailRewindTooltip => 'Cofnij o 10 sekund';
+
+  @override
+  String get detailForwardTooltip => 'Przewiń o 10 sekund';
+
+  @override
+  String get detailSpeedTooltip => 'Prędkość odtwarzania';
+
+  @override
+  String detailSpeedLabel(String rate) {
+    return '$rate×';
+  }
+
+  @override
+  String get detailSeekLabel => 'Pasek odtwarzania';
+
+  @override
   String get statusQueued => 'W kolejce…';
 
   @override

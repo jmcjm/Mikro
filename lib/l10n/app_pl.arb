@@ -186,6 +186,33 @@
   "@detailRetryProcessing": {
     "description": "Przycisk w bannerze bledu w szczegolach nagrania; wznawia przetwarzanie."
   },
+  "detailRewindTooltip": "Cofnij o 10 sekund",
+  "@detailRewindTooltip": {
+    "description": "Podpowiedz przycisku replay_10 w wierszu transportu na karcie odtwarzacza."
+  },
+  "detailForwardTooltip": "Przewiń o 10 sekund",
+  "@detailForwardTooltip": {
+    "description": "Podpowiedz przycisku forward_10 w wierszu transportu na karcie odtwarzacza."
+  },
+  "detailSpeedTooltip": "Prędkość odtwarzania",
+  "@detailSpeedTooltip": {
+    "description": "Podpowiedz pigulki predkosci; stukniecie cykluje po 1,0 / 1,25 / 1,5 / 2,0."
+  },
+  "detailSpeedLabel": "{rate}\u00D7",
+  "@detailSpeedLabel": {
+    "description": "Etykieta pigulki predkosci: liczba ze znakiem mnozenia. Liczbe sklada intl wedlug jezyka, wiec polski dostaje przecinek.",
+    "placeholders": {
+      "rate": {
+        "type": "String",
+        "description": "Predkosc odtwarzania zlozona wedlug jezyka interfejsu.",
+        "example": "1,25"
+      }
+    }
+  },
+  "detailSeekLabel": "Pasek odtwarzania",
+  "@detailSeekLabel": {
+    "description": "Etykieta dostepnosci przebiegu, ktory sluzy takze do przewijania nagrania."
+  },
 
   "statusQueued": "W kolejce…",
   "@statusQueued": {

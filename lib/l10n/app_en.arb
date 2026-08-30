@@ -46,6 +46,11 @@
   "detailTagSaveError": "Couldn't save the tag change.",
   "detailRemoveTagTooltip": "Remove tag",
   "detailRetryProcessing": "Retry processing",
+  "detailRewindTooltip": "Back 10 seconds",
+  "detailForwardTooltip": "Forward 10 seconds",
+  "detailSpeedTooltip": "Playback speed",
+  "detailSpeedLabel": "{rate}\u00D7",
+  "detailSeekLabel": "Playback bar",
 
   "statusQueued": "Queued…",
   "statusTranscribing": "Transcribing…",
