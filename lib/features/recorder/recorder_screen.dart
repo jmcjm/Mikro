@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -17,15 +18,27 @@ const _barCount = 9;
 const _barWidth = 6.0;
 const _barsHeight = 56.0;
 
-/// Czasy animacji z sekcji styli designu. Jeden kontroler o okresie [_morphPeriod] napedza
-/// wszystko; pozostale elementy dostaja swoja faze przez modulo, zeby nie mnozyc tickerow.
-const _morphPeriod = Duration(seconds: 6);
+/// Czasy animacji z sekcji styli designu. Jeden ticker podaje CIAGLY czas od poczatku
+/// nagrania, a kazdy element przelicza z niego wlasna faze przez [phaseAt] — dzieki temu
+/// jeden zegar obsluguje wszystkie okresy i zaden z nich sie nie urywa.
+const _morphSeconds = 6.0;
 const _ring1Seconds = 2.0;
 const _ring2Seconds = 2.4;
 
 /// `animation:bar <czas>s ... <opoznienie>s` dla dziewieciu slupkow z makiety.
 const _barSeconds = <double>[1.1, 0.9, 1.3, 1.0, 1.2, 0.95, 1.15, 1.05, 1.25];
 const _barDelays = <double>[-0.9, -0.2, -0.5, 0.0, -0.7, -0.35, -0.15, -0.6, -0.85];
+
+/// Faza cyklu w [0, 1) dla elementu o okresie [periodSeconds], przesunieta o [delaySeconds].
+///
+/// Argumentem jest MONOTONICZNY czas od startu animacji i na tym polega cala rzecz. Wczesniej
+/// fazy liczylo sie z zawijajacej sie wartosci AnimationControllera o okresie 6 s: przy kazdym
+/// przejsciu value 1.0 -> 0.0 element, ktorego okres nie dzieli szesciu sekund, dostawal skokowa
+/// nieciaglosc. Pierscien 2,4 s (2,5 cyklu na zawiniecie) przeskakiwal o pol fazy co 6 sekund,
+/// tak samo siedem z dziewieciu slupkow — na urzadzeniu wygladalo to jak zacinanie sie animacji.
+/// W makiecie kazda animacja ma wlasny zegar CSS, ktory nigdy nie wraca do zera.
+double phaseAt(double elapsedSeconds, double periodSeconds, [double delaySeconds = 0]) =>
+    ((elapsedSeconds - delaySeconds) / periodSeconds) % 1.0;
 
 class RecorderScreen extends ConsumerStatefulWidget {
   const RecorderScreen({super.key});
@@ -36,48 +49,55 @@ class RecorderScreen extends ConsumerStatefulWidget {
 
 class _RecorderScreenState extends ConsumerState<RecorderScreen>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _pulse;
+  late final Ticker _ticker;
+
+  /// Czas od startu biezacego nagrania. ValueNotifier, a nie zwykle pole z setState, bo dzieki
+  /// niemu co klatke przebudowuja sie wylacznie animowane poddrzewa, a nie caly ekran.
+  final ValueNotifier<double> _elapsedSeconds = ValueNotifier<double>(0);
 
   @override
   void initState() {
     super.initState();
-    // Kontroler startuje ZATRZYMANY. IndexedStack trzyma ten State przy zyciu na wszystkich
-    // zakladkach, wiec bezwarunkowe repeat() kazaloby aplikacji przeliczac dziewiec cosinusow
+    // Ticker powstaje ZATRZYMANY. IndexedStack trzyma ten State przy zyciu na wszystkich
+    // zakladkach, wiec bezwarunkowy start kazalby aplikacji przeliczac dziewiec cosinusow
     // 60 razy na sekunde przez caly czas jej zycia — takze poza nagrywaniem i poza ta zakladka.
     // Makieta ma stan spoczynku statyczny, wiec ruch wlacza sie dopiero na czas nagrania.
-    _pulse = AnimationController(vsync: this, duration: _morphPeriod);
+    _ticker = createTicker(_onTick);
   }
 
   @override
   void dispose() {
-    _pulse.dispose();
+    _ticker.dispose();
+    _elapsedSeconds.dispose();
     super.dispose();
   }
 
-  /// Wlacza puls na czas nagrania i zatrzymuje go po jego zakonczeniu, cofajac faze do zera,
-  /// zeby kolejne nagranie zaczynalo sie od tego samego ksztaltu plamy.
+  void _onTick(Duration elapsed) =>
+      _elapsedSeconds.value = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
+
+  /// Wlacza puls na czas nagrania i zatrzymuje go po jego zakonczeniu, cofajac czas do zera,
+  /// zeby kolejne nagranie zaczynalo sie od tego samego ksztaltu plamy. Ticker.stop() zeruje
+  /// tez wlasny punkt odniesienia, wiec nastepny start znowu liczy od zera.
   void _syncTicker(bool isRecording) {
     if (isRecording) {
-      _pulse.repeat();
+      if (!_ticker.isActive) _ticker.start();
     } else {
-      _pulse
-        ..stop()
-        ..value = 0;
+      _ticker.stop();
+      _elapsedSeconds.value = 0;
     }
   }
 
   /// W spoczynku nie owijamy widgetu w [AnimatedBuilder] — nie ma czego animowac, wiec nic
   /// nie przerysowuje sie co klatke.
-  Widget _animated(bool animate, Widget Function() builder) =>
-      animate ? AnimatedBuilder(animation: _pulse, builder: (_, _) => builder()) : builder();
+  Widget _animated(bool animate, Widget Function() builder) => animate
+      ? AnimatedBuilder(animation: _elapsedSeconds, builder: (_, _) => builder())
+      : builder();
 
   /// Oscylacja 0 -> 1 -> 0 o ksztalcie ease-in-out, jak `ease-in-out` w keyframe'ach CSS.
   double _wave(double phase) => (1 - math.cos(2 * math.pi * phase)) / 2;
 
-  double _phase(double seconds, [double delay = 0]) {
-    final periods = _morphPeriod.inMilliseconds / 1000 / seconds;
-    return (_pulse.value * periods - delay / seconds) % 1.0;
-  }
+  double _phase(double seconds, [double delay = 0]) =>
+      phaseAt(_elapsedSeconds.value, seconds, delay);
 
   @override
   Widget build(BuildContext context) {
@@ -138,7 +158,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
                     amplitude: state.amplitude,
                     ring1: _wave(_phase(_ring1Seconds)),
                     ring2: _wave(_phase(_ring2Seconds)),
-                    morph: _wave(_pulse.value),
+                    morph: _wave(_phase(_morphSeconds)),
                     onTap: () => _toggle(controller, state.isRecording),
                   ),
                 ),
