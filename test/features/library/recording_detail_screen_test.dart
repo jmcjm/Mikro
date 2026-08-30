@@ -84,6 +84,32 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('naglowek pelnego ekranu niesie tytul nagrania', (tester) async {
+    await insert('a');
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.setTitle('a', 'Standup i przesuniecie release');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.text('Standup i przesuniecie release'), findsOneWidget);
+    expect(find.text(plL10n.detailTitle), findsNothing,
+        reason: 'nazwa rodzajowa ustepuje tytulowi, gdy nagranie go ma');
+
+    await unmount(tester);
+  });
+
+  testWidgets('naglowek bez tytulu zostaje przy nazwie rodzajowej', (tester) async {
+    await insert('a');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.text(plL10n.detailTitle), findsOneWidget);
+
+    await unmount(tester);
+  });
+
   testWidgets('bez transkryptu ekran pokazuje postep i etykiete statusu', (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.transcribing);

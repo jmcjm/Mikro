@@ -46,7 +46,7 @@ void main() {
     if (audioRoot.existsSync()) audioRoot.deleteSync(recursive: true);
   });
 
-  Future<void> insert(String id) async {
+  Future<void> insert(String id, {String? title}) async {
     final dir = Directory('${audioRoot.path}/$id')..createSync(recursive: true);
     final file = File('${dir.path}/audio.m4a')..writeAsBytesSync(const [0]);
     await db.insertRecording(
@@ -56,6 +56,7 @@ void main() {
       audioPath: file.path,
     );
     await db.setTranscript(id, 'Transkrypt nagrania $id', 'whisper-1');
+    if (title != null) await db.setTitle(id, title);
     await db.updateStatus(id, RecordingStatus.done);
   }
 
@@ -225,6 +226,47 @@ void main() {
     expect(find.byType(AppBar), findsOneWidget, reason: 'pelny ekran ma pasek z powrotem');
     expect(container.read(selectedRecordingProvider), isNull,
         reason: 'waski uklad nie tyka providera wyboru');
+
+    await unmount(tester);
+  });
+
+  testWidgets('szeroki ekran: naglowek panelu niesie tytul nagrania', (tester) async {
+    await insert('a', title: 'Standup i przesuniecie release');
+    await pumpLibrary(tester, size: const Size(1280, 800));
+    await tester.tap(find.text('Standup i przesuniecie release'));
+    await tester.pump();
+    await tester.pump();
+
+    // Karta w liscie i naglowek panelu pokazuja ten sam tytul — stad dwa trafienia.
+    expect(find.text('Standup i przesuniecie release'), findsNWidgets(2));
+    expect(
+      find.descendant(
+        of: find.byType(RecordingDetailView),
+        matching: find.text('Standup i przesuniecie release'),
+      ),
+      findsOneWidget,
+      reason: 'makieta desktopowa stawia tytul w naglowku panelu',
+    );
+    expect(find.text(plL10n.detailTitle), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('szeroki ekran: panel bez tytulu zostaje przy nazwie rodzajowej',
+      (tester) async {
+    await insert('a');
+    await pumpLibrary(tester, size: const Size(1280, 800));
+    await tester.tap(find.text('Transkrypt nagrania a'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byType(RecordingDetailView),
+        matching: find.text(plL10n.detailTitle),
+      ),
+      findsOneWidget,
+    );
 
     await unmount(tester);
   });

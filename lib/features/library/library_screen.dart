@@ -308,12 +308,15 @@ class RecordingCard extends ConsumerWidget {
         : selected
             ? scheme.onSecondaryContainer
             : scheme.onSurface;
-    // Tresc karty to transkrypt albo komunikat bledu. Dopoki nagranie sie przetwarza, nie ma
-    // czego pokazac — status niesie odznaka i pasek postepu, wiec powtarzanie go w tresci
+    // Tresc karty to tytul, a gdy go nie ma — transkrypt. Nagrania sprzed schematu v4 i te,
+    // przy ktorych model nie oddal tytulu, wygladaja wiec dokladnie jak dotad. Karta bledu
+    // pokazuje komunikat nawet wtedy, gdy tytul juz jest: czerwone tlo niesie informacje,
+    // ktorej nazwa nagrania nie moze przykryc. Dopoki nagranie sie przetwarza, nie ma czego
+    // pokazac — status niesie odznaka i pasek postepu, wiec powtarzanie go w tresci
     // dublowaloby to samo slowo dwa razy na tej samej karcie.
     final body = failed
         ? recordingErrorText(l10n, kind: r.errorKind, detail: r.errorMessage)
-        : r.transcript;
+        : r.title ?? r.transcript;
 
     return Material(
       color: failed

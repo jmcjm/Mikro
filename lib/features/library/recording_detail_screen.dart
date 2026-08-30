@@ -219,8 +219,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
           tooltip: l10n.detailBackTooltip,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: Text(l10n.detailTitle,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+        // Makieta ma tu nazwe rodzajowa, bo model danych nie znal jeszcze tytulu. Teraz zna:
+        // pasek niesie tytul nagrania, a rodzajowa zostaje opadem dla nagran bez tytulu.
+        title: Text(
+          r.title ?? l10n.detailTitle,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
         actions: [
           if (r.transcript != null)
             IconButton(
@@ -277,10 +283,12 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
                 style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 4),
-              // Makieta ma w tym miejscu tytul nagrania, ktorego model danych nie zna —
-              // patrz raport. Zostaje ta sama nazwa, ktora niesie pasek pelnego ekranu.
+              // Tytul nagrania z makiety desktopowej. Bez tytulu zostaje ta sama nazwa
+              // rodzajowa, ktora niesie pasek pelnego ekranu.
               Text(
-                l10n.detailTitle,
+                r.title ?? l10n.detailTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 28,
                   height: 34 / 28,

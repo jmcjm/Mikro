@@ -77,6 +77,50 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('karta z tytulem pokazuje tytul zamiast pierwszej linii transkryptu',
+      (tester) async {
+    await insert('a', durationMs: 207000);
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-large-v3-turbo');
+    await db.setTitle('a', 'Standup i przesuniecie release');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpLibrary(tester);
+
+    expect(find.text('Standup i przesuniecie release'), findsOneWidget);
+    expect(find.text('Notatka ze standupu'), findsNothing,
+        reason: 'tytul zastepuje transkrypt w tresci karty, a nie doklada sie do niego');
+
+    await unmount(tester);
+  });
+
+  testWidgets('karta bez tytulu wraca do transkryptu', (tester) async {
+    // Nagrania sprzed schematu v4 maja title NULL i musza wygladac dokladnie jak dotad.
+    await insert('a', durationMs: 207000);
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpLibrary(tester);
+
+    expect(find.text('Notatka ze standupu'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('karta bledu pokazuje komunikat, nawet gdy nagranie ma juz tytul',
+      (tester) async {
+    // Czerwone tlo niesie informacje, ktorej tytul nie moze przykryc.
+    await insert('a');
+    await db.setTitle('a', 'Standup i przesuniecie release');
+    await db.updateStatus('a', RecordingStatus.error, errorMessage: 'Limit 25 MB');
+
+    await pumpLibrary(tester);
+
+    expect(find.text('Limit 25 MB'), findsOneWidget);
+    expect(find.text('Standup i przesuniecie release'), findsNothing);
+
+    await unmount(tester);
+  });
+
   testWidgets('nagranie w przetwarzaniu ma odznake statusu i pasek postepu',
       (tester) async {
     await insert('a');
