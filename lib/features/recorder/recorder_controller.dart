@@ -20,6 +20,9 @@ class RecorderState {
   final double amplitude;
   final String? lastError;
 
+  /// Note the deliberate asymmetry: [lastError] is NOT preserved when omitted, unlike every
+  /// other field. Any state change that is not itself an error clears the previous one, so a
+  /// stale message never outlives the situation that produced it.
   RecorderState copyWith({bool? isRecording, Duration? elapsed, double? amplitude, String? lastError}) =>
       RecorderState(
         isRecording: isRecording ?? this.isRecording,

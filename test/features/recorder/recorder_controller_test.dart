@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/native.dart';
@@ -14,12 +15,20 @@ class FakeRecorder implements MikroRecorder {
   bool permission = true;
   String? startedPath;
   bool stopped = false;
+  int startCalls = 0;
+
+  /// Strumien dlugozyjacy, jak u prawdziwego pluginu: jest broadcastem, wspoldzielonym
+  /// i NIE konczy sie po stop(). Stream.empty() konczyl sie natychmiast, wiec subskrypcja
+  /// byla martwa zanim _cleanup zdazyl ja anulowac — i test nie odroznial jednego od drugiego.
+  final amplitudeController = StreamController<double>.broadcast();
+
   @override
   String get fileExtension => 'm4a';
   @override
   Future<bool> hasPermission() async => permission;
   @override
   Future<void> start(String path) async {
+    startCalls++;
     startedPath = path;
     File(path).createSync(recursive: true);
   }
@@ -27,7 +36,7 @@ class FakeRecorder implements MikroRecorder {
   @override
   Future<void> stop() async => stopped = true;
   @override
-  Stream<double> amplitude() => const Stream.empty();
+  Stream<double> amplitude() => amplitudeController.stream;
   // P1: kontrakt MikroRecorder ma dispose() od rulingu z Taska 8.
   @override
   Future<void> dispose() async {}
@@ -66,6 +75,7 @@ void main() {
   });
   tearDown(() {
     container.dispose();
+    recorder.amplitudeController.close();
     db.close();
   });
 
@@ -75,6 +85,11 @@ void main() {
     expect(container.read(recorderControllerProvider).isRecording, isTrue);
     expect(recorder.startedPath, contains('/recordings/'));
     expect(recorder.startedPath, endsWith('.m4a'));
+
+    // Drugie wcisniecie przycisku w trakcie nagrania nie moze zaczac nagrania od nowa.
+    await controller.startRecording();
+    expect(recorder.startCalls, 1,
+        reason: 'powtorny start przed stopem musi byc zignorowany');
   });
 
   test('stop zapisuje rekord i enqueue`uje pipeline', () async {
@@ -88,6 +103,13 @@ void main() {
     expect(all.first.recording.status, RecordingStatus.recorded);
     expect(all.first.recording.audioPath, recorder.startedPath);
     expect(pipeline.enqueued, [all.first.recording.id]);
+
+    // Czas nagrania trafia do bazy i to jego pokazuje biblioteka (T11), wiec musi pochodzic
+    // ze stopera, a nie byc dowolna liczba.
+    final durationMs = all.first.recording.durationMs;
+    expect(durationMs, greaterThanOrEqualTo(0));
+    expect(durationMs, lessThan(10000),
+        reason: 'przebieg testowy trwa milisekundy, nie sekundy');
   });
 
   test('brak permission -> lastError, bez startu', () async {
@@ -96,5 +118,20 @@ void main() {
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isFalse);
     expect(container.read(recorderControllerProvider).lastError, isNotNull);
+  });
+
+  test('STRAZNIK: subskrypcja amplitudy zyje w trakcie nagrania i znika po stopie', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+    expect(recorder.amplitudeController.hasListener, isFalse,
+        reason: 'przed startem nikt nie slucha amplitudy');
+
+    await controller.startRecording();
+    expect(recorder.amplitudeController.hasListener, isTrue,
+        reason: 'w trakcie nagrania kontroler musi sluchac amplitudy');
+
+    await controller.stopRecording();
+    expect(recorder.amplitudeController.hasListener, isFalse,
+        reason: 'strumien pluginu jest wspoldzielony i nie konczy sie sam, '
+            'wiec subskrypcje trzeba anulowac jawnie');
   });
 }
