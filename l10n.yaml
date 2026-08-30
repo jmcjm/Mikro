@@ -1,0 +1,9 @@
+# Konfiguracja gen-l10n. Polski jest jezykiem zrodlowym, wiec szablonem (i jedynym plikiem
+# z metadanymi) jest app_pl.arb; app_en.arb to tlumaczenie.
+#
+# nullable-getter: false sprawia, ze AppLocalizations.of(context) zwraca typ niepusty. Brak
+# delegata jest wtedy bledem programisty widocznym od razu, a nie lawina `!` w kazdym widgecie.
+arb-dir: lib/l10n
+template-arb-file: app_pl.arb
+output-localization-file: app_localizations.dart
+nullable-getter: false

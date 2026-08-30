@@ -1,0 +1,390 @@
+{
+  "@@locale": "pl",
+
+  "navRecord": "Nagrywaj",
+  "@navRecord": {
+    "description": "Etykieta zakladki nagrywania w dolnym pasku i w railu."
+  },
+  "navLibrary": "Biblioteka",
+  "@navLibrary": {
+    "description": "Etykieta zakladki biblioteki w dolnym pasku i w railu."
+  },
+  "navSettings": "Ustawienia",
+  "@navSettings": {
+    "description": "Etykieta zakladki ustawien w dolnym pasku i w railu."
+  },
+  "navAppearance": "Wygląd",
+  "@navAppearance": {
+    "description": "Podpowiedz przycisku palety na dole railu; prowadzi do wyboru motywu w ustawieniach."
+  },
+
+  "recorderHistoryTooltip": "Biblioteka",
+  "@recorderHistoryTooltip": {
+    "description": "Podpowiedz ikony historii w pasku ekranu nagrywania."
+  },
+  "recorderSavedSnackbar": "Nagranie zapisane — transkrypcja w toku.",
+  "@recorderSavedSnackbar": {
+    "description": "Pasek powiadomienia po zatrzymaniu nagrywania."
+  },
+  "recorderSavedAction": "Pokaż",
+  "@recorderSavedAction": {
+    "description": "Akcja paska powiadomienia po zapisaniu nagrania; przenosi do biblioteki."
+  },
+  "recorderStatusRecording": "Nagrywanie",
+  "@recorderStatusRecording": {
+    "description": "Pigulka stanu nad licznikiem, gdy nagrywanie trwa."
+  },
+  "recorderStatusReady": "Gotowy do nagrywania",
+  "@recorderStatusReady": {
+    "description": "Pigulka stanu nad licznikiem, gdy nagrywanie nie trwa."
+  },
+  "recorderErrorMicPermission": "Brak uprawnień do mikrofonu.",
+  "@recorderErrorMicPermission": {
+    "description": "Karta bledu na ekranie nagrywania: system nie dal dostepu do mikrofonu."
+  },
+  "recorderErrorStartFailed": "Nie udało się uruchomić nagrywania: {detail}",
+  "@recorderErrorStartFailed": {
+    "description": "Karta bledu na ekranie nagrywania: sterownik nagrywania odmowil startu.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "description": "Techniczny opis wyjatku, nietlumaczony.",
+        "example": "PlatformException(record, ...)"
+      }
+    }
+  },
+
+  "libraryTitle": "Biblioteka",
+  "@libraryTitle": {
+    "description": "Naglowek ekranu biblioteki."
+  },
+  "librarySearchHint": "Szukaj w transkrypcjach i tagach",
+  "@librarySearchHint": {
+    "description": "Podpowiedz w pustym polu wyszukiwania biblioteki."
+  },
+  "libraryFilterAll": "Wszystkie",
+  "@libraryFilterAll": {
+    "description": "Pierwszy chip filtru tagow: brak filtrowania."
+  },
+  "libraryDatabaseError": "Błąd bazy: {detail}",
+  "@libraryDatabaseError": {
+    "description": "Banner na liscie, gdy strumien bazy danych sie wywroci.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "description": "Techniczny opis bledu bazy, nietlumaczony.",
+        "example": "SqliteException(11): database disk image is malformed"
+      }
+    }
+  },
+  "libraryEmptyNoResults": "Nic nie znaleziono.",
+  "@libraryEmptyNoResults": {
+    "description": "Stan pusty biblioteki, gdy dziala filtr albo szukanie."
+  },
+  "libraryEmptyNoRecordings": "Brak nagrań",
+  "@libraryEmptyNoRecordings": {
+    "description": "Stan pusty biblioteki, gdy nie ma jeszcze zadnego nagrania."
+  },
+  "libraryEmptyDescription": "Wciśnij mikrofon na ekranie Nagrywaj — pierwsza notatka pojawi się tutaj z tagami.",
+  "@libraryEmptyDescription": {
+    "description": "Objasnienie pod stanem pustym biblioteki."
+  },
+  "libraryRecordCta": "Nagraj pierwszą notatkę",
+  "@libraryRecordCta": {
+    "description": "Przycisk stanu pustego biblioteki; przelacza na ekran nagrywania."
+  },
+  "libraryRetry": "Ponów",
+  "@libraryRetry": {
+    "description": "Przycisk na karcie nagrania, ktore skonczylo sie bledem; wznawia przetwarzanie."
+  },
+
+  "detailTitle": "Nagranie",
+  "@detailTitle": {
+    "description": "Tytul ekranu i naglowka panelu szczegolow nagrania."
+  },
+  "detailBackTooltip": "Wstecz",
+  "@detailBackTooltip": {
+    "description": "Podpowiedz strzalki powrotu w pasku szczegolow nagrania."
+  },
+  "detailShareTooltip": "Udostępnij transkrypt",
+  "@detailShareTooltip": {
+    "description": "Podpowiedz ikony udostepniania w szczegolach nagrania."
+  },
+  "detailCopyTooltip": "Kopiuj transkrypt",
+  "@detailCopyTooltip": {
+    "description": "Podpowiedz ikony kopiowania w karcie transkryptu."
+  },
+  "detailDeleteTooltip": "Usuń",
+  "@detailDeleteTooltip": {
+    "description": "Podpowiedz ikony kosza w szczegolach nagrania."
+  },
+  "detailDeleteTitle": "Usunąć nagranie?",
+  "@detailDeleteTitle": {
+    "description": "Tytul okna potwierdzenia usuniecia nagrania."
+  },
+  "detailDeleteMessage": "Plik audio i transkrypt zostaną trwale usunięte.",
+  "@detailDeleteMessage": {
+    "description": "Tresc okna potwierdzenia usuniecia nagrania."
+  },
+  "detailCancel": "Anuluj",
+  "@detailCancel": {
+    "description": "Przycisk odrzucenia w oknie potwierdzenia usuniecia."
+  },
+  "detailDelete": "Usuń",
+  "@detailDelete": {
+    "description": "Przycisk potwierdzenia w oknie usuniecia nagrania."
+  },
+  "detailDeleteError": "Nie udało się usunąć nagrania.",
+  "@detailDeleteError": {
+    "description": "Pasek powiadomienia, gdy usuniecie nagrania z bazy sie nie powiodlo."
+  },
+  "detailRecordingDeleted": "Nagranie usunięte.",
+  "@detailRecordingDeleted": {
+    "description": "Tresc ekranu szczegolow, gdy nagranie zniknelo z bazy w trakcie ogladania."
+  },
+  "detailCopiedTranscript": "Skopiowano transkrypt do schowka.",
+  "@detailCopiedTranscript": {
+    "description": "Pasek powiadomienia po kopiowaniu zamiast systemowego arkusza udostepniania."
+  },
+  "detailCopied": "Skopiowano.",
+  "@detailCopied": {
+    "description": "Pasek powiadomienia po skopiowaniu transkryptu ikona kopiowania."
+  },
+  "detailTranscriptLabel": "TRANSKRYPCJA",
+  "@detailTranscriptLabel": {
+    "description": "Naglowek karty transkryptu, wersalikami jak w makiecie."
+  },
+  "detailRetryProcessing": "Ponów przetwarzanie",
+  "@detailRetryProcessing": {
+    "description": "Przycisk w bannerze bledu w szczegolach nagrania; wznawia przetwarzanie."
+  },
+
+  "statusQueued": "W kolejce…",
+  "@statusQueued": {
+    "description": "Odznaka statusu: nagranie czeka na transkrypcje."
+  },
+  "statusTranscribing": "Transkrypcja…",
+  "@statusTranscribing": {
+    "description": "Odznaka statusu: trwa transkrypcja."
+  },
+  "statusTagging": "Tagowanie…",
+  "@statusTagging": {
+    "description": "Odznaka statusu: trwa tagowanie transkryptu."
+  },
+  "statusDone": "Gotowe",
+  "@statusDone": {
+    "description": "Odznaka statusu: przetwarzanie zakonczone."
+  },
+  "statusError": "Błąd",
+  "@statusError": {
+    "description": "Odznaka statusu: przetwarzanie skonczylo sie bledem."
+  },
+
+  "settingsTitle": "Ustawienia",
+  "@settingsTitle": {
+    "description": "Naglowek ekranu ustawien."
+  },
+  "settingsProviderSection": "PROVIDER",
+  "@settingsProviderSection": {
+    "description": "Naglowek sekcji z wyborem dostawcy API; wersalikami jak w makiecie."
+  },
+  "settingsThemeSection": "MOTYW",
+  "@settingsThemeSection": {
+    "description": "Naglowek sekcji z wyborem motywu; wersalikami jak w makiecie."
+  },
+  "settingsProviderCustom": "Własny",
+  "@settingsProviderCustom": {
+    "description": "Trzeci segment wyboru dostawcy: wlasny adres API. Groq i OpenAI to nazwy wlasne i zostaja nietlumaczone."
+  },
+  "settingsBaseUrl": "Base URL",
+  "@settingsBaseUrl": {
+    "description": "Etykieta pola z adresem bazowym API. Termin techniczny, ten sam w obu jezykach."
+  },
+  "settingsApiKey": "Klucz API",
+  "@settingsApiKey": {
+    "description": "Etykieta pola z kluczem API."
+  },
+  "settingsShowKey": "Pokaż klucz",
+  "@settingsShowKey": {
+    "description": "Podpowiedz ikony odslaniajacej klucz API."
+  },
+  "settingsHideKey": "Ukryj klucz",
+  "@settingsHideKey": {
+    "description": "Podpowiedz ikony ukrywajacej klucz API."
+  },
+  "settingsKeyStorage": "Trzymany w keystore systemu, nie w SharedPreferences",
+  "@settingsKeyStorage": {
+    "description": "Objasnienie pod polem klucza API. SharedPreferences to nazwa klasy i zostaje nietlumaczona."
+  },
+  "settingsSttModel": "Model STT",
+  "@settingsSttModel": {
+    "description": "Etykieta pola z nazwa modelu transkrypcji."
+  },
+  "settingsTagModel": "Model tagowania",
+  "@settingsTagModel": {
+    "description": "Etykieta pola z nazwa modelu tagujacego."
+  },
+  "settingsSave": "Zapisz",
+  "@settingsSave": {
+    "description": "Przycisk zapisu ustawien."
+  },
+  "settingsSaved": "Ustawienia zapisane.",
+  "@settingsSaved": {
+    "description": "Pasek powiadomienia po zapisaniu ustawien."
+  },
+  "settingsThemeLight": "Jasny",
+  "@settingsThemeLight": {
+    "description": "Karta motywu: jasny wariant palety domyslnej."
+  },
+  "settingsThemeDark": "Ciemny",
+  "@settingsThemeDark": {
+    "description": "Karta motywu: ciemny wariant palety domyslnej."
+  },
+  "settingsThemeSystem": "Systemowy",
+  "@settingsThemeSystem": {
+    "description": "Karta motywu: jasnosc idzie za ustawieniem systemu. Dracula, Nord i Gruvbox to nazwy wlasne palet i zostaja nietlumaczone."
+  },
+
+  "onboardingWelcomeHeadline": "Mów.\nMikro zapisze\ni otaguje.",
+  "@onboardingWelcomeHeadline": {
+    "description": "Naglowek pierwszego kroku wprowadzenia. Lamanie wierszy jest z makiety i ma zostac."
+  },
+  "onboardingWelcomeBody": "Nagrania trafiają na Twoje urządzenie, transkrypcja i tagi lecą do wybranego providera.",
+  "@onboardingWelcomeBody": {
+    "description": "Tresc pierwszego kroku wprowadzenia."
+  },
+  "onboardingMicHeadline": "Najpierw\nmikrofon.",
+  "@onboardingMicHeadline": {
+    "description": "Naglowek kroku z dostepem do mikrofonu. Lamanie wierszy jest z makiety."
+  },
+  "onboardingMicBody": "System zapyta o zgodę raz. Bez niej Mikro nie nagra ani słowa.",
+  "@onboardingMicBody": {
+    "description": "Tresc kroku z dostepem do mikrofonu."
+  },
+  "onboardingMicTitle": "Dostęp do mikrofonu",
+  "@onboardingMicTitle": {
+    "description": "Tytul karty z uprawnieniem do mikrofonu."
+  },
+  "onboardingMicSubtitle": "Wymagany do nagrywania",
+  "@onboardingMicSubtitle": {
+    "description": "Podtytul karty z uprawnieniem do mikrofonu."
+  },
+  "onboardingMicGranted": "Przyznany",
+  "@onboardingMicGranted": {
+    "description": "Stan karty uprawnienia, gdy system dal dostep do mikrofonu."
+  },
+  "onboardingMicAllow": "Zezwól",
+  "@onboardingMicAllow": {
+    "description": "Przycisk proszacy system o dostep do mikrofonu."
+  },
+  "onboardingMicRetry": "Ponów",
+  "@onboardingMicRetry": {
+    "description": "Ten sam przycisk po odmowie: pyta jeszcze raz."
+  },
+  "onboardingMicDenied": "Odmówiono. Dostęp włączysz w ustawieniach systemu.",
+  "@onboardingMicDenied": {
+    "description": "Komunikat pod karta uprawnienia po odmowie dostepu."
+  },
+  "onboardingProviderHeadline": "Klucz API\ndodasz\nkiedy chcesz.",
+  "@onboardingProviderHeadline": {
+    "description": "Naglowek kroku z kluczem API. Lamanie wierszy jest z makiety."
+  },
+  "onboardingProviderBody": "Transkrypcja i tagi lecą do Groqa albo OpenAI. Samo nagrywanie działa bez klucza.",
+  "@onboardingProviderBody": {
+    "description": "Tresc kroku z kluczem API."
+  },
+  "onboardingProviderTitle": "Klucz API",
+  "@onboardingProviderTitle": {
+    "description": "Tytul karty prowadzacej do ustawien klucza."
+  },
+  "onboardingProviderSubtitle": "Groq lub OpenAI — możesz dodać później",
+  "@onboardingProviderSubtitle": {
+    "description": "Podtytul karty prowadzacej do ustawien klucza."
+  },
+  "onboardingNext": "Dalej",
+  "@onboardingNext": {
+    "description": "Przycisk przejscia do nastepnego kroku wprowadzenia."
+  },
+  "onboardingStart": "Zaczynamy",
+  "@onboardingStart": {
+    "description": "Ten sam przycisk na ostatnim kroku: konczy wprowadzenie."
+  },
+
+  "apiErrorNetwork": "Brak połączenia z siecią.",
+  "@apiErrorNetwork": {
+    "description": "Blad przetwarzania: zapytanie nie doszlo do dostawcy."
+  },
+  "apiErrorAuth": "Błąd autoryzacji — sprawdź klucz API w Ustawieniach.",
+  "@apiErrorAuth": {
+    "description": "Blad przetwarzania: dostawca odrzucil klucz (HTTP 401 albo 403)."
+  },
+  "apiErrorTooLarge": "Plik odrzucony przez API — za duży.",
+  "@apiErrorTooLarge": {
+    "description": "Blad przetwarzania: dostawca odrzucil plik jako za duzy (HTTP 413)."
+  },
+  "apiErrorRateLimit": "Limit zapytań przekroczony — spróbuj za chwilę.",
+  "@apiErrorRateLimit": {
+    "description": "Blad przetwarzania: dostawca odbil zapytanie limitem (HTTP 429)."
+  },
+  "apiErrorServer": "Błąd serwera dostawcy ({detail}).",
+  "@apiErrorServer": {
+    "description": "Blad przetwarzania: dostawca odpowiedzial bledem 5xx.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "description": "Techniczny szczegol bledu, nietlumaczony.",
+        "example": "HTTP 503"
+      }
+    }
+  },
+  "apiErrorBadResponse": "Nieoczekiwana odpowiedź serwera ({detail}).",
+  "@apiErrorBadResponse": {
+    "description": "Blad przetwarzania: odpowiedz dostawcy nie pasuje do kontraktu.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "description": "Techniczny szczegol bledu, nietlumaczony.",
+        "example": "HTTP 404"
+      }
+    }
+  },
+  "apiErrorBadFormat": "Nieoczekiwany format odpowiedzi API.",
+  "@apiErrorBadFormat": {
+    "description": "Blad przetwarzania: cialo odpowiedzi dostawcy nie jest obiektem JSON."
+  },
+  "apiErrorNoContent": "Odpowiedź API bez treści wiadomości.",
+  "@apiErrorNoContent": {
+    "description": "Blad przetwarzania: odpowiedz czatu nie niesie tresci wiadomosci."
+  },
+  "apiErrorNoTranscript": "Odpowiedź API bez pola text.",
+  "@apiErrorNoTranscript": {
+    "description": "Blad przetwarzania: odpowiedz transkrypcji nie ma pola text."
+  },
+  "apiErrorBadTags": "Model nie zwrócił poprawnych tagów.",
+  "@apiErrorBadTags": {
+    "description": "Blad przetwarzania: model dwa razy z rzedu oddal liste tagow nie do sparsowania."
+  },
+  "pipelineErrorNoConfig": "Brak konfiguracji API — ustaw klucz w Ustawieniach.",
+  "@pipelineErrorNoConfig": {
+    "description": "Blad przetwarzania: nagranie czeka, bo dostawca nie jest jeszcze skonfigurowany."
+  },
+  "pipelineErrorSizeLimit": "Nagranie przekracza limit 25 MB — za długie do transkrypcji.",
+  "@pipelineErrorSizeLimit": {
+    "description": "Blad przetwarzania: plik audio jest wiekszy niz limit wysylki."
+  },
+  "pipelineErrorUnexpected": "Nieoczekiwany błąd: {detail}",
+  "@pipelineErrorUnexpected": {
+    "description": "Blad przetwarzania spoza domeny API.",
+    "placeholders": {
+      "detail": {
+        "type": "String",
+        "description": "Techniczny opis wyjatku, nietlumaczony.",
+        "example": "FileSystemException: Cannot open file"
+      }
+    }
+  },
+  "errorUnknown": "Nieznany błąd",
+  "@errorUnknown": {
+    "description": "Ostatnia deska ratunku, gdy nagranie ma status bledu, ale baza nie zna jego rodzaju."
+  }
+}
