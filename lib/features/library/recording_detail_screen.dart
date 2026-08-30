@@ -63,6 +63,11 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
   }
 
   Future<void> _delete(Recording recording) async {
+    // Zaleznosci z ref pobierane PRZED pierwszym awaitem. Gdyby widget zostal zutylizowany
+    // w trakcie dialogu, pozniejsze ref.read rzucaloby "used after dispose" — i to jako
+    // nieobsluzony wyjatek, bo nikt tego nie lapie.
+    final db = ref.read(databaseProvider);
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -75,11 +80,28 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+
     await _player.stop();
-    await ref.read(databaseProvider).deleteRecording(recording.id);
-    final dir = File(recording.audioPath).parent;
-    if (dir.existsSync()) dir.deleteSync(recursive: true);
-    if (mounted) Navigator.of(context).pop();
+    if (!mounted) return;
+
+    try {
+      await db.deleteRecording(recording.id);
+      // Katalog kasujemy dopiero po udanym usunieciu z bazy. Gdy to zawiedzie, na dysku
+      // zostaje osierocone audio — mniejsze zlo niz wpis w bazie bez pliku. Dlatego blad
+      // sprzatania nie przerywa zamkniecia ekranu.
+      try {
+        final dir = File(recording.audioPath).parent;
+        if (dir.existsSync()) dir.deleteSync(recursive: true);
+      } catch (_) {
+        // Sprzatanie plikow jest best-effort.
+      }
+      if (mounted) Navigator.of(context).pop();
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nie udało się usunąć nagrania.')),
+      );
+    }
   }
 
   @override
