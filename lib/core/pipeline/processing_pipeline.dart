@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import '../api/api_errors.dart';
@@ -25,6 +26,16 @@ class ProcessingPipeline {
   Future<void> _queue = Future.value();
   final Set<String> _inFlight = {};
 
+  StreamSubscription<bool>? _connectivitySub;
+
+  /// Ostatni znany stan łączności. Startujemy od `true`, bo pierwsze uruchomienie i tak
+  /// przechodzi przez [resumePending] — dzięki temu samo wejście online przy starcie nie
+  /// wywołuje drugiego, zbędnego wznowienia.
+  bool _wasOnline = true;
+
+  /// Strażnik przed nakładaniem się wznowień, gdy sieć mruga.
+  bool _resuming = false;
+
   Future<void> get idle => _queue;
 
   void enqueue(String recordingId) {
@@ -35,6 +46,44 @@ class ProcessingPipeline {
     _queue = _queue
         .then((_) => _process(recordingId).whenComplete(() => _inFlight.remove(recordingId)))
         .catchError((Object _) {});
+  }
+
+  /// Podpina monitorowanie łączności. Wznowienie odpala się na ZBOCZU offline -> online,
+  /// nie przy każdej emisji, więc utrzymujące się „online" nic nie robi.
+  ///
+  /// Przed zapętleniem przy mrugającej sieci chronią trzy rzeczy naraz i żadna nie wymaga
+  /// zegara: wykrywanie zbocza (samo „online" nie wystarczy), flaga [_resuming] (kolejne
+  /// zbocze w trakcie trwającego wznowienia jest pomijane) oraz istniejący dedup po `id`
+  /// w [enqueue]. Dzięki temu zachowanie jest deterministyczne i testowalne bez czekania
+  /// na upływ czasu.
+  void bindConnectivity(Stream<bool> onlineChanges) {
+    _connectivitySub?.cancel();
+    _connectivitySub = onlineChanges.listen(_handleConnectivity);
+  }
+
+  /// Zatrzymuje monitorowanie łączności. Kolejka i trwające przetwarzanie zostają nietknięte.
+  Future<void> stopWatchingConnectivity() async {
+    await _connectivitySub?.cancel();
+    _connectivitySub = null;
+  }
+
+  Future<void> _handleConnectivity(bool online) async {
+    final regained = online && !_wasOnline;
+    _wasOnline = online;
+    if (!regained || _resuming) return;
+
+    _resuming = true;
+    try {
+      // Najpierw nagrania, które utknęły konkretnie na sieci, potem cała zaległa kolejka.
+      for (final recording in await db.networkFailedRecordings()) {
+        enqueue(recording.id);
+      }
+      await resumePending();
+    } catch (_) {
+      // Wznawianie jest best-effort, tak samo jak przy starcie aplikacji.
+    } finally {
+      _resuming = false;
+    }
   }
 
   Future<void> resumePending() async {

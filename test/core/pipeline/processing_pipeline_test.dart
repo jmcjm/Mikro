@@ -383,4 +383,83 @@ void main() {
     expect((await db.getRecording('b'))!.errorKind, 'unknown',
         reason: 'wyjatek spoza domeny nie ma rodzaju, ale musi byc odrozniony od braku danych');
   });
+
+  // --- auto-wznowienie po powrocie sieci (D2c) ---
+
+  /// Nagranie, ktore utknelo na bledzie danego rodzaju.
+  Future<void> insertFailed(String id, String kind) async {
+    await insert(id);
+    await db.updateStatus(id, RecordingStatus.error,
+        errorMessage: 'padlo', errorKind: kind);
+  }
+
+
+  /// Zdarzenia ze strumienia lacznosci docieraja asynchronicznie, a `idle` opisuje tylko stan
+  /// kolejki. Bez przepompowania petli zdarzen test odczytalby "kolejka pusta" jeszcze zanim
+  /// wznowienie zdazy cokolwiek do niej wrzucic.
+  Future<void> settleConnectivity() async {
+    await pumpEventQueue();
+    await pipeline.idle;
+  }
+
+  test('powrot sieci wznawia bledy sieciowe i zalegla kolejke', () async {
+    await insertFailed('siec', 'network');
+    await insert('wkolejce');
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    pipeline.bindConnectivity(connectivity.stream);
+
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect((await db.getRecording('siec'))!.status, RecordingStatus.done);
+    expect((await db.getRecording('wkolejce'))!.status, RecordingStatus.done);
+  });
+
+  test('powrot sieci NIE wznawia bledu autoryzacji', () async {
+    await insertFailed('auth', 'auth');
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    pipeline.bindConnectivity(connectivity.stream);
+
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect((await db.getRecording('auth'))!.status, RecordingStatus.error,
+        reason: 'zly klucz API ponowi sie tak samo — wznawianie tylko powtorzy blad');
+    expect(stt.calls, 0);
+  });
+
+  test('dwa powroty sieci nie przetwarzaja nagrania dwa razy', () async {
+    await insertFailed('siec', 'network');
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    pipeline.bindConnectivity(connectivity.stream);
+
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect(stt.calls, 1, reason: 'nagranie jest juz done, drugi przebieg nie ma czego robic');
+  });
+
+  test('samo trwanie online, bez przejscia offline->online, niczego nie wznawia', () async {
+    await insertFailed('siec', 'network');
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    pipeline.bindConnectivity(connectivity.stream);
+
+    connectivity.add(true);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect((await db.getRecording('siec'))!.status, RecordingStatus.error,
+        reason: 'wznawiamy na ZBOCZU powrotu sieci, nie przy kazdej emisji strumienia');
+    expect(stt.calls, 0);
+  });
 }
