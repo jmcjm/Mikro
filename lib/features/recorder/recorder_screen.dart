@@ -70,7 +70,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
           SizedBox(
             width: 48,
             height: 48,
-            child: Icon(Symbols.history, fill: 1, size: 24, color: scheme.onSurfaceVariant),
+            child: Icon(Symbols.history_rounded, fill: 1, size: 24, color: scheme.onSurfaceVariant),
           ),
           const SizedBox(width: 8),
         ],
@@ -297,7 +297,7 @@ class _PulseButton extends StatelessWidget {
                 ],
               ),
               child: Icon(
-                isRecording ? Symbols.stop : Symbols.mic,
+                isRecording ? Symbols.stop_rounded : Symbols.mic_rounded,
                 fill: 1,
                 size: 64,
                 color: scheme.onPrimary,
@@ -429,7 +429,7 @@ class _ErrorCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Symbols.mic_off, fill: 1, size: 24, color: scheme.error),
+          Icon(Symbols.mic_off_rounded, fill: 1, size: 24, color: scheme.error),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
