@@ -47,8 +47,15 @@ class FakeRecorder implements MikroRecorder {
     File(path).createSync(recursive: true);
   }
 
+  /// Gdy ustawiona, stop() czeka na jej domkniecie — odpowiednik [permissionGate] po stronie
+  /// zatrzymania. Pozwala wejsc drugim wywolaniem stopRecording w luke miedzy awaitami.
+  Completer<void>? stopGate;
+
   @override
-  Future<void> stop() async => stopped = true;
+  Future<void> stop() async {
+    if (stopGate != null) await stopGate!.future;
+    stopped = true;
+  }
   @override
   Stream<double> amplitude() => amplitudeController.stream;
   // P1: kontrakt MikroRecorder ma dispose() od rulingu z Taska 8.
@@ -173,6 +180,27 @@ void main() {
     expect(recorder.startCalls, 1,
         reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej pierwszy timer, '
             'subskrypcja i plik zostaja osierocone');
+  });
+
+  test('STRAZNIK: dwa stopy w luce miedzy awaitami nie dubluja nagrania', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+    await controller.startRecording();
+    recorder.stopGate = Completer<void>();
+
+    // Oba wejscia zdarzaja sie ZANIM pierwsze zdazy zgasic isRecording — flaga gasnie dopiero
+    // po zapisie do bazy, wiec sam guard na stanie tego nie lapie. Bez guardu drugie wejscie
+    // wstawia to samo id po raz drugi i wywraca sie na kluczu glownym, do tego w zonie,
+    // ktorej nikt nie lapie.
+    final firstStop = controller.stopRecording();
+    final secondStop = controller.stopRecording();
+    recorder.stopGate!.complete();
+    await Future.wait([firstStop, secondStop]);
+
+    expect(await db.pendingRecordings(), hasLength(1),
+        reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej ten sam wpis '
+            'leci do bazy dwa razy');
+    expect(pipeline.enqueued, hasLength(1),
+        reason: 'pipeline nie moze dostac tego samego nagrania dwa razy');
   });
 
   test('STRAZNIK: nieudany start nie zostawia osieroconego katalogu ani zablokowanego kontrolera',

@@ -62,6 +62,12 @@ class RecorderController extends Notifier<RecorderState> {
   /// alone is not enough: it only flips after several awaits, so two calls landing in that gap
   /// would both pass the check and race.
   bool _starting = false;
+
+  /// Symetrycznie do [_starting], trzymana od synchronicznego wejscia w [stopRecording].
+  /// Flaga stanu tez tu nie wystarcza: gasnie dopiero po zapisie do bazy, wiec dwa stukniecia
+  /// w oknie awaitow zdazylyby wejsc oba i wstawic to samo id dwa razy — a nikt tego zapisu
+  /// nie awaituje, wiec naruszenie klucza glownego wylecialoby jako nieobsluzony wyjatek.
+  bool _stopping = false;
   StreamSubscription<double>? _ampSub;
   String? _currentId;
   String? _currentPath;
@@ -124,26 +130,31 @@ class RecorderController extends Notifier<RecorderState> {
   }
 
   Future<void> stopRecording() async {
-    if (!state.isRecording) return;
-    _cleanup();
-    await ref.read(recorderProvider).stop();
-    final id = _currentId!;
-    // Pusta lista probek zapisuje sie jako NULL, a nie jako 44 zera: mikrofon, ktory nic nie
-    // oddal, to brak pomiaru, a nie zmierzona cisza. Ekran szczegolow rozroznia te dwie
-    // sytuacje i przy NULL nie rysuje slupkow.
-    final buckets = reduceToBuckets(_amplitudeSamples);
-    _amplitudeSamples.clear();
-    await ref.read(databaseProvider).insertRecording(
-          id: id,
-          createdAt: DateTime.now().toUtc(),
-          durationMs: _stopwatch.elapsedMilliseconds,
-          audioPath: _currentPath!,
-          waveform: buckets.isEmpty ? null : encodeWaveform(buckets),
-        );
-    ref.read(pipelineProvider).enqueue(id);
-    _currentId = null;
-    _currentPath = null;
-    state = const RecorderState();
+    if (!state.isRecording || _stopping) return;
+    _stopping = true;
+    try {
+      _cleanup();
+      await ref.read(recorderProvider).stop();
+      final id = _currentId!;
+      // Pusta lista probek zapisuje sie jako NULL, a nie jako 44 zera: mikrofon, ktory nic nie
+      // oddal, to brak pomiaru, a nie zmierzona cisza. Ekran szczegolow rozroznia te dwie
+      // sytuacje i przy NULL nie rysuje slupkow.
+      final buckets = reduceToBuckets(_amplitudeSamples);
+      _amplitudeSamples.clear();
+      await ref.read(databaseProvider).insertRecording(
+            id: id,
+            createdAt: DateTime.now().toUtc(),
+            durationMs: _stopwatch.elapsedMilliseconds,
+            audioPath: _currentPath!,
+            waveform: buckets.isEmpty ? null : encodeWaveform(buckets),
+          );
+      ref.read(pipelineProvider).enqueue(id);
+      _currentId = null;
+      _currentPath = null;
+      state = const RecorderState();
+    } finally {
+      _stopping = false;
+    }
   }
 
   void _cleanup() {
