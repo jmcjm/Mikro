@@ -24,8 +24,16 @@ class FakeRecorder implements MikroRecorder {
 
   @override
   String get fileExtension => 'm4a';
+  /// Gdy ustawiona, hasPermission() czeka na jej domkniecie. Pozwala wejsc drugim wywolaniem
+  /// startRecording dokladnie w luke miedzy awaitami — tam, gdzie synchroniczny guard na
+  /// wejsciu jeszcze nie widzi zadnego nagrania w toku.
+  Completer<void>? permissionGate;
+
   @override
-  Future<bool> hasPermission() async => permission;
+  Future<bool> hasPermission() async {
+    if (permissionGate != null) await permissionGate!.future;
+    return permission;
+  }
   @override
   Future<void> start(String path) async {
     startCalls++;
@@ -133,5 +141,21 @@ void main() {
     expect(recorder.amplitudeController.hasListener, isFalse,
         reason: 'strumien pluginu jest wspoldzielony i nie konczy sie sam, '
             'wiec subskrypcje trzeba anulowac jawnie');
+  });
+
+  test('STRAZNIK: dwa starty w luce miedzy awaitami nie dubluja nagrania', () async {
+    recorder.permissionGate = Completer<void>();
+    final controller = container.read(recorderControllerProvider.notifier);
+
+    // Oba wejscia zdarzaja sie ZANIM pierwsze zdazy ustawic isRecording — flaga flipuje sie
+    // dopiero po awaitach, wiec sam guard na stanie tego nie lapie.
+    final firstStart = controller.startRecording();
+    final secondStart = controller.startRecording();
+    recorder.permissionGate!.complete();
+    await Future.wait([firstStart, secondStart]);
+
+    expect(recorder.startCalls, 1,
+        reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej pierwszy timer, '
+            'subskrypcja i plik zostaja osierocone');
   });
 }

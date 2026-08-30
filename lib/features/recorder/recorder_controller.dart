@@ -38,6 +38,11 @@ final recorderControllerProvider =
 class RecorderController extends Notifier<RecorderState> {
   final _stopwatch = Stopwatch();
   Timer? _ticker;
+
+  /// Held from the synchronous entry of [startRecording] until it finishes. The [state] flag
+  /// alone is not enough: it only flips after several awaits, so two calls landing in that gap
+  /// would both pass the check and race.
+  bool _starting = false;
   StreamSubscription<double>? _ampSub;
   String? _currentId;
   String? _currentPath;
@@ -49,32 +54,43 @@ class RecorderController extends Notifier<RecorderState> {
   }
 
   Future<void> startRecording() async {
-    if (state.isRecording) return;
-    final recorder = ref.read(recorderProvider);
-    if (!await recorder.hasPermission()) {
-      state = state.copyWith(lastError: 'Brak uprawnień do mikrofonu.');
-      return;
-    }
-    final id = const Uuid().v4();
-    final path = p.join(
-        ref.read(baseDirProvider).path, 'recordings', id, 'audio.${recorder.fileExtension}');
-    await Directory(p.dirname(path)).create(recursive: true);
+    if (state.isRecording || _starting) return;
+    _starting = true;
     try {
-      await recorder.start(path);
-    } catch (e) {
-      state = state.copyWith(lastError: 'Nie udało się uruchomić nagrywania: $e');
-      return;
+      final recorder = ref.read(recorderProvider);
+      if (!await recorder.hasPermission()) {
+        state = state.copyWith(lastError: 'Brak uprawnień do mikrofonu.');
+        return;
+      }
+      final id = const Uuid().v4();
+      final path = p.join(
+          ref.read(baseDirProvider).path, 'recordings', id, 'audio.${recorder.fileExtension}');
+      await Directory(p.dirname(path)).create(recursive: true);
+      try {
+        await recorder.start(path);
+      } catch (e) {
+        // Recording never began, so the directory we just made would stay behind empty.
+        try {
+          await Directory(p.dirname(path)).delete(recursive: true);
+        } catch (_) {
+          // Cleanup is best-effort; a leftover directory must not mask the real error.
+        }
+        state = state.copyWith(lastError: 'Nie udało się uruchomić nagrywania: $e');
+        return;
+      }
+      _currentId = id;
+      _currentPath = path;
+      _stopwatch
+        ..reset()
+        ..start();
+      _ticker = Timer.periodic(const Duration(milliseconds: 250),
+          (_) => state = state.copyWith(isRecording: true, elapsed: _stopwatch.elapsed));
+      _ampSub = recorder.amplitude().listen((a) => state = state.copyWith(
+          isRecording: true, elapsed: _stopwatch.elapsed, amplitude: a));
+      state = const RecorderState(isRecording: true);
+    } finally {
+      _starting = false;
     }
-    _currentId = id;
-    _currentPath = path;
-    _stopwatch
-      ..reset()
-      ..start();
-    _ticker = Timer.periodic(const Duration(milliseconds: 250),
-        (_) => state = state.copyWith(isRecording: true, elapsed: _stopwatch.elapsed));
-    _ampSub = recorder.amplitude().listen((a) => state = state.copyWith(
-        isRecording: true, elapsed: _stopwatch.elapsed, amplitude: a));
-    state = const RecorderState(isRecording: true);
   }
 
   Future<void> stopRecording() async {
