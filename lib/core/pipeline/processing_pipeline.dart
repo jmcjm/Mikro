@@ -159,8 +159,11 @@ class ProcessingPipeline {
         await db.setTranscript(id, transcript, config.sttModel);
       }
       await db.updateStatus(id, RecordingStatus.tagging);
-      final tags = await taggingApi.generateTags(transcript: transcript, config: config);
-      await db.setTags(id, tags);
+      // Tytul i tagi powstaja w jednym wywolaniu modelu, wiec i zapisuja sie razem — dopiero
+      // po nich nagranie przechodzi na `done`.
+      final meta = await taggingApi.generateMeta(transcript: transcript, config: config);
+      await db.setTitle(id, meta.title);
+      await db.setTags(id, meta.tags);
       await db.updateStatus(id, RecordingStatus.done);
     } on MikroApiException catch (e) {
       // Rodzaj bledu decyduje, czy warto ponowic po powrocie sieci — patrz networkFailedRecordings.

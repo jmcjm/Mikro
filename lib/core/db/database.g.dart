@@ -115,6 +115,15 @@ class $RecordingsTable extends Recordings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -127,6 +136,7 @@ class $RecordingsTable extends Recordings
     errorMessage,
     errorKind,
     waveform,
+    title,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -205,6 +215,12 @@ class $RecordingsTable extends Recordings
         waveform.isAcceptableOrUnknown(data['waveform']!, _waveformMeta),
       );
     }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
     return context;
   }
 
@@ -256,6 +272,10 @@ class $RecordingsTable extends Recordings
         DriftSqlType.string,
         data['${effectivePrefix}waveform'],
       ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
     );
   }
 
@@ -288,6 +308,11 @@ class Recording extends DataClass implements Insertable<Recording> {
   /// przy ktorych mikrofon nie oddal ani jednej probki — ekran szczegolow rysuje wtedy
   /// karte bez slupkow zamiast zmyslac ksztalt.
   final String? waveform;
+
+  /// Krotki tytul nagrania, ktory model uklada razem z tagami (patrz `core/api/tagging_api.dart`).
+  /// NULL dla nagran sprzed schematu v4 oraz dla tych, przy ktorych model nie oddal sensownego
+  /// tytulu — UI ma wtedy wlasny opad: karta pokazuje transkrypt, naglowek nazwe rodzajowa.
+  final String? title;
   const Recording({
     required this.id,
     required this.createdAt,
@@ -299,6 +324,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     this.errorMessage,
     this.errorKind,
     this.waveform,
+    this.title,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -327,6 +353,9 @@ class Recording extends DataClass implements Insertable<Recording> {
     if (!nullToAbsent || waveform != null) {
       map['waveform'] = Variable<String>(waveform);
     }
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
     return map;
   }
 
@@ -352,6 +381,9 @@ class Recording extends DataClass implements Insertable<Recording> {
       waveform: waveform == null && nullToAbsent
           ? const Value.absent()
           : Value(waveform),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
     );
   }
 
@@ -373,6 +405,7 @@ class Recording extends DataClass implements Insertable<Recording> {
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
       errorKind: serializer.fromJson<String?>(json['errorKind']),
       waveform: serializer.fromJson<String?>(json['waveform']),
+      title: serializer.fromJson<String?>(json['title']),
     );
   }
   @override
@@ -391,6 +424,7 @@ class Recording extends DataClass implements Insertable<Recording> {
       'errorMessage': serializer.toJson<String?>(errorMessage),
       'errorKind': serializer.toJson<String?>(errorKind),
       'waveform': serializer.toJson<String?>(waveform),
+      'title': serializer.toJson<String?>(title),
     };
   }
 
@@ -405,6 +439,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     Value<String?> errorMessage = const Value.absent(),
     Value<String?> errorKind = const Value.absent(),
     Value<String?> waveform = const Value.absent(),
+    Value<String?> title = const Value.absent(),
   }) => Recording(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -416,6 +451,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
     errorKind: errorKind.present ? errorKind.value : this.errorKind,
     waveform: waveform.present ? waveform.value : this.waveform,
+    title: title.present ? title.value : this.title,
   );
   Recording copyWithCompanion(RecordingsCompanion data) {
     return Recording(
@@ -437,6 +473,7 @@ class Recording extends DataClass implements Insertable<Recording> {
           : this.errorMessage,
       errorKind: data.errorKind.present ? data.errorKind.value : this.errorKind,
       waveform: data.waveform.present ? data.waveform.value : this.waveform,
+      title: data.title.present ? data.title.value : this.title,
     );
   }
 
@@ -452,7 +489,8 @@ class Recording extends DataClass implements Insertable<Recording> {
           ..write('providerUsed: $providerUsed, ')
           ..write('errorMessage: $errorMessage, ')
           ..write('errorKind: $errorKind, ')
-          ..write('waveform: $waveform')
+          ..write('waveform: $waveform, ')
+          ..write('title: $title')
           ..write(')'))
         .toString();
   }
@@ -469,6 +507,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     errorMessage,
     errorKind,
     waveform,
+    title,
   );
   @override
   bool operator ==(Object other) =>
@@ -483,7 +522,8 @@ class Recording extends DataClass implements Insertable<Recording> {
           other.providerUsed == this.providerUsed &&
           other.errorMessage == this.errorMessage &&
           other.errorKind == this.errorKind &&
-          other.waveform == this.waveform);
+          other.waveform == this.waveform &&
+          other.title == this.title);
 }
 
 class RecordingsCompanion extends UpdateCompanion<Recording> {
@@ -497,6 +537,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
   final Value<String?> errorMessage;
   final Value<String?> errorKind;
   final Value<String?> waveform;
+  final Value<String?> title;
   final Value<int> rowid;
   const RecordingsCompanion({
     this.id = const Value.absent(),
@@ -509,6 +550,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     this.errorMessage = const Value.absent(),
     this.errorKind = const Value.absent(),
     this.waveform = const Value.absent(),
+    this.title = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RecordingsCompanion.insert({
@@ -522,6 +564,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     this.errorMessage = const Value.absent(),
     this.errorKind = const Value.absent(),
     this.waveform = const Value.absent(),
+    this.title = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -539,6 +582,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Expression<String>? errorMessage,
     Expression<String>? errorKind,
     Expression<String>? waveform,
+    Expression<String>? title,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -552,6 +596,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       if (errorMessage != null) 'error_message': errorMessage,
       if (errorKind != null) 'error_kind': errorKind,
       if (waveform != null) 'waveform': waveform,
+      if (title != null) 'title': title,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -567,6 +612,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Value<String?>? errorMessage,
     Value<String?>? errorKind,
     Value<String?>? waveform,
+    Value<String?>? title,
     Value<int>? rowid,
   }) {
     return RecordingsCompanion(
@@ -580,6 +626,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       errorMessage: errorMessage ?? this.errorMessage,
       errorKind: errorKind ?? this.errorKind,
       waveform: waveform ?? this.waveform,
+      title: title ?? this.title,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -619,6 +666,9 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     if (waveform.present) {
       map['waveform'] = Variable<String>(waveform.value);
     }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -638,6 +688,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
           ..write('errorMessage: $errorMessage, ')
           ..write('errorKind: $errorKind, ')
           ..write('waveform: $waveform, ')
+          ..write('title: $title, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1100,6 +1151,7 @@ typedef $$RecordingsTableCreateCompanionBuilder = RecordingsCompanion Function({
   Value<String?> errorMessage,
   Value<String?> errorKind,
   Value<String?> waveform,
+  Value<String?> title,
   Value<int> rowid,
 });
 typedef $$RecordingsTableUpdateCompanionBuilder = RecordingsCompanion Function({
@@ -1113,6 +1165,7 @@ typedef $$RecordingsTableUpdateCompanionBuilder = RecordingsCompanion Function({
   Value<String?> errorMessage,
   Value<String?> errorKind,
   Value<String?> waveform,
+  Value<String?> title,
   Value<int> rowid,
 });
 
@@ -1196,6 +1249,11 @@ class $$RecordingsTableFilterComposer
 
   ColumnFilters<String> get waveform => $composableBuilder(
     column: $table.waveform,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1283,6 +1341,11 @@ class $$RecordingsTableOrderingComposer
     column: $table.waveform,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RecordingsTableAnnotationComposer
@@ -1331,6 +1394,9 @@ class $$RecordingsTableAnnotationComposer
 
   GeneratedColumn<String> get waveform =>
       $composableBuilder(column: $table.waveform, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
 
   Expression<T> recordingTagsRefs<T extends Object>(
     Expression<T> Function($$RecordingTagsTableAnnotationComposer a) f,
@@ -1396,6 +1462,7 @@ class $$RecordingsTableTableManager
                 Value<String?> errorMessage = const Value.absent(),
                 Value<String?> errorKind = const Value.absent(),
                 Value<String?> waveform = const Value.absent(),
+                Value<String?> title = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion(
                 id: id,
@@ -1408,6 +1475,7 @@ class $$RecordingsTableTableManager
                 errorMessage: errorMessage,
                 errorKind: errorKind,
                 waveform: waveform,
+                title: title,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1422,6 +1490,7 @@ class $$RecordingsTableTableManager
                 Value<String?> errorMessage = const Value.absent(),
                 Value<String?> errorKind = const Value.absent(),
                 Value<String?> waveform = const Value.absent(),
+                Value<String?> title = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion.insert(
                 id: id,
@@ -1434,6 +1503,7 @@ class $$RecordingsTableTableManager
                 errorMessage: errorMessage,
                 errorKind: errorKind,
                 waveform: waveform,
+                title: title,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

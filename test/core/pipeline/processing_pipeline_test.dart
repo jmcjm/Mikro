@@ -49,11 +49,12 @@ class FakeTranscription implements TranscriptionApi {
 
 class FakeTagging implements TaggingApi {
   Object? error;
+  String? title = 'Standup i release';
   @override
-  Future<List<String>> generateTags(
+  Future<RecordingMeta> generateMeta(
       {required String transcript, required ProviderConfig config}) async {
     if (error != null) throw error!;
-    return ['praca', 'notatki'];
+    return RecordingMeta(title: title, tags: const ['praca', 'notatki']);
   }
 }
 
@@ -78,7 +79,7 @@ class DelayedTranscription implements TranscriptionApi {
 class CountingFailingTagging implements TaggingApi {
   int calls = 0;
   @override
-  Future<List<String>> generateTags(
+  Future<RecordingMeta> generateMeta(
       {required String transcript, required ProviderConfig config}) async {
     calls++;
     throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
@@ -104,10 +105,10 @@ class StatusProbingTagging implements TaggingApi {
   final String recordingId;
   RecordingStatus? statusDuringCall;
   @override
-  Future<List<String>> generateTags(
+  Future<RecordingMeta> generateMeta(
       {required String transcript, required ProviderConfig config}) async {
     statusDuringCall = (await db.getRecording(recordingId))?.status;
-    return ['praca'];
+    return const RecordingMeta(title: 'Standup', tags: ['praca']);
   }
 }
 
@@ -135,7 +136,7 @@ class DatabaseKillingTagging implements TaggingApi {
   DatabaseKillingTagging(this.db);
   final AppDatabase db;
   @override
-  Future<List<String>> generateTags(
+  Future<RecordingMeta> generateMeta(
       {required String transcript, required ProviderConfig config}) async {
     await db.close();
     throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
@@ -173,8 +174,22 @@ void main() {
     expect(r!.status, RecordingStatus.done);
     expect(r.transcript, 'transkrypt testowy');
     expect(r.providerUsed, 's');
+    expect(r.title, 'Standup i release',
+        reason: 'tytul z tego samego wywolania co tagi ma wyladowac w bazie');
     final tags = (await db.watchAllWithTags().first).first.tags;
     expect(tags, containsAll(['praca', 'notatki']));
+  });
+
+  test('model bez tytulu: tagi zapisane, tytul zostaje NULL', () async {
+    // Brak tytulu jest poprawnym wynikiem — nie moze zablokowac zapisu tagow ani statusu.
+    tagger.title = null;
+    await insert('a');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+    final r = await db.getRecording('a');
+    expect(r!.status, RecordingStatus.done);
+    expect(r.title, isNull);
+    expect((await db.watchAllWithTags().first).first.tags, containsAll(['praca', 'notatki']));
   });
 
   test('brak konfiguracji -> error z rodzajem noConfig', () async {

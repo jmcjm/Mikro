@@ -26,6 +26,11 @@ class Recordings extends Table {
   /// karte bez slupkow zamiast zmyslac ksztalt.
   TextColumn get waveform => text().nullable()();
 
+  /// Krotki tytul nagrania, ktory model uklada razem z tagami (patrz `core/api/tagging_api.dart`).
+  /// NULL dla nagran sprzed schematu v4 oraz dla tych, przy ktorych model nie oddal sensownego
+  /// tytulu — UI ma wtedy wlasny opad: karta pokazuje transkrypt, naglowek nazwe rodzajowa.
+  TextColumn get title => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -57,7 +62,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -71,6 +76,11 @@ class AppDatabase extends _$AppDatabase {
           // wtedy nie mierzyl, a z gotowego m4a nie odtworzymy jej bez dekodowania audio.
           if (from < 3) {
             await m.addColumn(recordings, recordings.waveform);
+          }
+          // v3 -> v4: doklada title. Istniejace nagrania dostaja NULL — tytul powstaje przy
+          // tagowaniu, a przetworzonych nagran nie wysylamy do modelu drugi raz tylko po nazwe.
+          if (from < 4) {
+            await m.addColumn(recordings, recordings.title);
           }
         },
         beforeOpen: (details) async {
@@ -111,6 +121,13 @@ class AppDatabase extends _$AppDatabase {
           errorMessage: Value(errorMessage),
           errorKind: Value(errorKind),
         ),
+      );
+
+  /// Tytul zapisujemy osobno od tagow: siedzi w wierszu nagrania, a tagi w tabeli obok.
+  /// `null` jest poprawna wartoscia — model nie zawsze oddaje tytul nadajacy sie do pokazania.
+  Future<void> setTitle(String id, String? title) =>
+      (update(recordings)..where((r) => r.id.equals(id))).write(
+        RecordingsCompanion(title: Value(title)),
       );
 
   Future<void> setTranscript(String id, String transcript, String providerUsed) =>

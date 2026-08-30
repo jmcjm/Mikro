@@ -5,6 +5,18 @@ import 'package:dio/dio.dart';
 import '../models/provider_config.dart';
 import 'api_errors.dart';
 
+/// Co model uklada o nagraniu w jednym przebiegu: krotki tytul i tagi.
+///
+/// Tytul jest polem miekkim — `null` znaczy "model nie oddal niczego, co da sie pokazac"
+/// i jest calkowicie poprawnym wynikiem. UI ma na ten przypadek wlasny opad, a wymuszanie
+/// tytulu ponowieniem kosztowaloby tagi, ktore model zwrocil poprawnie.
+class RecordingMeta {
+  const RecordingMeta({required this.title, required this.tags});
+
+  final String? title;
+  final List<String> tags;
+}
+
 class TaggingApi {
   TaggingApi(this._dio);
 
@@ -16,29 +28,36 @@ class TaggingApi {
   /// i tnie wynik po sparsowaniu.
   static const maxTags = 5;
 
+  /// Gorny limit dlugosci tytulu. Tak samo jak przy tagach: liczba idzie do promptu ORAZ
+  /// tnie wynik, bo naglowek karty i panelu ma jedna linie, a nie akapit.
+  static const maxTitleChars = 60;
+
   // Prompt po angielsku celowo. Instrukcja po polsku ciagnela model do polskich tagow
-  // niezaleznie od jezyka nagrania, a aplikacja idzie w l10n — jezyk tagow ma isc
+  // niezaleznie od jezyka nagrania, a aplikacja idzie w l10n — jezyk tytulu i tagow ma isc
   // za transkryptem, nie za jezykiem instrukcji.
   static const _systemPrompt =
-      'You label a transcript of a voice note. Return ONLY a JSON array of at '
-      'most $maxTags short tags (1-3 words each), lowercase, written in the '
-      'same language as the transcript. Tag only what the recording is '
+      'You label a transcript of a voice note. Return ONLY a JSON object with '
+      'exactly two keys: "title" and "tags", both written in the same language '
+      'as the transcript. "title" is a short specific headline for this '
+      'recording, at most $maxTitleChars characters, naming what the recording '
+      'is actually about. "tags" is an array of at most $maxTags short tags '
+      '(1-3 words each), lowercase. Tag only what the recording is '
       'specifically about: concrete topics, proper names, projects, people, '
-      'places, events, technical terms. Never return generic labels that would '
-      'fit any recording whatsoever, such as "note", "recording", '
+      'places, events, technical terms. Never return generic labels or titles '
+      'that would fit any recording whatsoever, such as "note", "recording", '
       '"conversation", "audio", "voice", "thoughts", or their equivalents in '
       'the language of the transcript. Fewer sharp tags beat filling the '
-      'limit; return [] when the transcript contains nothing specific. '
-      'No other text.';
+      'limit; return an empty array when the transcript contains nothing '
+      'specific. No other text.';
 
-  Future<List<String>> generateTags(
+  Future<RecordingMeta> generateMeta(
       {required String transcript, required ProviderConfig config}) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       final content = await _chat(transcript, config);
-      final tags = parseTags(content);
-      if (tags != null) return tags;
+      final meta = parseMeta(content);
+      if (meta != null) return meta;
     }
-    throw MikroApiException(ApiErrorKind.badTags, 'tag list unparsable');
+    throw MikroApiException(ApiErrorKind.badTags, 'meta object unparsable');
   }
 
   Future<String> _chat(String transcript, ProviderConfig config) async {
@@ -88,32 +107,54 @@ class TaggingApi {
     return message['content'];
   }
 
-  /// Limit [maxTags] egzekwujemy tutaj, nie tylko w prompcie: prompt to prosba, ktora model
-  /// potrafi zignorowac, a pipeline zapisuje do bazy wszystko, co dostanie.
-  static List<String>? parseTags(String content) {
+  /// Wyluskuje obiekt `{"title": ..., "tags": [...]}` z tego, co oddal model.
+  ///
+  /// `null` znaczy "ta odpowiedz nie nadaje sie do uzycia" i uruchamia ponowienie. Dotyczy to
+  /// takze samej tablicy tagow — do schematu v4 byla poprawnym ksztaltem, teraz jest zepsutym
+  /// outputem, bo po cichu gubilaby tytul.
+  static RecordingMeta? parseMeta(String content) {
     var s = content.trim();
     final fence = RegExp(r'^```[a-z]*\s*([\s\S]*?)\s*```$').firstMatch(s);
     if (fence != null) s = fence.group(1)!.trim();
-    final start = s.indexOf('[');
-    final end = s.lastIndexOf(']');
+    final start = s.indexOf('{');
+    final end = s.lastIndexOf('}');
     if (start == -1 || end <= start) return null;
     try {
       final decoded = jsonDecode(s.substring(start, end + 1));
-      if (decoded is! List) return null;
-      // Puste [] to swiadoma odpowiedz "nie ma tu nic konkretnego" i leci dalej bez ponawiania.
-      // Lista, ktora dopiero po odsianiu smieci robi sie pusta, to zepsuty output modelu — null,
-      // czyli druga proba. Te dwie sciezki nie moga sie skleic.
-      if (decoded.isEmpty) return const [];
-      final tags = decoded
-          .whereType<String>()
-          .map((t) => t.trim().toLowerCase())
-          .where((t) => t.isNotEmpty)
-          .toSet()
-          .take(maxTags)
-          .toList();
-      return tags.isEmpty ? null : tags;
+      if (decoded is! Map) return null;
+      final tags = _parseTags(decoded['tags']);
+      if (tags == null) return null;
+      return RecordingMeta(title: _parseTitle(decoded['title']), tags: tags);
     } on FormatException {
       return null;
     }
+  }
+
+  /// Limit [maxTags] egzekwujemy tutaj, nie tylko w prompcie: prompt to prosba, ktora model
+  /// potrafi zignorowac, a pipeline zapisuje do bazy wszystko, co dostanie.
+  static List<String>? _parseTags(Object? raw) {
+    if (raw is! List) return null;
+    // Puste [] to swiadoma odpowiedz "nie ma tu nic konkretnego" i leci dalej bez ponawiania.
+    // Lista, ktora dopiero po odsianiu smieci robi sie pusta, to zepsuty output modelu — null,
+    // czyli druga proba. Te dwie sciezki nie moga sie skleic.
+    if (raw.isEmpty) return const [];
+    final tags = raw
+        .whereType<String>()
+        .map((t) => t.trim().toLowerCase())
+        .where((t) => t.isNotEmpty)
+        .toSet()
+        .take(maxTags)
+        .toList();
+    return tags.isEmpty ? null : tags;
+  }
+
+  /// Tytul do jednej linii i do [maxTitleChars] znakow. Brak tytulu nie jest bledem, wiec
+  /// kazdy ksztalt, ktorego nie da sie pokazac, konczy jako `null` — nie jako ponowienie.
+  static String? _parseTitle(Object? raw) {
+    if (raw is! String) return null;
+    final oneLine = raw.replaceAll(RegExp(r'\s+'), ' ').trim();
+    if (oneLine.isEmpty) return null;
+    if (oneLine.length <= maxTitleChars) return oneLine;
+    return oneLine.substring(0, maxTitleChars).trimRight();
   }
 }
