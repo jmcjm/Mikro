@@ -9,6 +9,7 @@ import 'api/transcription_api.dart';
 import 'audio/mikro_recorder.dart';
 import 'db/database.dart';
 import 'pipeline/processing_pipeline.dart';
+import 'search/search_service.dart';
 import 'settings/settings_repository.dart';
 
 final sharedPrefsProvider =
@@ -58,3 +59,16 @@ final pipelineProvider = Provider<ProcessingPipeline>((ref) => ProcessingPipelin
 
 final recordingsStreamProvider = StreamProvider<List<RecordingWithTags>>(
     (ref) => ref.watch(databaseProvider).watchAllWithTags());
+
+final searchQueryProvider = StateProvider<String>((ref) => '');
+final tagFilterProvider = StateProvider<String?>((ref) => null);
+final searchServiceProvider = Provider<SearchService>((ref) => SearchService());
+
+final filteredRecordingsProvider = Provider<List<RecordingWithTags>>((ref) {
+  final all = ref.watch(recordingsStreamProvider).value ?? [];
+  return ref.watch(searchServiceProvider).search(
+        all,
+        query: ref.watch(searchQueryProvider),
+        tag: ref.watch(tagFilterProvider),
+      );
+});

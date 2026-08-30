@@ -12,20 +12,46 @@ class LibraryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recordings = ref.watch(recordingsStreamProvider);
+    final loading = ref.watch(recordingsStreamProvider).isLoading;
+    final items = ref.watch(filteredRecordingsProvider);
+    final tagFilter = ref.watch(tagFilterProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Biblioteka')),
-      // SEARCH-HOOK: Task 12 dodaje tu pasek wyszukiwania i filtr tagow
-      body: recordings.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Błąd bazy: $e')),
-        data: (items) => items.isEmpty
-            ? const Center(child: Text('Brak nagrań — nagraj coś.'))
-            : ListView.builder(
-                itemCount: items.length,
-                itemBuilder: (context, i) => RecordingCard(item: items[i]),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.all(8),
+          child: TextField(
+            decoration: const InputDecoration(
+              prefixIcon: Icon(Icons.search),
+              hintText: 'Szukaj w transkryptach i tagach…',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            onChanged: (v) => ref.read(searchQueryProvider.notifier).state = v,
+          ),
+        ),
+        if (tagFilter != null)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: InputChip(
+                label: Text('tag: $tagFilter'),
+                onDeleted: () => ref.read(tagFilterProvider.notifier).state = null,
               ),
-      ),
+            ),
+          ),
+        Expanded(
+          child: loading
+              ? const Center(child: CircularProgressIndicator())
+              : items.isEmpty
+                  ? const Center(child: Text('Nic nie znaleziono.'))
+                  : ListView.builder(
+                      itemCount: items.length,
+                      itemBuilder: (context, i) => RecordingCard(item: items[i]),
+                    ),
+        ),
+      ]),
     );
   }
 }
@@ -61,8 +87,7 @@ class RecordingCard extends ConsumerWidget {
                     ActionChip(
                       label: Text(tag, style: const TextStyle(fontSize: 11)),
                       visualDensity: VisualDensity.compact,
-                      // SEARCH-HOOK: Task 12 podpina tu filtr taga
-                      onPressed: () {},
+                      onPressed: () => ref.read(tagFilterProvider.notifier).state = tag,
                     ),
                 ],
               ),
