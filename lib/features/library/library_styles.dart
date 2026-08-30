@@ -145,34 +145,39 @@ class TagChip extends StatelessWidget {
             // Krzyzyk niesie wlasny padding, wiec przy nim chip nie potrzebuje pelnego.
             right: onDelete != null ? 4 : (dense ? 10 : 12),
           ),
-          alignment: Alignment.center,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: dense ? 12 : 14,
-                  fontWeight: FontWeight.w500,
-                  color: scheme.onSecondaryContainer,
-                ),
-              ),
-              if (onDelete != null)
-                Tooltip(
-                  message: l10n.detailRemoveTagTooltip,
-                  // Sam krzyzyk jest celem dotyku, nie caly chip: stukniecie w nazwe tagu
-                  // nie moze kasowac czegos, co uzytkownik chcial tylko przeczytac.
-                  child: InkResponse(
-                    onTap: onDelete,
-                    radius: 16,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                      child: Icon(Symbols.close_rounded,
-                          fill: 1, size: 16, color: scheme.onSecondaryContainer),
-                    ),
+          // Center z widthFactor 1 centruje tresc w pionie, ale szerokosc bierze
+          // od dziecka. Container.alignment robilby to samo w pionie, tyle ze przy
+          // ograniczonych constraints (np. w Wrap) rozciaga chip na cala szerokosc.
+          child: Center(
+            widthFactor: 1,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: dense ? 12 : 14,
+                    fontWeight: FontWeight.w500,
+                    color: scheme.onSecondaryContainer,
                   ),
                 ),
-            ],
+                if (onDelete != null)
+                  Tooltip(
+                    message: l10n.detailRemoveTagTooltip,
+                    // Sam krzyzyk jest celem dotyku, nie caly chip: stukniecie w nazwe tagu
+                    // nie moze kasowac czegos, co uzytkownik chcial tylko przeczytac.
+                    child: InkResponse(
+                      onTap: onDelete,
+                      radius: 16,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                        child: Icon(Symbols.close_rounded,
+                            fill: 1, size: 16, color: scheme.onSecondaryContainer),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
       ),
