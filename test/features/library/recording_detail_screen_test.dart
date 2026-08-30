@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers_platform_interface/audioplayers_platform_interface.dart';
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -14,8 +15,30 @@ import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
+import 'package:mikro/l10n/app_localizations_en.dart';
 
 import '../../support/l10n_harness.dart';
+
+/// Globalna warstwa audioplayers bez kanalu platformowego. Liczy sie tu przede wszystkim to,
+/// ze to INNA instancja niz poprzednio: `ensureInitialized` porownuje ja z zapamietana i po
+/// zmianie przechodzi inicjacje jeszcze raz, w strefie biezacego testu. Przy okazji `init`
+/// wraca od razu, bez rundy po kanale.
+class _FakeGlobalPlatform extends GlobalAudioplayersPlatformInterface {
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<void> setGlobalAudioContext(AudioContext ctx) async {}
+
+  @override
+  Future<void> emitGlobalLog(String message) async {}
+
+  @override
+  Future<void> emitGlobalError(String code, String message) async {}
+
+  @override
+  Stream<GlobalAudioEvent> getGlobalEventStream() => const Stream.empty();
+}
 
 /// Blad z przewidywalnym toString: banner sklada komunikat wprost z niego, wiec test moze
 /// porownac cale zdanie zamiast szukac fragmentu.
@@ -27,7 +50,23 @@ class _FakeDbError {
 void main() {
   late AppDatabase db;
 
-  setUp(() => db = AppDatabase.forTesting(NativeDatabase.memory()));
+  /// Dziennik wywolan kanalu odtwarzacza, w kolejnosci, w jakiej ekran je wyslal. Testy
+  /// przewijania i predkosci patrza wlasnie tu: to jedyne miejsce, w ktorym widac, ILE RAZY
+  /// karta naprawde ruszyla odtwarzacz.
+  final playerCalls = <MethodCall>[];
+
+  setUp(() {
+    playerCalls.clear();
+    db = AppDatabase.forTesting(NativeDatabase.memory());
+    // Globalna inicjacja audioplayers przebiega RAZ na proces, a Completer, na ktory czeka
+    // kazdy rozkaz dla odtwarzacza, zostaje w strefie tego testu, ktory ja odpalil. W kazdym
+    // nastepnym tescie ten future jest wprawdzie spelniony, ale jego kontynuacje ida do
+    // kolejki martwej strefy — nikt ich nie przekreca, wiec seek czy setPlaybackRate nigdy
+    // nie dochodzi do kanalu. Swiezy globalny interfejs platformy wymusza inicjacje od nowa,
+    // juz w strefie biezacego testu. Bez tego kazdy test rozkazow dla odtwarzacza musialby
+    // byc pierwszy w pliku.
+    GlobalAudioplayersPlatformInterface.instance = _FakeGlobalPlatform();
+  });
   tearDown(() => db.close());
 
   Future<void> insert(String id, {String? waveform}) => db.insertRecording(
@@ -42,11 +81,42 @@ void main() {
   /// `init` na kanale globalnym i podpina sie pod jego strumien zdarzen. Bez zaslepki te
   /// wywolania wracaja jako MissingPluginException — czasem juz po zakonczeniu testu, co robi
   /// z tego migoczaca awarie zaleznie od obciazenia maszyny.
+  ///
+  /// Zaslepka zapisuje wywolania do [playerCalls] i UDAJE potwierdzenie przewijania. To drugie
+  /// nie jest ozdobnikiem: `AudioPlayer.seek` czeka na zdarzenie `audio.onSeekComplete` z
+  /// kanalu zdarzen odtwarzacza i bez niego wisi az do wlasnego limitu czasu, zostawiajac
+  /// w tescie tykajacy timer. Kanal zdarzen ma w nazwie identyfikator odtwarzacza, wiec
+  /// zaslepiamy go dopiero wtedy, gdy ten identyfikator przyjdzie w wywolaniu `create`.
   void stubAudioPlayers(WidgetTester tester) {
     final messenger = tester.binding.defaultBinaryMessenger;
+    MockStreamHandlerEventSink? playerEvents;
+
+    void stubPlayerEvents(String playerId) {
+      final channel = EventChannel('xyz.luan/audioplayers/events/$playerId');
+      messenger.setMockStreamHandler(
+        channel,
+        MockStreamHandler.inline(onListen: (_, sink) {
+          // Cialo blokowe, a nie strzalka: `inline` koduje zwrocona wartosc jako odpowiedz
+          // kanalu, a sink nie ma jak przez niego przejsc.
+          playerEvents = sink;
+        }),
+      );
+      addTearDown(() => messenger.setMockStreamHandler(channel, null));
+    }
+
     for (final name in const ['xyz.luan/audioplayers', 'xyz.luan/audioplayers.global']) {
       final channel = MethodChannel(name);
-      messenger.setMockMethodCallHandler(channel, (call) async => null);
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        playerCalls.add(call);
+        final args = call.arguments as Map<Object?, Object?>?;
+        switch (call.method) {
+          case 'create':
+            stubPlayerEvents(args!['playerId']! as String);
+          case 'seek':
+            playerEvents?.success(<String, dynamic>{'event': 'audio.onSeekComplete'});
+        }
+        return null;
+      });
       addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
     }
     const events = EventChannel('xyz.luan/audioplayers.global/events');
@@ -54,12 +124,17 @@ void main() {
     addTearDown(() => messenger.setMockStreamHandler(events, null));
   }
 
-  Future<void> pumpDetail(WidgetTester tester, String id) async {
+  Future<void> pumpDetail(
+    WidgetTester tester,
+    String id, {
+    Locale locale = const Locale('pl'),
+  }) async {
     stubAudioPlayers(tester);
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: localizedApp(
         RecordingDetailScreen(recordingId: id),
+        locale: locale,
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
       ),
     ));
@@ -467,9 +542,10 @@ void main() {
 
     expect(bars(), findsNWidgets(kWaveformBuckets),
         reason: 'makieta ma $kWaveformBuckets slupkow');
-    expect(tester.getSize(bars().at(0)).height, 56, reason: 'pelna amplituda to caly pasek');
-    expect(tester.getSize(bars().at(1)).height, 28);
-    expect(tester.getSize(bars().at(2)).height, 14);
+    expect(tester.getSize(bars().at(0)).height, 64,
+        reason: 'pelna amplituda to caly pasek, a ten ma w karcie telefonu 64 px');
+    expect(tester.getSize(bars().at(1)).height, 32);
+    expect(tester.getSize(bars().at(2)).height, 16);
     expect(tester.getSize(bars().at(kWaveformBuckets - 1)).height, 2,
         reason: 'cisza zostaje widoczna jako kreska, inaczej w pasku byla by dziura');
 
@@ -519,6 +595,291 @@ void main() {
     await pumpDetail(tester, 'a');
 
     expect(tester.getSize(find.byType(AppBar)).height, 64);
+
+    await unmount(tester);
+  });
+
+  // --- przebieg jako powierzchnia przewijania, skoki o 10 s i predkosc (D2g) ---
+
+  /// Pozycje przewiniec w kolejnosci, w jakiej ekran wyslal je do odtwarzacza. Zaslepka kanalu
+  /// to jedyne miejsce, w ktorym widac, ILE RAZY karta go ruszyla — a o to chodzi w calej
+  /// dyscyplinie jednego seeku na gest.
+  List<int> seeks() => [
+        for (final call in playerCalls)
+          if (call.method == 'seek') (call.arguments as Map)['position'] as int,
+      ];
+
+  List<double> rates() => [
+        for (final call in playerCalls)
+          if (call.method == 'setPlaybackRate')
+            (call.arguments as Map)['playbackRate'] as double,
+      ];
+
+  /// Nagranie z pelnym przebiegiem. Wszystkie slupki tej samej wysokosci, bo te testy patrza
+  /// na podzial zagrane/niezagrane i na gesty, a nie na ksztalt obwiedni.
+  Future<void> insertWithWave(String id) async {
+    await insert(id, waveform: encodeWaveform(List.filled(kWaveformBuckets, 0.5)));
+    await db.setTranscript(id, 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus(id, RecordingStatus.done);
+  }
+
+  testWidgets('stukniecie w przebieg przewija dokladnie raz', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byType(WaveformSeekBar));
+    await tester.pump();
+    await tester.pump();
+
+    expect(seeks().length, 1, reason: 'stukniecie to jeden seek, nie seria');
+    expect(seeks().single, closeTo(207000 / 2, 300),
+        reason: 'srodek paska to polowa nagrania');
+
+    await unmount(tester);
+  });
+
+  testWidgets('przeciaganie po przebiegu przewija raz, na koncu gestu', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    final bar = tester.getRect(find.byType(WaveformBars));
+    await tester.drag(find.byType(WaveformSeekBar), const Offset(60, 0));
+    await tester.pump();
+    await tester.pump();
+
+    expect(seeks().length, 1,
+        reason: 'przeciaganie prowadzi sam kursor; odtwarzacz rusza sie raz, na koncu gestu');
+    expect(seeks().single, closeTo((bar.width / 2 + 60) / bar.width * 207000, 300),
+        reason: 'seek idzie tam, gdzie palec skonczyl, a nie tam, gdzie zaczal');
+
+    await unmount(tester);
+  });
+
+  testWidgets('przebieg zastepuje suwak pozycji', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(WaveformSeekBar), findsOneWidget);
+    expect(find.byType(Slider), findsNothing,
+        reason: 'po redesignie przewija sie po slupkach, osobnego toru z uchwytem juz nie ma');
+
+    await unmount(tester);
+  });
+
+  testWidgets('nagranie bez przebiegu zostaje przy dotychczasowym suwaku', (tester) async {
+    await insert('a');
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(WaveformSeekBar), findsNothing);
+    expect(find.byType(Slider), findsOneWidget,
+        reason: 'obwiedni nie wolno zmyslac, a przewijac trzeba dac sie tak samo');
+
+    await tester.drag(find.byType(Slider), const Offset(100, 0));
+    await tester.pump();
+    await tester.pump();
+
+    expect(seeks().length, 1, reason: 'suwak tez przewija raz, na koncu gestu');
+
+    await unmount(tester);
+  });
+
+  testWidgets('slupki dziela sie na zagrane i niezagrane wedlug pozycji', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    final scheme = Theme.of(tester.element(find.byType(WaveformBars))).colorScheme;
+    final rest = scheme.outlineVariant.withValues(alpha: 0.75);
+    Color colorOf(int i) =>
+        (tester.widget<DecoratedBox>(bars().at(i)).decoration as BoxDecoration).color!;
+
+    expect(colorOf(0), rest, reason: 'przed przewinieciem zaden slupek nie jest zagrany');
+
+    await tester.tap(find.byType(WaveformSeekBar));
+    await tester.pump();
+    await tester.pump();
+
+    expect(colorOf(0), scheme.primary);
+    expect(colorOf(kWaveformBuckets ~/ 2 - 1), scheme.primary);
+    expect(colorOf(kWaveformBuckets - 1), rest,
+        reason: 'polowa nagrania zostawia druga polowe slupkow przygaszona');
+
+    await unmount(tester);
+  });
+
+  testWidgets('kursor stoi na pozycji i wystaje poza pas slupkow', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    // Kursor to jedyny DecoratedBox powierzchni przewijania spoza paska slupkow. W Stacku
+    // stoi PO nich, wiec w kolejnosci drzewa jest ostatni.
+    Finder cursor() => find
+        .descendant(of: find.byType(WaveformSeekBar), matching: find.byType(DecoratedBox))
+        .last;
+
+    final bar = tester.getRect(find.byType(WaveformBars));
+    expect(tester.getSize(cursor()).width, 4);
+    expect(tester.getSize(cursor()).height, bar.height + 8,
+        reason: 'makieta: top:-4 i bottom:-4 wzgledem pasa slupkow');
+    expect(tester.getRect(cursor()).left, bar.left,
+        reason: 'na poczatku nagrania kursor jest wciagniety w pas, nie wisi polowa obok');
+
+    await tester.tap(find.byType(WaveformSeekBar));
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.getRect(cursor()).center.dx, closeTo(bar.center.dx, 1),
+        reason: 'po stuknieciu w srodek kursor staje w srodku');
+
+    await unmount(tester);
+  });
+
+  testWidgets('czasy ida za przewinieciem', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    expect(find.text('0:00'), findsOneWidget);
+
+    await tester.tap(find.byType(WaveformSeekBar));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('1:43'), findsOneWidget, reason: 'polowa z 3:27');
+    expect(find.text('3:27'), findsOneWidget, reason: 'dlugosc nagrania sie nie rusza');
+
+    await unmount(tester);
+  });
+
+  testWidgets('skoki o 10 s trzymaja sie granic nagrania i dzialaja bez odtwarzania',
+      (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    Future<void> tapAction(String tooltip) async {
+      await tester.tap(find.byTooltip(tooltip));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    await tapAction(plL10n.detailForwardTooltip);
+    expect(seeks(), [10000],
+        reason: 'nic nie gra, a skok i tak przestawia miejsce startu');
+
+    await tapAction(plL10n.detailRewindTooltip);
+    expect(seeks(), [10000, 0]);
+
+    await tapAction(plL10n.detailRewindTooltip);
+    expect(seeks(), [10000, 0, 0], reason: 'przed zerem nie ma dokad cofac');
+
+    await unmount(tester);
+  });
+
+  testWidgets('pigulka predkosci cykluje etykiete i melduje sie odtwarzaczowi', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+
+    Future<void> tapPill() async {
+      await tester.tap(find.byTooltip(plL10n.detailSpeedTooltip));
+      await tester.pump();
+      await tester.pump();
+    }
+
+    expect(find.text(plL10n.detailSpeedLabel('1,0')), findsOneWidget);
+    await tapPill();
+    expect(find.text(plL10n.detailSpeedLabel('1,25')), findsOneWidget);
+    await tapPill();
+    expect(find.text(plL10n.detailSpeedLabel('1,5')), findsOneWidget);
+    await tapPill();
+    expect(find.text(plL10n.detailSpeedLabel('2,0')), findsOneWidget);
+    await tapPill();
+    expect(find.text(plL10n.detailSpeedLabel('1,0')), findsOneWidget,
+        reason: 'po ostatnim kroku cykl wraca na poczatek');
+
+    expect(rates(), [1.25, 1.5, 2.0, 1.0],
+        reason: 'kazde stukniecie melduje predkosc odtwarzaczowi, bez pomijania krokow');
+
+    await unmount(tester);
+  });
+
+  testWidgets('etykieta predkosci idzie za jezykiem interfejsu', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a', locale: const Locale('en'));
+
+    expect(find.text(AppLocalizationsEn().detailSpeedLabel('1.0')), findsOneWidget,
+        reason: 'po angielsku separatorem dziesietnym jest kropka, nie przecinek');
+
+    await unmount(tester);
+  });
+
+  // --- panel szerokiego ukladu ---
+
+  /// Panel w szerokosci, jaka dostaje przy samym progu ukladu szerokiego: okno 840 px minus
+  /// 80 px railu i 400 px listy zostawia mu 360 px. Wiersz transportu ma sie w tym zmiescic —
+  /// przepelniony Row melduje blad i test pada.
+  Future<void> pumpPanel(WidgetTester tester, String id) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    stubAudioPlayers(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: localizedApp(
+        Scaffold(
+          body: RecordingDetailView(recordingId: id, chrome: DetailChrome.panel),
+        ),
+        theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
+      ),
+    ));
+    await tester.pump();
+    await tester.pump();
+  }
+
+  testWidgets('panel: nizszy pas, wiersz transportu i pigulka mieszcza sie przy progu',
+      (tester) async {
+    await insertWithWave('a');
+
+    await pumpPanel(tester, 'a');
+
+    expect(tester.getSize(find.byType(WaveformBars)).height, 52,
+        reason: 'makieta desktopowa ma pas 52 px, nizszy niz 64 px karty telefonu');
+    expect(find.byTooltip(plL10n.detailRewindTooltip), findsOneWidget);
+    expect(find.byTooltip(plL10n.detailForwardTooltip), findsOneWidget);
+    expect(find.text(plL10n.detailSpeedLabel('1,0')), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('panel: przewijanie, skoki i predkosc dzialaja jak na telefonie', (tester) async {
+    await insertWithWave('a');
+
+    await pumpPanel(tester, 'a');
+
+    await tester.tap(find.byType(WaveformSeekBar));
+    await tester.pump();
+    await tester.pump();
+    expect(seeks().length, 1);
+    expect(seeks().single, closeTo(207000 / 2, 300));
+
+    await tester.tap(find.byTooltip(plL10n.detailForwardTooltip));
+    await tester.pump();
+    await tester.pump();
+    expect(seeks().last, closeTo(207000 / 2 + 10000, 300),
+        reason: 'skok liczy sie od pozycji, na ktorej stoi kursor');
+
+    await tester.tap(find.byTooltip(plL10n.detailSpeedTooltip));
+    await tester.pump();
+    await tester.pump();
+    expect(rates(), [1.25]);
+    expect(find.text(plL10n.detailSpeedLabel('1,25')), findsOneWidget,
+        reason: 'jedna predkosc na ekran, ta sama pigulka co na telefonie');
 
     await unmount(tester);
   });
