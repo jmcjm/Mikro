@@ -237,23 +237,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: Row(
-              children: [
-                Icon(Symbols.lock_rounded,
-                    fill: 1, size: 16, color: colors.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    l10n.settingsKeyStorage,
-                    style: TextStyle(fontSize: 12, color: colors.onSurfaceVariant),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
           TextField(
             controller: _sttModel,
             style: _monoValueStyle(colors),

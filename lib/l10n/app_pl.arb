@@ -267,10 +267,6 @@
   "@settingsHideKey": {
     "description": "Podpowiedz ikony ukrywajacej klucz API."
   },
-  "settingsKeyStorage": "Trzymany w keystore systemu, nie w SharedPreferences",
-  "@settingsKeyStorage": {
-    "description": "Objasnienie pod polem klucza API. SharedPreferences to nazwa klasy i zostaje nietlumaczona."
-  },
   "settingsSttModel": "Model STT",
   "@settingsSttModel": {
     "description": "Etykieta pola z nazwa modelu transkrypcji."

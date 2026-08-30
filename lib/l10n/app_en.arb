@@ -66,7 +66,6 @@
   "settingsApiKey": "API key",
   "settingsShowKey": "Show key",
   "settingsHideKey": "Hide key",
-  "settingsKeyStorage": "Kept in the system keystore, not in SharedPreferences",
   "settingsSttModel": "STT model",
   "settingsTagModel": "Tagging model",
   "settingsSave": "Save",
