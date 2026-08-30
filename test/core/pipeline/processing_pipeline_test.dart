@@ -402,12 +402,21 @@ void main() {
     await pipeline.idle;
   }
 
+  /// Podpina pipeline do sztucznego strumienia lacznosci i oddaje kontroler, zeby test mogl
+  /// podawac kolejne stany. `startOnline` odwzorowuje to, co plugin odpowie przy starcie —
+  /// od tego zalezy, czy zastane bledy sieciowe wznawia rekoncyliacja startowa.
+  Future<StreamController<bool>> watch({required bool startOnline}) async {
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    await pipeline.watchConnectivity(
+        onlineChanges: connectivity.stream, isOnline: () async => startOnline);
+    return connectivity;
+  }
+
   test('powrot sieci wznawia bledy sieciowe i zalegla kolejke', () async {
     await insertFailed('siec', 'network');
     await insert('wkolejce');
-    final connectivity = StreamController<bool>();
-    addTearDown(connectivity.close);
-    pipeline.bindConnectivity(connectivity.stream);
+    final connectivity = await watch(startOnline: false);
 
     connectivity.add(false);
     connectivity.add(true);
@@ -419,9 +428,7 @@ void main() {
 
   test('powrot sieci NIE wznawia bledu autoryzacji', () async {
     await insertFailed('auth', 'auth');
-    final connectivity = StreamController<bool>();
-    addTearDown(connectivity.close);
-    pipeline.bindConnectivity(connectivity.stream);
+    final connectivity = await watch(startOnline: false);
 
     connectivity.add(false);
     connectivity.add(true);
@@ -434,9 +441,7 @@ void main() {
 
   test('dwa powroty sieci nie przetwarzaja nagrania dwa razy', () async {
     await insertFailed('siec', 'network');
-    final connectivity = StreamController<bool>();
-    addTearDown(connectivity.close);
-    pipeline.bindConnectivity(connectivity.stream);
+    final connectivity = await watch(startOnline: false);
 
     connectivity.add(false);
     connectivity.add(true);
@@ -449,10 +454,10 @@ void main() {
   });
 
   test('samo trwanie online, bez przejscia offline->online, niczego nie wznawia', () async {
+    final connectivity = await watch(startOnline: true);
+    // Wiersz pojawia sie dopiero PO rekoncyliacji startowej, wiec jedynym kandydatem na
+    // wznowienie zostaje strumien — a ten emituje wylacznie "online".
     await insertFailed('siec', 'network');
-    final connectivity = StreamController<bool>();
-    addTearDown(connectivity.close);
-    pipeline.bindConnectivity(connectivity.stream);
 
     connectivity.add(true);
     connectivity.add(true);
@@ -461,5 +466,105 @@ void main() {
     expect((await db.getRecording('siec'))!.status, RecordingStatus.error,
         reason: 'wznawiamy na ZBOCZU powrotu sieci, nie przy kazdej emisji strumienia');
     expect(stt.calls, 0);
+  });
+
+  // --- rekoncyliacja startowa (D2c, runda fix 1) ---
+
+  test('start juz-online wznawia zastany blad sieciowy', () async {
+    await insertFailed('siec', 'network');
+    // Sesja, ktora startuje z siecia, nie zobaczy zadnego zbocza offline->online. Bez
+    // rekoncyliacji nagranie wisialoby do konca swiata albo do recznego "Ponow".
+    await watch(startOnline: true);
+    await settleConnectivity();
+
+    expect((await db.getRecording('siec'))!.status, RecordingStatus.done);
+    expect(stt.calls, 1,
+        reason: 'design obiecuje wznowienie po powrocie sieci takze wtedy, gdy siec wrocila '
+            'przy wylaczonej aplikacji');
+  });
+
+  test('start offline nie wznawia; wznawia dopiero powrot sieci', () async {
+    await insertFailed('siec', 'network');
+    final connectivity = await watch(startOnline: false);
+    await settleConnectivity();
+
+    expect(stt.calls, 0, reason: 'bez sieci ponowienie tylko powtorzyloby ten sam blad');
+
+    // Zadnego "add(false)" — stan offline ustalila juz rekoncyliacja startowa, wiec pierwsze
+    // "online" ze strumienia jest pelnoprawnym zboczem.
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect((await db.getRecording('siec'))!.status, RecordingStatus.done);
+    expect(stt.calls, 1);
+  });
+
+  test('szybkie zbocze tuz po starcie online nie wznawia dwa razy', () async {
+    await insertFailed('siec', 'network');
+    final connectivity = await watch(startOnline: true);
+
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect(stt.calls, 1,
+        reason: 'rekoncyliacja startowa i zbocze to jedna sciezka, chroniona flaga i dedupem');
+  });
+
+  test('bledny odczyt stanu lacznosci nie wywraca startu ani nasluchu', () async {
+    await insertFailed('siec', 'network');
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+
+    await expectLater(
+        pipeline.watchConnectivity(
+            onlineChanges: connectivity.stream,
+            isOnline: () async => throw StateError('plugin lacznosci niedostepny')),
+        completes,
+        reason: 'main odpala to bez await — rzut tutaj bylby nieobsluzonym bledem przy starcie');
+
+    connectivity.add(false);
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect(stt.calls, 1, reason: 'nasluch podpina sie przed odczytem, wiec zbocze i tak dziala');
+  });
+
+  test('stan ze strumienia wygrywa ze starszym odczytem startowym', () async {
+    final connectivity = StreamController<bool>();
+    addTearDown(connectivity.close);
+    final odczyt = Completer<bool>();
+
+    final start = pipeline.watchConnectivity(
+        onlineChanges: connectivity.stream, isOnline: () => odczyt.future);
+    // Siec pada w TRAKCIE odczytu startowego: strumien wie wiecej niz zapytanie zadane
+    // wczesniej, wiec jego odpowiedz nie moze zostac nadpisana przestarzalym wynikiem.
+    await pumpEventQueue();
+    connectivity.add(false);
+    await pumpEventQueue();
+    odczyt.complete(true);
+    await start;
+    await settleConnectivity();
+
+    await insertFailed('siec', 'network');
+    connectivity.add(true);
+    await settleConnectivity();
+
+    expect(stt.calls, 1,
+        reason: 'gdyby przestarzaly odczyt ustawil stan na online, powrot sieci nie bylby zboczem');
+  });
+
+  test('ponowne podpiecie porzuca poprzednie zrodlo lacznosci', () async {
+    await insertFailed('siec', 'network');
+    final stare = await watch(startOnline: false);
+    final nowe = await watch(startOnline: false);
+
+    stare.add(true);
+    await settleConnectivity();
+    expect(stt.calls, 0, reason: 'porzucona subskrypcja nie steruje juz pipelinem');
+
+    nowe.add(true);
+    await settleConnectivity();
+    expect(stt.calls, 1);
   });
 }

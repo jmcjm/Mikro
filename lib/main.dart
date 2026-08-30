@@ -16,10 +16,18 @@ Future<void> main() async {
     baseDirProvider.overrideWithValue(docsDir),
   ]);
   final pipeline = container.read(pipelineProvider);
+  final connectivity = container.read(connectivityServiceProvider);
   // Wznowienie po powrocie sieci podpinamy w bootstrapie, a nie w pipelineProvider — providers
-  // są wspólnym plikiem kilku równoległych nurtów pracy, a to wiązanie i tak należy do startu
-  // aplikacji, tak samo jak resumePending poniżej.
-  pipeline.bindConnectivity(container.read(connectivityServiceProvider).onlineChanges);
+  // to wspolny plik kilku rownoleglych nurtow pracy, a to wiazanie i tak nalezy do startu
+  // aplikacji, tak samo jak resumePending ponizej.
+  //
+  // Dwa wywolania, bo dotycza dwoch roznych rzeczy: resumePending podnosi statusy in-flight
+  // (recorded/transcribing/tagging) niezaleznie od sieci, a watchConnectivity uzgadnia stan
+  // lacznosci i wznawia bledy sieciowe — te sa bramkowane lacznoscia.
   pipeline.resumePending();
+  pipeline.watchConnectivity(
+    onlineChanges: connectivity.onlineChanges,
+    isOnline: connectivity.isOnline,
+  );
   runApp(UncontrolledProviderScope(container: container, child: const MikroApp()));
 }

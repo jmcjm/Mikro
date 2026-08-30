@@ -28,12 +28,12 @@ class ProcessingPipeline {
 
   StreamSubscription<bool>? _connectivitySub;
 
-  /// Ostatni znany stan łączności. Startujemy od `true`, bo pierwsze uruchomienie i tak
-  /// przechodzi przez [resumePending] — dzięki temu samo wejście online przy starcie nie
-  /// wywołuje drugiego, zbędnego wznowienia.
-  bool _wasOnline = true;
+  /// Ostatni znany stan lacznosci; `null` znaczy "jeszcze nie ustalony". Rozroznienie jest
+  /// istotne: sesja, ktora startuje juz z siecia, nie zobaczy zadnego zbocza offline -> online,
+  /// wiec zastane bledy sieciowe musi wznowic rekoncyliacja startowa z [watchConnectivity].
+  bool? _wasOnline;
 
-  /// Strażnik przed nakładaniem się wznowień, gdy sieć mruga.
+  /// Straznik przed nakladaniem sie wznowien, gdy siec mruga.
   bool _resuming = false;
 
   Future<void> get idle => _queue;
@@ -48,33 +48,60 @@ class ProcessingPipeline {
         .catchError((Object _) {});
   }
 
-  /// Podpina monitorowanie łączności. Wznowienie odpala się na ZBOCZU offline -> online,
-  /// nie przy każdej emisji, więc utrzymujące się „online" nic nie robi.
+  /// Wlacza reagowanie na lacznosc: nasluchuje zmian ORAZ uzgadnia stan zastany przy starcie.
+  /// Jedyne wejscie uzywane w produkcji — obie sciezki koncza w tej samej [_resumeAll].
   ///
-  /// Przed zapętleniem przy mrugającej sieci chronią trzy rzeczy naraz i żadna nie wymaga
-  /// zegara: wykrywanie zbocza (samo „online" nie wystarczy), flaga [_resuming] (kolejne
-  /// zbocze w trakcie trwającego wznowienia jest pomijane) oraz istniejący dedup po `id`
-  /// w [enqueue]. Dzięki temu zachowanie jest deterministyczne i testowalne bez czekania
-  /// na upływ czasu.
-  void bindConnectivity(Stream<bool> onlineChanges) {
+  /// Kolejnosc jest celowa: najpierw subskrypcja, dopiero potem odczyt, wiec zmiana lacznosci
+  /// w trakcie odczytu nie ginie. Odczyt nie nadpisuje stanu, ktory zdazyl podac strumien
+  /// (`??=`) — strumien jest swiezszy niz zapytanie wystartowane wczesniej.
+  ///
+  /// Podwojne wznowienie przy szybkim zbociu tuz po starcie odpada samo: [_resumeAll] pilnuje
+  /// flagi [_resuming], a [enqueue] deduplikuje po `id`.
+  Future<void> watchConnectivity({
+    required Stream<bool> onlineChanges,
+    required Future<bool> Function() isOnline,
+  }) async {
+    _bindConnectivity(onlineChanges);
+    final bool online;
+    try {
+      online = await isOnline();
+    } catch (_) {
+      // Odczyt stanu lacznosci potrafi rzucic (brak uprawnien, kaprys platformy). Rekoncyliacja
+      // startowa jest best-effort: nasluch zbocza juz dziala i wznowi, gdy siec wroci.
+      return;
+    }
+    _wasOnline ??= online;
+    if (online) await _resumeAll();
+  }
+
+  /// Podpina sam nasluch. Wznowienie odpala sie na ZBOCZU offline -> online, nie przy kazdej
+  /// emisji, wiec utrzymujace sie "online" nic nie robi. Ponowne wywolanie zamyka poprzednia
+  /// subskrypcje, zeby jeden pipeline nie sluchal dwoch zrodel naraz.
+  ///
+  /// Przed zapetleniem przy mrugajacej sieci chronia trzy rzeczy naraz i zadna nie wymaga
+  /// zegara: wykrywanie zbocza (samo "online" nie wystarczy), flaga [_resuming] (kolejne
+  /// zbocze w trakcie trwajacego wznowienia jest pomijane) oraz istniejacy dedup po `id`
+  /// w [enqueue]. Dzieki temu zachowanie jest deterministyczne i testowalne bez czekania
+  /// na uplyw czasu.
+  void _bindConnectivity(Stream<bool> onlineChanges) {
     _connectivitySub?.cancel();
     _connectivitySub = onlineChanges.listen(_handleConnectivity);
   }
 
-  /// Zatrzymuje monitorowanie łączności. Kolejka i trwające przetwarzanie zostają nietknięte.
-  Future<void> stopWatchingConnectivity() async {
-    await _connectivitySub?.cancel();
-    _connectivitySub = null;
+  Future<void> _handleConnectivity(bool online) async {
+    final regained = online && _wasOnline == false;
+    _wasOnline = online;
+    if (!regained) return;
+    await _resumeAll();
   }
 
-  Future<void> _handleConnectivity(bool online) async {
-    final regained = online && !_wasOnline;
-    _wasOnline = online;
-    if (!regained || _resuming) return;
-
+  /// Jedyna sciezka wznawiania — wchodzi tu zarowno rekoncyliacja startowa, jak i zbocze
+  /// powrotu sieci.
+  Future<void> _resumeAll() async {
+    if (_resuming) return;
     _resuming = true;
     try {
-      // Najpierw nagrania, które utknęły konkretnie na sieci, potem cała zaległa kolejka.
+      // Najpierw nagrania, ktore utknely konkretnie na sieci, potem cala zalegla kolejka.
       for (final recording in await db.networkFailedRecordings()) {
         enqueue(recording.id);
       }
