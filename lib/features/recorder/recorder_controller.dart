@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../core/audio/waveform.dart';
 import '../../core/providers.dart';
 
 class RecorderState {
@@ -47,6 +48,11 @@ class RecorderController extends Notifier<RecorderState> {
   String? _currentId;
   String? _currentPath;
 
+  /// Kolejne odczyty amplitudy (0..1) z biezacego nagrania, jeden na ~200 ms. Przy stopie
+  /// redukuja sie do obwiedni zapisywanej razem z nagraniem. Godzina nagrania to niecale
+  /// 18 tys. liczb, wiec trzymanie ich w pamieci jest tansze niz dogrywanie do pliku.
+  final _amplitudeSamples = <double>[];
+
   @override
   RecorderState build() {
     ref.onDispose(_cleanup);
@@ -85,8 +91,12 @@ class RecorderController extends Notifier<RecorderState> {
         ..start();
       _ticker = Timer.periodic(const Duration(milliseconds: 250),
           (_) => state = state.copyWith(isRecording: true, elapsed: _stopwatch.elapsed));
-      _ampSub = recorder.amplitude().listen((a) => state = state.copyWith(
-          isRecording: true, elapsed: _stopwatch.elapsed, amplitude: a));
+      _amplitudeSamples.clear();
+      _ampSub = recorder.amplitude().listen((a) {
+        _amplitudeSamples.add(a);
+        state = state.copyWith(
+            isRecording: true, elapsed: _stopwatch.elapsed, amplitude: a);
+      });
       state = const RecorderState(isRecording: true);
     } finally {
       _starting = false;
@@ -98,11 +108,17 @@ class RecorderController extends Notifier<RecorderState> {
     _cleanup();
     await ref.read(recorderProvider).stop();
     final id = _currentId!;
+    // Pusta lista probek zapisuje sie jako NULL, a nie jako 44 zera: mikrofon, ktory nic nie
+    // oddal, to brak pomiaru, a nie zmierzona cisza. Ekran szczegolow rozroznia te dwie
+    // sytuacje i przy NULL nie rysuje slupkow.
+    final buckets = reduceToBuckets(_amplitudeSamples);
+    _amplitudeSamples.clear();
     await ref.read(databaseProvider).insertRecording(
           id: id,
           createdAt: DateTime.now().toUtc(),
           durationMs: _stopwatch.elapsedMilliseconds,
           audioPath: _currentPath!,
+          waveform: buckets.isEmpty ? null : encodeWaveform(buckets),
         );
     ref.read(pipelineProvider).enqueue(id);
     _currentId = null;

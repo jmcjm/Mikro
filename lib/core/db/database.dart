@@ -20,6 +20,12 @@ class Recordings extends Table {
   /// ponawianie tylko powtorzy — np. bledny klucz API.
   TextColumn get errorKind => text().nullable()();
 
+  /// Obwiednia amplitudy nagrania: tablica JSON z 44 wartosciami 0..1 (patrz
+  /// `core/audio/waveform.dart`). NULL dla nagran sprzed schematu v3 oraz dla takich,
+  /// przy ktorych mikrofon nie oddal ani jednej probki — ekran szczegolow rysuje wtedy
+  /// karte bez slupkow zamiast zmyslac ksztalt.
+  TextColumn get waveform => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -51,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -60,6 +66,11 @@ class AppDatabase extends _$AppDatabase {
           // nie beda automatycznie wznawiane — nie wiemy, czy byly sieciowe.
           if (from < 2) {
             await m.addColumn(recordings, recordings.errorKind);
+          }
+          // v2 -> v3: doklada waveform. Istniejace nagrania dostaja NULL, bo obwiedni nikt
+          // wtedy nie mierzyl, a z gotowego m4a nie odtworzymy jej bez dekodowania audio.
+          if (from < 3) {
+            await m.addColumn(recordings, recordings.waveform);
           }
         },
         beforeOpen: (details) async {
@@ -72,6 +83,7 @@ class AppDatabase extends _$AppDatabase {
     required DateTime createdAt,
     required int durationMs,
     required String audioPath,
+    String? waveform,
   }) =>
       into(recordings).insert(RecordingsCompanion.insert(
         id: id,
@@ -79,6 +91,7 @@ class AppDatabase extends _$AppDatabase {
         durationMs: durationMs,
         audioPath: audioPath,
         status: RecordingStatus.recorded,
+        waveform: Value(waveform),
       ));
 
   Future<Recording?> getRecording(String id) =>

@@ -126,16 +126,16 @@ void main() {
 
   // --- schemat v2: errorKind (D2c) ---
 
-  test('swieza baza jest w wersji 2 i ma kolumne error_kind', () async {
+  test('swieza baza jest w wersji 3 i ma kolumny error_kind oraz waveform', () async {
     await insert('a');
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 2);
+    expect(version.data.values.first, 3);
 
     final columns = await db.customSelect('PRAGMA table_info(recordings)').get();
-    expect(columns.map((c) => c.data['name']), contains('error_kind'));
+    expect(columns.map((c) => c.data['name']), containsAll(['error_kind', 'waveform']));
   });
 
-  test('migracja v1 -> v2 doklada kolumne i nie gubi istniejacych nagran', () async {
+  test('migracja z v1 doklada kolumny i nie gubi istniejacych nagran', () async {
     // Ten test nie korzysta z bazy z setUp, a drift ostrzega, gdy dwie instancje AppDatabase
     // zyja rownoczesnie. Zamykamy ja, zeby log testow zostal czysty — tearDown zniesie
     // powtorne close().
@@ -167,7 +167,8 @@ void main() {
         reason: 'nie wiemy jakiego rodzaju byl stary blad, wiec zostaje nierozpoznany');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 2);
+    expect(version.data.values.first, 3,
+        reason: 'baza z v1 dochodzi jednym otwarciem do biezacego schematu');
   });
 
   test('updateStatus zapisuje errorKind i czysci go przy przejsciu na stan nie-bledowy',
@@ -207,5 +208,57 @@ void main() {
 
     expect(await db.watchQueueLength().first, 2,
         reason: 'jedno czeka w kolejce, jedno wisi na sieci; auth i done sie nie licza');
+  });
+
+  // --- schemat v3: waveform (D2f) ---
+
+  test('migracja v2 -> v3 doklada waveform, stare nagrania maja NULL', () async {
+    // Jak przy tescie v1 -> v2: zamykamy baze z setUp, zeby dwie instancje nie zyly naraz.
+    await db.close();
+
+    // Baza w ksztalcie v2 (jest error_kind, nie ma waveform, user_version = 2), zeby drift
+    // musial przejsc sciezka onUpgrade zamiast zbudowac schemat od zera.
+    final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
+      rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+          '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
+          '"transcript" TEXT NULL, "provider_used" TEXT NULL, "error_message" TEXT NULL, '
+          '"error_kind" TEXT NULL, PRIMARY KEY ("id"))');
+      rawDb.execute('CREATE TABLE "tags" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+          '"name" TEXT NOT NULL UNIQUE)');
+      rawDb.execute('CREATE TABLE "recording_tags" ("recording_id" TEXT NOT NULL '
+          'REFERENCES recordings (id) ON DELETE CASCADE, "tag_id" INTEGER NOT NULL '
+          'REFERENCES tags (id) ON DELETE CASCADE, PRIMARY KEY ("recording_id", "tag_id"))');
+      rawDb.execute("INSERT INTO recordings (id, created_at, duration_ms, audio_path, status, "
+          "transcript) VALUES ('stare', 0, 1000, '/stare.m4a', 'done', 'stara notatka')");
+      rawDb.execute('PRAGMA user_version = 2');
+    }));
+    addTearDown(legacy.close);
+
+    final migrated = await legacy.getRecording('stare');
+
+    expect(migrated, isNotNull, reason: 'migracja nie moze zgubic istniejacych nagran');
+    expect(migrated!.transcript, 'stara notatka');
+    expect(migrated.waveform, isNull,
+        reason: 'nagran sprzed v3 nikt nie mierzyl, wiec nie ma czego narysowac');
+
+    final version = await legacy.customSelect('PRAGMA user_version').getSingle();
+    expect(version.data.values.first, 3);
+
+    final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
+    expect(columns.map((c) => c.data['name']), contains('waveform'));
+  });
+
+  test('insertRecording zapisuje przebieg, a bez niego zostawia NULL', () async {
+    await db.insertRecording(
+      id: 'z-przebiegiem',
+      createdAt: DateTime.utc(2026, 8, 29),
+      durationMs: 1000,
+      audioPath: '/a.m4a',
+      waveform: '[0.1,0.5]',
+    );
+    await insert('bez-przebiegu');
+
+    expect((await db.getRecording('z-przebiegiem'))!.waveform, '[0.1,0.5]');
+    expect((await db.getRecording('bez-przebiegu'))!.waveform, isNull);
   });
 }

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mikro/core/audio/mikro_recorder.dart';
+import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/pipeline/processing_pipeline.dart';
@@ -192,5 +193,63 @@ void main() {
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isTrue,
         reason: 'po ustaniu awarii nagrywanie musi ruszyc');
+  });
+
+  // --- obwiednia amplitudy (D2f) ---
+
+  /// Probki jada strumieniem, wiec po `add()` trzeba oddac sterowanie petli zdarzen,
+  /// zanim kontroler zdazy je zobaczyc.
+  Future<void> pushAmplitudes(List<double> values) async {
+    for (final v in values) {
+      recorder.amplitudeController.add(v);
+    }
+    await Future<void>.delayed(Duration.zero);
+  }
+
+  test('stop zapisuje obwiednie zebrana z probek amplitudy', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+    await controller.startRecording();
+
+    // Cicha pierwsza polowa, glosna druga — po redukcji ma to zostac widoczne
+    // w ksztalcie kubelkow, a nie rozmyc sie w jedna wartosc.
+    await pushAmplitudes([...List.filled(22, 0.2), ...List.filled(22, 0.8)]);
+    await controller.stopRecording();
+
+    final saved = (await db.pendingRecordings()).single;
+    final buckets = decodeWaveform(saved.waveform);
+
+    expect(buckets, hasLength(kWaveformBuckets));
+    expect(buckets!.first, 0.2);
+    expect(buckets.last, 0.8);
+    expect(buckets.where((b) => b == 0.2), hasLength(22));
+    expect(buckets.where((b) => b == 0.8), hasLength(22));
+  });
+
+  test('nagranie bez ani jednej probki zapisuje NULL, a nie plaska linie', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+    await controller.startRecording();
+    await controller.stopRecording();
+
+    final saved = (await db.pendingRecordings()).single;
+    expect(saved.waveform, isNull,
+        reason: 'brak pomiaru to brak przebiegu — ekran ma pokazac stan pusty');
+  });
+
+  test('STRAZNIK: kolejne nagranie nie dziedziczy probek po poprzednim', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+
+    await controller.startRecording();
+    await pushAmplitudes(List.filled(10, 0.9));
+    await controller.stopRecording();
+    final firstId = (await db.pendingRecordings()).single.id;
+
+    await controller.startRecording();
+    await pushAmplitudes(List.filled(10, 0.1));
+    await controller.stopRecording();
+
+    final second =
+        (await db.pendingRecordings()).firstWhere((r) => r.id != firstId);
+    expect(decodeWaveform(second.waveform)!.every((b) => b == 0.1), isTrue,
+        reason: 'glosne probki z pierwszego nagrania nie moga wyciec do drugiego');
   });
 }
