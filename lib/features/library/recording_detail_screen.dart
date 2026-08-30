@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
@@ -106,11 +107,31 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     }
   }
 
+  /// Systemowy arkusz udostepniania istnieje tylko tam, gdzie share_plus ma natywna
+  /// implementacje. Na Linuksie wtyczka sklada `mailto:` i oddaje go url_launcherowi —
+  /// dyktafon otwieralby wtedy klienta poczty albo wywalal wyjatek, gdy zadnego nie ma.
+  /// Dlatego desktop dostaje uczciwy zamiennik: kopie transkryptu do schowka.
+  bool get _hasNativeShareSheet =>
+      Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
+
   Future<void> _copyTranscript(String transcript, {required String message}) async {
     final messenger = ScaffoldMessenger.of(context);
     await Clipboard.setData(ClipboardData(text: transcript));
     if (!mounted) return;
     messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _share(Recording recording) async {
+    final transcript = recording.transcript;
+    if (transcript == null) return;
+    if (_hasNativeShareSheet) {
+      await SharePlus.instance.share(ShareParams(
+        text: transcript,
+        subject: 'Mikro — ${formatDateTime(recording.createdAt)}',
+      ));
+      return;
+    }
+    await _copyTranscript(transcript, message: 'Skopiowano transkrypt do schowka.');
   }
 
   @override
@@ -132,6 +153,12 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
         title: const Text('Nagranie',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
         actions: [
+          if (r.transcript != null)
+            IconButton(
+              icon: Icon(Symbols.share_rounded, fill: 1, color: scheme.onSurfaceVariant),
+              tooltip: 'Udostępnij transkrypt',
+              onPressed: () => _share(r),
+            ),
           IconButton(
             icon: Icon(Symbols.delete_rounded, fill: 1, color: scheme.onSurfaceVariant),
             tooltip: 'Usuń',

@@ -88,7 +88,8 @@ void main() {
 
     expect(find.text('Transkrypcja…'), findsNWidgets(2)); // odznaka i podpis pod spinnerem
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    // Bez transkryptu nie ma czego kopiowac.
+    // Bez transkryptu nie ma czego udostepniac ani kopiowac.
+    expect(find.byIcon(Symbols.share_rounded), findsNothing);
     expect(find.byIcon(Symbols.content_copy_rounded), findsNothing);
 
     await unmount(tester);
@@ -111,6 +112,38 @@ void main() {
     await pumpDetail(tester, 'nie-ma-takiego');
 
     expect(find.text('Nagranie usunięte.'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('STRAZNIK: bez natywnego arkusza udostepnianie kopiuje do schowka',
+      (tester) async {
+    // Testy chodza na Linuksie, gdzie share_plus skladalby `mailto:` i oddawal go
+    // url_launcherowi. Ekran musi wtedy wejsc w zamiennik: schowek plus snackbar.
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await insert('a');
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['Notatka ze standupu']);
+    expect(find.text('Skopiowano transkrypt do schowka.'), findsOneWidget);
 
     await unmount(tester);
   });
