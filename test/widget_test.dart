@@ -9,6 +9,8 @@ import 'package:mikro/core/audio/mikro_recorder.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
+import 'package:mikro/features/onboarding/onboarding_providers.dart';
+import 'package:mikro/features/onboarding/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FakeRecorder implements MikroRecorder {
@@ -38,7 +40,8 @@ class FakeKeyStore implements KeyStore {
 
 void main() {
   testWidgets('apka sie buduje i ma trzy taby', (tester) async {
-    SharedPreferences.setMockInitialValues({});
+    // Flaga onboardingu podniesiona — ten test dotyczy powloki, nie pierwszego uruchomienia.
+    SharedPreferences.setMockInitialValues({onboardingCompletedKey: true});
     final prefs = await SharedPreferences.getInstance();
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
@@ -64,6 +67,31 @@ void main() {
     // reports as "A Timer is still pending". Unmounting here lets that timer be created while
     // the binding is still running. A bare pump() is not enough — the timer only fires once
     // virtual time actually advances.
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('pierwsze uruchomienie pokazuje onboarding zamiast powloki', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    addTearDown(db.close);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        baseDirProvider.overrideWithValue(Directory.systemTemp),
+        databaseProvider.overrideWithValue(db),
+        recorderProvider.overrideWithValue(FakeRecorder()),
+        keyStoreProvider.overrideWithValue(FakeKeyStore()),
+      ],
+      child: const MikroApp(),
+    ));
+    await tester.pump();
+
+    expect(find.byType(OnboardingScreen), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+
+    // Blob powitania animuje sie w kolko, wiec zdejmujemy drzewo, zeby ticker nie przezyl testu.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   });

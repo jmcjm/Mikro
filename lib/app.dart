@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'features/library/library_screen.dart';
+import 'features/onboarding/onboarding_gate.dart';
 import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
 
@@ -20,7 +21,8 @@ class MikroApp extends ConsumerWidget {
       theme: buildTheme(palette: palette, brightness: Brightness.light),
       darkTheme: buildTheme(palette: palette, brightness: Brightness.dark),
       themeMode: ref.watch(themeModeProvider),
-      home: const HomeShell(),
+      // Pierwsze uruchomienie idzie przez onboarding, kolejne prosto do powloki.
+      home: const OnboardingGate(child: HomeShell()),
     );
   }
 }
