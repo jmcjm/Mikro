@@ -1,18 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/app_theme.dart';
+import 'core/theme/theme_providers.dart';
 import 'features/library/library_screen.dart';
 import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
 
-class MikroApp extends StatelessWidget {
+class MikroApp extends ConsumerWidget {
   const MikroApp({super.key});
 
   @override
-  Widget build(BuildContext context) => MaterialApp(
-        title: 'Mikro',
-        theme: ThemeData(colorSchemeSeed: Colors.deepPurple, useMaterial3: true),
-        home: const HomeShell(),
-      );
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Obie wersje motywu budujemy zawsze — MaterialApp sam wybiera po themeMode, dzieki czemu
+    // przelaczenie systemu na ciemny nie wymaga przebudowy drzewa providerow.
+    final palette = ref.watch(themePaletteProvider);
+    return MaterialApp(
+      title: 'Mikro',
+      theme: buildTheme(palette: palette, brightness: Brightness.light),
+      darkTheme: buildTheme(palette: palette, brightness: Brightness.dark),
+      themeMode: ref.watch(themeModeProvider),
+      home: const HomeShell(),
+    );
+  }
 }
 
 class HomeShell extends StatefulWidget {
