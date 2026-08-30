@@ -119,6 +119,27 @@ class AppLocalizationsPl extends AppLocalizations {
   String get detailTranscriptLabel => 'TRANSKRYPCJA';
 
   @override
+  String get detailAddTagChip => 'tag';
+
+  @override
+  String get detailAddTagTitle => 'Dodaj tag';
+
+  @override
+  String get detailAddTagLabel => 'Nazwa tagu';
+
+  @override
+  String get detailAddTagDuplicate => 'Ten tag jest już przypisany.';
+
+  @override
+  String get detailAddTagConfirm => 'Dodaj';
+
+  @override
+  String get detailTagSaveError => 'Nie udało się zapisać zmiany tagów.';
+
+  @override
+  String get detailRemoveTagTooltip => 'Usuń tag';
+
+  @override
   String get detailRetryProcessing => 'Ponów przetwarzanie';
 
   @override

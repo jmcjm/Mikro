@@ -119,6 +119,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailTranscriptLabel => 'TRANSCRIPT';
 
   @override
+  String get detailAddTagChip => 'tag';
+
+  @override
+  String get detailAddTagTitle => 'Add tag';
+
+  @override
+  String get detailAddTagLabel => 'Tag name';
+
+  @override
+  String get detailAddTagDuplicate => 'This tag is already assigned.';
+
+  @override
+  String get detailAddTagConfirm => 'Add';
+
+  @override
+  String get detailTagSaveError => 'Couldn\'t save the tag change.';
+
+  @override
+  String get detailRemoveTagTooltip => 'Remove tag';
+
+  @override
   String get detailRetryProcessing => 'Retry processing';
 
   @override

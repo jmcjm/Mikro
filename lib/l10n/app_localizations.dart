@@ -302,6 +302,48 @@ abstract class AppLocalizations {
   /// **'TRANSKRYPCJA'**
   String get detailTranscriptLabel;
 
+  /// Etykieta kafelka z przerywana ramka w rzedzie tagow; przed nia stoi ikona plusa.
+  ///
+  /// In pl, this message translates to:
+  /// **'tag'**
+  String get detailAddTagChip;
+
+  /// Tytul okna recznego dodawania tagu do nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Dodaj tag'**
+  String get detailAddTagTitle;
+
+  /// Etykieta pola tekstowego w oknie dodawania tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nazwa tagu'**
+  String get detailAddTagLabel;
+
+  /// Blad pod polem, gdy wpisany tag juz wisi przy tym nagraniu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Ten tag jest już przypisany.'**
+  String get detailAddTagDuplicate;
+
+  /// Przycisk zatwierdzenia w oknie dodawania tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Dodaj'**
+  String get detailAddTagConfirm;
+
+  /// Pasek powiadomienia, gdy reczne dodanie albo usuniecie tagu nie doszlo do bazy.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zapisać zmiany tagów.'**
+  String get detailTagSaveError;
+
+  /// Podpowiedz krzyzyka na chipie tagu w szczegolach nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usuń tag'**
+  String get detailRemoveTagTooltip;
+
   /// Przycisk w bannerze bledu w szczegolach nagrania; wznawia przetwarzanie.
   ///
   /// In pl, this message translates to:

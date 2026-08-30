@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../models/recording_status.dart';
+import '../models/tag_name.dart';
 
 part 'database.g.dart';
 
@@ -143,6 +144,31 @@ class AppDatabase extends _$AppDatabase {
             RecordingTagsCompanion.insert(recordingId: recordingId, tagId: tag.id),
             mode: InsertMode.insertOrIgnore,
           );
+        }
+      });
+
+  /// Dopisuje pojedynczy tag do nagrania — sciezka kafelka "+ tag" ze szczegolow. Nazwa
+  /// przechodzi przez [normalizeTagName], czyli dokladnie to samo sito, co tagi z modelu.
+  Future<void> addTag(String recordingId, String name) =>
+      setTags(recordingId, [normalizeTagName(name)]);
+
+  /// Zdejmuje tag z jednego nagrania i sprzata sam tag, gdy stracil ostatnie powiazanie.
+  ///
+  /// Wszystko typowanymi zapytaniami, nie `customStatement`: drift nie wie, jakich tabel
+  /// dotyka surowy SQL, wiec taki zapis nie unewaznilby strumieni i chipy filtrow
+  /// w bibliotece zostalyby na starym stanie.
+  Future<void> removeTag(String recordingId, String name) => transaction(() async {
+        final normalized = normalizeTagName(name);
+        final tag = await (select(tags)..where((t) => t.name.equals(normalized)))
+            .getSingleOrNull();
+        if (tag == null) return;
+        await (delete(recordingTags)
+              ..where((rt) => rt.recordingId.equals(recordingId) & rt.tagId.equals(tag.id)))
+            .go();
+        final stillUsed =
+            await (select(recordingTags)..where((rt) => rt.tagId.equals(tag.id))).get();
+        if (stillUsed.isEmpty) {
+          await (delete(tags)..where((t) => t.id.equals(tag.id))).go();
         }
       });
 

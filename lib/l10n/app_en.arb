@@ -38,6 +38,13 @@
   "detailCopiedTranscript": "Transcript copied to the clipboard.",
   "detailCopied": "Copied.",
   "detailTranscriptLabel": "TRANSCRIPT",
+  "detailAddTagChip": "tag",
+  "detailAddTagTitle": "Add tag",
+  "detailAddTagLabel": "Tag name",
+  "detailAddTagDuplicate": "This tag is already assigned.",
+  "detailAddTagConfirm": "Add",
+  "detailTagSaveError": "Couldn't save the tag change.",
+  "detailRemoveTagTooltip": "Remove tag",
   "detailRetryProcessing": "Retry processing",
 
   "statusQueued": "Queued…",

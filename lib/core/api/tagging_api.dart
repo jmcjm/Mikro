@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 
 import '../models/provider_config.dart';
+import '../models/tag_name.dart';
 import 'api_errors.dart';
 
 /// Co model uklada o nagraniu w jednym przebiegu: krotki tytul i tagi.
@@ -140,7 +141,7 @@ class TaggingApi {
     if (raw.isEmpty) return const [];
     final tags = raw
         .whereType<String>()
-        .map((t) => t.trim().toLowerCase())
+        .map(normalizeTagName)
         .where((t) => t.isNotEmpty)
         .toSet()
         .take(maxTags)

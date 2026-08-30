@@ -11,6 +11,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../core/audio/waveform.dart';
 import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
+import '../../core/models/tag_name.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
 import '../../l10n/app_localizations.dart';
@@ -188,6 +189,39 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         message: AppLocalizations.of(context).detailCopiedTranscript);
   }
 
+  /// Dopisuje tag wpisany recznie w kafelku "+ tag". Nazwa wraca z okna juz znormalizowana,
+  /// bo to samo sito decydowalo tam o blokadzie duplikatu.
+  Future<void> _addTag(RecordingWithTags item) async {
+    // Jak przy kasowaniu: zaleznosci z ref przed pierwszym awaitem, bo po zamknieciu okna
+    // widget moze byc juz zutylizowany, a wtedy ref.read rzuca.
+    final db = ref.read(databaseProvider);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _AddTagDialog(existing: item.tags),
+    );
+    if (name == null || !mounted) return;
+    await _writeTags(() => db.addTag(item.recording.id, name));
+  }
+
+  /// Kasowanie bez okna potwierdzenia: stawka jest niska, a ruch odwracalny tym samym
+  /// kafelkiem "+ tag", ktory stoi tuz obok.
+  Future<void> _removeTag(String recordingId, String tag) =>
+      _writeTags(() => ref.read(databaseProvider).removeTag(recordingId, tag));
+
+  /// Zapis do bazy jest jedynym miejscem, w ktorym reczna edycja tagow moze sie wywrocic —
+  /// i wywroci sie po cichu, bo nikt tego nie awaituje. Komunikat wychodzi wiec tutaj, raz
+  /// dla obu sciezek.
+  Future<void> _writeTags(Future<void> Function() write) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final message = AppLocalizations.of(context).detailTagSaveError;
+    try {
+      await write();
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final all = ref.watch(recordingsStreamProvider).value ?? [];
@@ -323,16 +357,23 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _playerCard(item.recording, showMeta: showMeta),
-          if (item.tags.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: [for (final t in item.tags) TagChip(label: t)],
-            ),
-          ],
+          const SizedBox(height: 16),
+          _tagRow(item),
           const SizedBox(height: 16),
           Expanded(child: _content(item.recording)),
+        ],
+      );
+
+  /// Rzad tagow z makiety: chipy nagrania i kafelek "+ tag" na koncu. Rzad stoi tu ZAWSZE,
+  /// takze przy nagraniu bez ani jednego tagu — inaczej pierwszego tagu nie byloby jak
+  /// dodac recznie.
+  Widget _tagRow(RecordingWithTags item) => Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final tag in item.tags)
+            TagChip(label: tag, onDelete: () => _removeTag(item.recording.id, tag)),
+          AddTagChip(onTap: () => _addTag(item)),
         ],
       );
 
@@ -690,6 +731,71 @@ class _BarThumbShape extends SliderComponentShape {
         const Radius.circular(2),
       ),
       Paint()..color = color,
+    );
+  }
+}
+
+/// Minimalne okno recznego dodania tagu. Makieta nie rysuje formularza — kafelek "+ tag" jest
+/// jedynym sladem tej sciezki — wiec okno trzyma sie tego, co ekran juz ma: MD3 AlertDialog
+/// z jednym polem i para akcji, jak przy kasowaniu nagrania.
+class _AddTagDialog extends StatefulWidget {
+  const _AddTagDialog({required this.existing});
+
+  /// Tagi juz przypiete do nagrania. Sluza wylacznie do blokady duplikatu.
+  final List<String> existing;
+
+  @override
+  State<_AddTagDialog> createState() => _AddTagDialogState();
+}
+
+class _AddTagDialogState extends State<_AddTagDialog> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String get _name => normalizeTagName(_controller.text);
+
+  /// Porownanie idzie po znormalizowanych nazwach, wiec "Spotkanie" nie przejdzie obok
+  /// istniejacego "spotkanie" — do bazy i tak trafilaby ta sama nazwa.
+  bool get _duplicate =>
+      _name.isNotEmpty && widget.existing.map(normalizeTagName).contains(_name);
+
+  bool get _canSubmit => _name.isNotEmpty && !_duplicate;
+
+  void _submit() {
+    if (_canSubmit) Navigator.pop(context, _name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l10n.detailAddTagTitle),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onChanged: (_) => setState(() {}),
+        onSubmitted: (_) => _submit(),
+        decoration: InputDecoration(
+          labelText: l10n.detailAddTagLabel,
+          errorText: _duplicate ? l10n.detailAddTagDuplicate : null,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.detailCancel),
+        ),
+        FilledButton(
+          onPressed: _canSubmit ? _submit : null,
+          child: Text(l10n.detailAddTagConfirm),
+        ),
+      ],
     );
   }
 }

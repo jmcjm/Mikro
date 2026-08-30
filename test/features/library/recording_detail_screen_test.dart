@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +10,7 @@ import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
+import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 
 import '../../support/l10n_harness.dart';
@@ -233,6 +235,158 @@ void main() {
     await unmount(tester);
   });
 
+
+  // --- reczna edycja tagow: kafelek "+ tag" i kasowanie chipa ---
+
+  /// Nagranie gotowe do ogladania. Transkrypt jest tu istotny: bez niego karta transkrypcji
+  /// krecilaby spinner bez konca, a wtedy zadne `pumpAndSettle` juz nie wroci.
+  Future<void> insertReady(String id, {List<String> tags = const []}) async {
+    await insert(id);
+    await db.setTranscript(id, 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus(id, RecordingStatus.done);
+    if (tags.isNotEmpty) await db.setTags(id, tags);
+  }
+
+  /// Otwiera okno dodawania tagu. Pompujemy jawnie zamiast `pumpAndSettle`, zeby test nie
+  /// zalezal od tego, czy w drzewie akurat nie ma jakiegos zywego tickera.
+  Future<void> openAddTagDialog(WidgetTester tester) async {
+    await tester.tap(find.byType(AddTagChip));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+  }
+
+  /// Zapis tagu idzie prawdziwym I/O bazy, ktore w strefie fake-async testu nie dostaje
+  /// obrotu petli zdarzen samo z siebie. Drift wykonuje operacje po kolei, wiec odczyt
+  /// wpuszczony do tej samej kolejki wraca dopiero PO zapisie — synchronizacja przez
+  /// kolejnosc, nie przez odmierzanie czasu. Patrz ten sam zabieg w library_two_pane_test.
+  Future<void> settleDb(WidgetTester tester, {required bool Function() until}) async {
+    for (var i = 0; i < 20 && !until(); i++) {
+      await db.getRecording('a');
+      await tester.pump();
+    }
+  }
+
+  /// Tagi nagrania odczytane zapytaniem JEDNORAZOWYM. `watchAllWithTags().first` w tescie
+  /// widgetowym wiesza sie na amen: emisja strumienia drifta potrzebuje obrotu petli zdarzen,
+  /// ktorego czekanie na `first` nigdy nie odda, bo w strefie fake-async czas plynie tylko
+  /// przy pompowaniu klatek.
+  Future<List<String>> tagsOf(String id) async {
+    final rows = await db.customSelect(
+      'SELECT t.name AS name FROM tags t JOIN recording_tags rt ON rt.tag_id = t.id '
+      'WHERE rt.recording_id = ? ORDER BY t.name',
+      variables: [Variable.withString(id)],
+    ).get();
+    return [for (final row in rows) row.data['name'] as String];
+  }
+
+  testWidgets('rzad tagow ma kafelek "+ tag", ktory dopisuje tag do nagrania',
+      (tester) async {
+    await insertReady('a', tags: ['spotkanie']);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(AddTagChip), findsOneWidget);
+    await openAddTagDialog(tester);
+
+    expect(find.text(plL10n.detailAddTagTitle), findsOneWidget);
+    await tester.enterText(find.byType(TextField), '  Release  ');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FilledButton, plL10n.detailAddTagConfirm));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await settleDb(tester, until: () => find.text('release').evaluate().isNotEmpty);
+
+    expect(await tagsOf('a'), ['release', 'spotkanie'],
+        reason: 'nazwa idzie do bazy przycieta i mala litera, jak tagi z modelu');
+    expect(find.text('release'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('kafelek "+ tag" jest dostepny takze przy nagraniu bez tagow', (tester) async {
+    // Bez tego pierwszego tagu recznie nie da sie dodac w ogole.
+    await insertReady('a');
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byType(AddTagChip), findsOneWidget);
+    expect(tester.getSize(find.byType(AddTagChip)).height, 32,
+        reason: 'makieta daje kafelkowi te sama wysokosc, co chipowi tagu');
+    expect(
+      find.descendant(of: find.byType(AddTagChip), matching: find.byIcon(Symbols.add_rounded)),
+      findsOneWidget,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('okno dodawania: pusty wpis nie pozwala zatwierdzic', (tester) async {
+    await insertReady('a');
+
+    await pumpDetail(tester, 'a');
+    await openAddTagDialog(tester);
+
+    FilledButton confirm() =>
+        tester.widget<FilledButton>(find.widgetWithText(FilledButton, plL10n.detailAddTagConfirm));
+
+    expect(confirm().onPressed, isNull, reason: 'puste pole nie ma czego zapisac');
+
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.pump();
+    expect(confirm().onPressed, isNull, reason: 'same biale znaki to dalej pusty tag');
+
+    await tester.enterText(find.byType(TextField), 'release');
+    await tester.pump();
+    expect(confirm().onPressed, isNotNull);
+
+    await unmount(tester);
+  });
+
+  testWidgets('okno dodawania: duplikat w ramach nagrania jest blokowany bez wzgledu na wielkosc liter',
+      (tester) async {
+    await insertReady('a', tags: ['spotkanie']);
+
+    await pumpDetail(tester, 'a');
+    await openAddTagDialog(tester);
+
+    await tester.enterText(find.byType(TextField), 'SPOTKANIE');
+    await tester.pump();
+
+    expect(find.text(plL10n.detailAddTagDuplicate), findsOneWidget);
+    expect(
+      tester
+          .widget<FilledButton>(
+              find.widgetWithText(FilledButton, plL10n.detailAddTagConfirm))
+          .onPressed,
+      isNull,
+    );
+
+    await unmount(tester);
+  });
+
+  testWidgets('chip tagu w szczegolach kasuje tag od razu, bez okna potwierdzenia',
+      (tester) async {
+    await insertReady('a', tags: ['spotkanie', 'release']);
+
+    await pumpDetail(tester, 'a');
+
+    expect(find.byIcon(Symbols.close_rounded), findsNWidgets(2),
+        reason: 'kazdy chip w szczegolach ma wlasny krzyzyk');
+
+    await tester.tap(find.descendant(
+      of: find.widgetWithText(TagChip, 'spotkanie'),
+      matching: find.byIcon(Symbols.close_rounded),
+    ));
+    await tester.pump();
+    await settleDb(tester, until: () => find.text('spotkanie').evaluate().isEmpty);
+
+    expect(find.byType(AlertDialog), findsNothing,
+        reason: 'niska stawka, odwracalne przez "+ tag"');
+    expect(await tagsOf('a'), ['release']);
+    expect(find.text('spotkanie'), findsNothing);
+
+    await unmount(tester);
+  });
 
   // --- przebieg na karcie odtwarzacza (D2f) ---
 

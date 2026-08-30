@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -108,16 +110,28 @@ class StatusBadge extends StatelessWidget {
 }
 
 /// Chip tagu na karcie (`dense`) i w szczegolach (pelny rozmiar).
+///
+/// [onDelete] doklada krzyzyk zdejmujacy tag z nagrania. Dostaja go wylacznie szczegoly:
+/// na karcie w bibliotece i w pasku filtru tag jest nawigacja, a nie polem do edycji, wiec
+/// krzyzyk myliby sie tam z odznaczeniem filtru.
 class TagChip extends StatelessWidget {
-  const TagChip({super.key, required this.label, this.dense = false, this.onTap});
+  const TagChip({
+    super.key,
+    required this.label,
+    this.dense = false,
+    this.onTap,
+    this.onDelete,
+  });
 
   final String label;
   final bool dense;
   final VoidCallback? onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
     return Material(
       color: scheme.secondaryContainer,
       borderRadius: BorderRadius.circular(8),
@@ -126,20 +140,120 @@ class TagChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         child: Container(
           height: dense ? 26 : 32,
-          padding: EdgeInsets.symmetric(horizontal: dense ? 10 : 12),
+          padding: EdgeInsets.only(
+            left: dense ? 10 : 12,
+            // Krzyzyk niesie wlasny padding, wiec przy nim chip nie potrzebuje pelnego.
+            right: onDelete != null ? 4 : (dense ? 10 : 12),
+          ),
           alignment: Alignment.center,
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: dense ? 12 : 14,
-              fontWeight: FontWeight.w500,
-              color: scheme.onSecondaryContainer,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: dense ? 12 : 14,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSecondaryContainer,
+                ),
+              ),
+              if (onDelete != null)
+                Tooltip(
+                  message: l10n.detailRemoveTagTooltip,
+                  // Sam krzyzyk jest celem dotyku, nie caly chip: stukniecie w nazwe tagu
+                  // nie moze kasowac czegos, co uzytkownik chcial tylko przeczytac.
+                  child: InkResponse(
+                    onTap: onDelete,
+                    radius: 16,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                      child: Icon(Symbols.close_rounded,
+                          fill: 1, size: 16, color: scheme.onSecondaryContainer),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Kafelek "+ tag" z rzedu tagow w szczegolach: ta sama bryla co [TagChip] (wysokosc 32,
+/// promien 8, wypelnienie poziome 12), ale zamiast tla ma przerywana ramke w kolorze
+/// `outline` — w makiecie jest jedynym elementem rzedu, ktory zaprasza do dzialania.
+class AddTagChip extends StatelessWidget {
+  const AddTagChip({super.key, required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context);
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: CustomPaint(
+          painter: _DashedBorderPainter(color: scheme.outline),
+          child: Container(
+            height: 32,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: Alignment.center,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Symbols.add_rounded, fill: 1, size: 16, color: scheme.onSurfaceVariant),
+                const SizedBox(width: 4),
+                Text(
+                  l10n.detailAddTagChip,
+                  style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
+                ),
+              ],
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Przerywana ramka o promieniu 8 — `border: 1px dashed` z makiety. Flutter nie ma tego
+/// w BoxDecoration, wiec kreski wycinamy z konturu przez [Path.computeMetrics].
+class _DashedBorderPainter extends CustomPainter {
+  const _DashedBorderPainter({required this.color});
+
+  final Color color;
+
+  static const _dash = 4.0;
+  static const _gap = 3.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Deflacja o pol piksela trzyma kreske o szerokosci 1 w calosci wewnatrz kafelka;
+    // bez tego kontur rysowalby sie w polowie poza nim.
+    final outline = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8))
+        .deflate(0.5);
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = color;
+    for (final metric in (Path()..addRRect(outline)).computeMetrics()) {
+      var start = 0.0;
+      while (start < metric.length) {
+        final end = math.min(start + _dash, metric.length);
+        canvas.drawPath(metric.extractPath(start, end), paint);
+        start = end + _gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorderPainter oldDelegate) => oldDelegate.color != color;
 }
 
 /// Przycisk akcji na tle bledu: wysokosc 32, promien 16, wypelnienie rola `error`.

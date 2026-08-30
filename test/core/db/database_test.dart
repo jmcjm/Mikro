@@ -249,6 +249,82 @@ void main() {
     expect(columns.map((c) => c.data['name']), contains('waveform'));
   });
 
+  // --- reczna edycja tagow ("+ tag" i kasowanie chipa) ---
+
+  test('addTag normalizuje nazwe i nie duplikuje powiazania', () async {
+    await insert('a');
+    await db.addTag('a', '  Spotkanie ');
+    await db.addTag('a', 'SPOTKANIE');
+
+    final all = await db.watchAllWithTags().first;
+    expect(all.first.tags, ['spotkanie'],
+        reason: 'ta sama normalizacja co przy tagach z modelu: trim i male litery');
+
+    final links = await db.customSelect('SELECT COUNT(*) c FROM recording_tags').getSingle();
+    expect(links.data['c'], 1, reason: 'drugie dodanie tej samej nazwy to no-op');
+  });
+
+  test('removeTag zdejmuje powiazanie i sprzata tag bez innych nagran', () async {
+    await insert('a');
+    await db.setTags('a', ['spotkanie', 'release']);
+
+    await db.removeTag('a', 'spotkanie');
+
+    final all = await db.watchAllWithTags().first;
+    expect(all.first.tags, ['release']);
+    final tagNames = await db.customSelect('SELECT name FROM tags').get();
+    expect(tagNames.map((r) => r.data['name']), ['release'],
+        reason: 'tag bez ostatniego powiazania nie moze zostac w tabeli tags');
+  });
+
+  test('removeTag zostawia tag, ktory ma jeszcze inne nagranie', () async {
+    await insert('a');
+    await insert('b');
+    await db.setTags('a', ['wspolny']);
+    await db.setTags('b', ['wspolny']);
+
+    await db.removeTag('a', 'wspolny');
+
+    final all = await db.watchAllWithTags().first;
+    expect(all.firstWhere((r) => r.recording.id == 'a').tags, isEmpty);
+    expect(all.firstWhere((r) => r.recording.id == 'b').tags, ['wspolny'],
+        reason: 'kasowanie chipa dotyczy jednego nagrania, nie calej biblioteki');
+  });
+
+  test('removeTag nieznanej nazwy jest no-opem', () async {
+    await insert('a');
+    await db.setTags('a', ['spotkanie']);
+
+    await db.removeTag('a', 'nie-ma-takiego');
+
+    expect((await db.watchAllWithTags().first).first.tags, ['spotkanie']);
+  });
+
+  test('STRAZNIK STRUMIENIA: watchAllWithTags oddaje nowy stan po addTag i removeTag',
+      () async {
+    // Sprzatanie osieroconych tagow w deleteRecording idzie przez customStatement, ktorego
+    // drift nie umie powiazac z zadna tabela — taki zapis NIE unewaznia strumieni. Reczna
+    // edycja tagow musi wiec chodzic po typowanych zapytaniach, inaczej chipy filtrow
+    // w bibliotece zostalyby na starym stanie do nastepnego przeladowania.
+    await insert('a');
+    final emissions = <List<String>>[];
+    final sub = db.watchAllWithTags().listen((rows) => emissions.add([...rows.first.tags]));
+    await pumpEventQueue();
+
+    await db.addTag('a', 'spotkanie');
+    await pumpEventQueue();
+
+    await db.removeTag('a', 'spotkanie');
+    await pumpEventQueue();
+
+    await sub.cancel();
+    expect(emissions, [
+      <String>[],
+      ['spotkanie'],
+      <String>[],
+    ]);
+  });
+
   // --- schemat v4: title (tytuly z AI) ---
 
   test('migracja v3 -> v4 doklada title, stare nagrania maja NULL', () async {

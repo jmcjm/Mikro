@@ -11,6 +11,7 @@ import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_screen.dart';
+import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 import 'package:mikro/features/library/selected_recording.dart';
 
@@ -267,6 +268,77 @@ void main() {
       ),
       findsOneWidget,
     );
+
+    await unmount(tester);
+  });
+
+  testWidgets('szeroki ekran: panel tez ma kafelek "+ tag" i krzyzyki na chipach',
+      (tester) async {
+    await insert('a');
+    await db.setTags('a', ['spotkanie']);
+    await pumpLibrary(tester, size: const Size(1280, 800));
+    await tester.tap(find.text('Transkrypt nagrania a'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(
+      find.descendant(
+        of: find.byType(RecordingDetailView),
+        matching: find.byType(AddTagChip),
+      ),
+      findsOneWidget,
+      reason: 'reczna edycja tagow dziala w obu kontekstach szczegolow',
+    );
+    expect(find.byIcon(Symbols.close_rounded), findsOneWidget,
+        reason: 'krzyzyk tylko na chipie w panelu, nie na chipie karty w liscie');
+
+    await unmount(tester);
+  });
+
+  testWidgets('STRAZNIK: skasowanie ostatniego wystapienia tagu przy aktywnym filtrze',
+      (tester) async {
+    // Chip filtru zyje ze strumienia biblioteki, wiec zniknieciu tagu z ostatniego nagrania
+    // musi towarzyszyc zniknieciecie chipa. Sam filtr zostaje ustawiony, wiec lista pokazuje
+    // stan pusty wyszukiwania — a rzad chipow zostaje przy samym "Wszystkie", zeby bylo
+    // czym ten juz nieistniejacy filtr zdjac.
+    await insert('a');
+    await db.setTags('a', ['spotkanie']);
+    await pumpLibrary(tester, size: const Size(1280, 800));
+    await tester.tap(find.text('Transkrypt nagrania a'));
+    await tester.pump();
+    await tester.pump();
+
+    container.read(tagFilterProvider.notifier).state = 'spotkanie';
+    await tester.pump();
+    expect(
+      find.descendant(
+        of: find.byType(RecordingCard),
+        matching: find.text('Transkrypt nagrania a'),
+      ),
+      findsOneWidget,
+      reason: 'przy filtrze na tym tagu nagranie jest jeszcze na liscie',
+    );
+
+    await tester.tap(find.descendant(
+      of: find.byType(RecordingDetailView),
+      matching: find.byIcon(Symbols.close_rounded),
+    ));
+    await tester.pump();
+    // Patrz komentarz przy tescie kasowania: prawdziwe I/O bazy w strefie fake-async
+    // dochodzi przez kolejnosc operacji drifta, nie przez odmierzanie czasu.
+    for (var i = 0; i < 20 && find.text(plL10n.libraryEmptyNoResults).evaluate().isEmpty; i++) {
+      await db.getRecording('a');
+      await tester.pump();
+    }
+
+    expect(find.text(plL10n.libraryEmptyNoResults), findsOneWidget);
+    expect(find.text(plL10n.libraryEmptyNoRecordings), findsNothing,
+        reason: 'biblioteka nie jest pusta, pusty jest wynik filtrowania');
+    expect(find.text('spotkanie'), findsNothing, reason: 'chip filtru znika razem z tagiem');
+    expect(find.text(plL10n.libraryFilterAll), findsOneWidget,
+        reason: 'bez tego chipa nie da sie zdjac filtru, ktory juz nic nie zaznacza');
+    expect(find.byType(RecordingDetailView), findsOneWidget,
+        reason: 'panel zyje dalej, nagranie nie zniknelo');
 
     await unmount(tester);
   });

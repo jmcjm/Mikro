@@ -8,6 +8,7 @@ import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_screen.dart';
+import 'package:mikro/features/library/library_styles.dart';
 
 import '../../support/l10n_harness.dart';
 
@@ -174,6 +175,24 @@ void main() {
     await tester.pump();
 
     expect(find.text('Lista zakupow'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('tagi na karcie i w filtrze zostaja nawigacja: bez krzyzyka i bez "+ tag"',
+      (tester) async {
+    // Kasowanie i dodawanie tagow zyje wylacznie w szczegolach. Na liscie tag jest
+    // przyciskiem filtru, wiec krzyzyk na chipie byloby latwo pomylic z odznaczeniem filtru.
+    await insert('a');
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.setTags('a', ['spotkanie']);
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpLibrary(tester);
+
+    expect(find.text('spotkanie'), findsNWidgets(2), reason: 'chip filtru i chip na karcie');
+    expect(find.byIcon(Symbols.close_rounded), findsNothing);
+    expect(find.byType(AddTagChip), findsNothing);
 
     await unmount(tester);
   });

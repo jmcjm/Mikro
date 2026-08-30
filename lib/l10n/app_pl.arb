@@ -154,6 +154,34 @@
   "@detailTranscriptLabel": {
     "description": "Naglowek karty transkryptu, wersalikami jak w makiecie."
   },
+  "detailAddTagChip": "tag",
+  "@detailAddTagChip": {
+    "description": "Etykieta kafelka z przerywana ramka w rzedzie tagow; przed nia stoi ikona plusa."
+  },
+  "detailAddTagTitle": "Dodaj tag",
+  "@detailAddTagTitle": {
+    "description": "Tytul okna recznego dodawania tagu do nagrania."
+  },
+  "detailAddTagLabel": "Nazwa tagu",
+  "@detailAddTagLabel": {
+    "description": "Etykieta pola tekstowego w oknie dodawania tagu."
+  },
+  "detailAddTagDuplicate": "Ten tag jest już przypisany.",
+  "@detailAddTagDuplicate": {
+    "description": "Blad pod polem, gdy wpisany tag juz wisi przy tym nagraniu."
+  },
+  "detailAddTagConfirm": "Dodaj",
+  "@detailAddTagConfirm": {
+    "description": "Przycisk zatwierdzenia w oknie dodawania tagu."
+  },
+  "detailTagSaveError": "Nie udało się zapisać zmiany tagów.",
+  "@detailTagSaveError": {
+    "description": "Pasek powiadomienia, gdy reczne dodanie albo usuniecie tagu nie doszlo do bazy."
+  },
+  "detailRemoveTagTooltip": "Usuń tag",
+  "@detailRemoveTagTooltip": {
+    "description": "Podpowiedz krzyzyka na chipie tagu w szczegolach nagrania."
+  },
   "detailRetryProcessing": "Ponów przetwarzanie",
   "@detailRetryProcessing": {
     "description": "Przycisk w bannerze bledu w szczegolach nagrania; wznawia przetwarzanie."

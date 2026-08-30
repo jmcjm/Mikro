@@ -118,7 +118,10 @@ class _LibraryList extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               const _SearchField(),
-              if (allTags.isNotEmpty) ...[
+              // Rzad zostaje takze wtedy, gdy w bibliotece nie ma juz zadnego tagu, ale
+              // filtr wciaz jest ustawiony — inaczej wraz z ostatnim chipem znika jedyny
+              // sposob, zeby ten filtr zdjac, i lista zostaje pusta na dobre.
+              if (allTags.isNotEmpty || tagFilter != null) ...[
                 const SizedBox(height: 14),
                 _TagFilterBar(tags: allTags, selected: tagFilter),
               ],
