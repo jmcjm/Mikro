@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>pl.jmc.mikro</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+
+  <name>Mikro</name>
+  <summary>Dyktafon z transkrypcją nagrań</summary>
+  <summary xml:lang="en">Voice recorder with speech transcription</summary>
+
+  <description>
+    <p>
+      Mikro nagrywa notatki głosowe i zamienia je na tekst przy pomocy zewnętrznej
+      usługi transkrypcji. Nagrania trafiają do lokalnej biblioteki, w której można
+      je odsłuchać, przeszukać po treści transkryptu i filtrować po tagach.
+    </p>
+    <p>Główne możliwości:</p>
+    <p xml:lang="en">Main features:</p>
+    <ul>
+      <li>nagrywanie z mikrofonu z podglądem poziomu sygnału</li>
+      <li xml:lang="en">microphone recording with a live level meter</li>
+      <li>automatyczna transkrypcja po zakończeniu nagrania</li>
+      <li xml:lang="en">automatic transcription once a recording ends</li>
+      <li>biblioteka nagrań z odtwarzaniem i wyszukiwaniem rozmytym</li>
+      <li xml:lang="en">recording library with playback and fuzzy search</li>
+      <li>tagowanie nagrań i filtrowanie po tagach</li>
+      <li xml:lang="en">tagging and filtering by tags</li>
+      <li>ponawianie transkrypcji po odzyskaniu łączności</li>
+      <li xml:lang="en">transcription retry once connectivity is back</li>
+    </ul>
+    <p xml:lang="en">
+      Mikro records voice notes and turns them into text using an external
+      transcription service. Recordings land in a local library where they can be
+      played back, searched by transcript content and filtered by tags.
+    </p>
+  </description>
+
+  <launchable type="desktop-id">pl.jmc.mikro.desktop</launchable>
+
+  <url type="homepage">https://github.com/jmcjm/mikro</url>
+  <url type="bugtracker">https://github.com/jmcjm/mikro/issues</url>
+
+  <developer id="pl.jmc">
+    <name>Jakub Mendyka</name>
+  </developer>
+
+  <!-- Aplikacja nie prezentuje tresci podlegajacych ocenie wiekowej. -->
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.0.0" date="2026-08-30">
+      <description>
+        <p>Pierwsze wydanie desktopowe: nagrywanie, transkrypcja i biblioteka nagrań.</p>
+        <p xml:lang="en">First desktop release: recording, transcription and the recordings library.</p>
+      </description>
+    </release>
+  </releases>
+</component>

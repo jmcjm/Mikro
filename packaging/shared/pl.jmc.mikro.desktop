@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Mikro
+Comment=Dyktafon z transkrypcją nagrań
+Comment[en]=Voice recorder with speech transcription
+Exec=mikro
+Icon=pl.jmc.mikro
+Terminal=false
+Categories=AudioVideo;Audio;Recorder;
+Keywords=dyktafon;nagrywanie;transkrypcja;mikrofon;notatki;
+Keywords[en]=recorder;recording;transcription;microphone;notes;
+StartupNotify=true
+StartupWMClass=pl.jmc.mikro
