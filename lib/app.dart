@@ -10,11 +10,6 @@ import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/home_tab.dart';
 
-/// Prog przejscia z dolnego paska na nawigacje boczna. Makieta pokazuje wariant railowy na
-/// ekranie 1280 px i nie podaje ani wlasnego progu, ani media query, wiec zostaje standard
-/// MD3 dla klasy "medium" — 840 dp.
-const _railBreakpoint = 840.0;
-
 /// Destynacja powloki. Dolny pasek i rail rysuja te sama trojke, wiec stoi ona w jednym
 /// miejscu — inaczej dolozenie zakladki wymagaloby pamietania o dwoch listach naraz.
 @immutable
@@ -68,7 +63,7 @@ class HomeShell extends ConsumerWidget {
 
     // Szerokosc bierzemy z MediaQuery, a nie z LayoutBuildera: rail i dolny pasek zajmuja
     // czesc okna, wiec mierzenie juz po ich odjeciu potrafiloby oscylowac wokol progu.
-    if (MediaQuery.sizeOf(context).width >= _railBreakpoint) {
+    if (MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint) {
       return Scaffold(
         body: Row(
           children: [

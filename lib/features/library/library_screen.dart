@@ -9,9 +9,72 @@ import '../../core/util/format.dart';
 import '../shell/home_tab.dart';
 import 'library_styles.dart';
 import 'recording_detail_screen.dart';
+import 'selected_recording.dart';
 
 class LibraryScreen extends ConsumerWidget {
   const LibraryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    // Ten sam prog, co przy nawigacji bocznej — patrz [wideLayoutBreakpoint]. Mierzymy okno,
+    // a nie miejsce zostawione przez rail, zeby oba przelaczenia zaszly w tej samej chwili.
+    final twoPane = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
+    if (!twoPane) {
+      return const Scaffold(
+        body: SafeArea(bottom: false, child: _LibraryList(twoPane: false)),
+      );
+    }
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            // Makieta desktopowa: lista 400 px, oddzielona od panelu wlosowa linia.
+            Container(
+              width: 400,
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: scheme.outlineVariant)),
+              ),
+              child: const _LibraryList(twoPane: true),
+            ),
+            const Expanded(child: _DetailPane()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Prawa kolumna szerokiego ukladu.
+class _DetailPane extends ConsumerWidget {
+  const _DetailPane();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedRecordingProvider);
+    // Makieta nie rysuje panelu bez wyboru, wiec nie wymyslamy tu tresci — zostaje samo tlo
+    // powierzchni, na ktorym za chwile stanie wybrane nagranie.
+    if (selected == null) {
+      return ColoredBox(color: Theme.of(context).colorScheme.surface);
+    }
+    return RecordingDetailView(
+      // Klucz po id jest tu istotny: bez niego przelaczenie nagrania trafialoby w ten sam
+      // State, czyli w odtwarzacz z zaladowanym poprzednim plikiem i jego pozycja.
+      key: ValueKey(selected),
+      recordingId: selected,
+      chrome: DetailChrome.panel,
+    );
+  }
+}
+
+/// Lista nagran: naglowek, wyszukiwanie, filtr tagow i karty. Na waskim ekranie zajmuje cala
+/// szerokosc, na szerokim stoi w lewej kolumnie obok panelu szczegolow.
+class _LibraryList extends ConsumerWidget {
+  const _LibraryList({required this.twoPane});
+
+  /// Rozstrzyga, co robi stukniecie w karte: wypelnienie panelu obok czy nowa trasa.
+  final bool twoPane;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -31,56 +94,67 @@ class LibraryScreen extends ConsumerWidget {
     }.toList()
       ..sort();
 
-    return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Biblioteka',
-                    style: TextStyle(
-                      fontSize: 32,
-                      height: 40 / 32,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: -0.5,
-                      color: scheme.onSurface,
+    final selected = ref.watch(selectedRecordingProvider);
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Biblioteka',
+                style: TextStyle(
+                  fontSize: 32,
+                  height: 40 / 32,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.5,
+                  color: scheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 14),
+              const _SearchField(),
+              if (allTags.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _TagFilterBar(tags: allTags, selected: tagFilter),
+              ],
+            ],
+          ),
+        ),
+        Expanded(
+          child: switch (stream) {
+            // Blad strumienia musi byc widoczny. Bez tej galezi awaria bazy wygladalaby
+            // jak pusta biblioteka, bo filteredRecordingsProvider zwraca wtedy pusta liste.
+            AsyncValue(hasError: true, :final error) =>
+              _DatabaseErrorState(message: 'Błąd bazy: $error'),
+            AsyncValue(isLoading: true) =>
+              const Center(child: CircularProgressIndicator()),
+            _ => items.isEmpty
+                ? _EmptyState(filtering: filtering)
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (context, i) => RecordingCard(
+                      item: items[i],
+                      selected: twoPane && items[i].recording.id == selected,
+                      onTap: () => _open(context, ref, items[i].recording.id),
                     ),
                   ),
-                  const SizedBox(height: 14),
-                  const _SearchField(),
-                  if (allTags.isNotEmpty) ...[
-                    const SizedBox(height: 14),
-                    _TagFilterBar(tags: allTags, selected: tagFilter),
-                  ],
-                ],
-              ),
-            ),
-            Expanded(
-              child: switch (stream) {
-                // Blad strumienia musi byc widoczny. Bez tej galezi awaria bazy wygladalaby
-                // jak pusta biblioteka, bo filteredRecordingsProvider zwraca wtedy pusta liste.
-                AsyncValue(hasError: true, :final error) =>
-                  _DatabaseErrorState(message: 'Błąd bazy: $error'),
-                AsyncValue(isLoading: true) =>
-                  const Center(child: CircularProgressIndicator()),
-                _ => items.isEmpty
-                    ? _EmptyState(filtering: filtering)
-                    : ListView.separated(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                        itemCount: items.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
-                        itemBuilder: (context, i) => RecordingCard(item: items[i]),
-                      ),
-              },
-            ),
-          ],
+          },
         ),
-      ),
+      ],
+    );
+  }
+
+  void _open(BuildContext context, WidgetRef ref, String recordingId) {
+    if (twoPane) {
+      ref.read(selectedRecordingProvider.notifier).select(recordingId);
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => RecordingDetailScreen(recordingId: recordingId)),
     );
   }
 }
@@ -196,9 +270,19 @@ class _FilterChip extends StatelessWidget {
 }
 
 class RecordingCard extends ConsumerWidget {
-  const RecordingCard({super.key, required this.item});
+  const RecordingCard({
+    super.key,
+    required this.item,
+    required this.onTap,
+    this.selected = false,
+  });
 
   final RecordingWithTags item;
+  final VoidCallback onTap;
+
+  /// Karta pokazywana wlasnie w panelu obok. Na waskim ekranie zawsze `false` — tam nie ma
+  /// panelu, wiec nie ma tez czego zaznaczac.
+  final bool selected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -206,20 +290,41 @@ class RecordingCard extends ConsumerWidget {
     final r = item.recording;
     final failed = r.status == RecordingStatus.error;
     // Karta bledu stoi na `errorContainer`, wiec cala jej typografia schodzi na
-    // `onErrorContainer` — inaczej podpisy zniknelyby na czerwonym tle.
-    final muted = failed ? scheme.onErrorContainer : scheme.onSurfaceVariant;
+    // `onErrorContainer` — inaczej podpisy zniknelyby na czerwonym tle. Wybrana karta idzie
+    // na `secondaryContainer` z makiety, ale blad ma pierwszenstwo: czerwone tlo niesie
+    // informacje, ktorej zaznaczenie nie moze przykryc.
+    final muted = failed
+        ? scheme.onErrorContainer
+        : selected
+            ? scheme.onSecondaryContainer
+            : scheme.onSurfaceVariant;
+    final strong = failed
+        ? scheme.onErrorContainer
+        : selected
+            ? scheme.onSecondaryContainer
+            : scheme.onSurface;
     // Tresc karty to transkrypt albo komunikat bledu. Dopoki nagranie sie przetwarza, nie ma
     // czego pokazac — status niesie odznaka i pasek postepu, wiec powtarzanie go w tresci
     // dublowaloby to samo slowo dwa razy na tej samej karcie.
     final body = failed ? (r.errorMessage ?? 'błąd') : r.transcript;
 
     return Material(
-      color: failed ? scheme.errorContainer : scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(24),
+      color: failed
+          ? scheme.errorContainer
+          : selected
+              ? scheme.secondaryContainer
+              : scheme.surfaceContainerLow,
+      // Wybranej karcie bledu makieta nie opisuje. Zamiast gasic czerwien dokladamy obwodke,
+      // zeby zaznaczenie bylo widoczne takze tam — patrz raport.
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: selected && failed
+            ? BorderSide(color: scheme.error, width: 2)
+            : BorderSide.none,
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(24),
-        onTap: () => Navigator.of(context).push(
-            MaterialPageRoute(builder: (_) => RecordingDetailScreen(recordingId: r.id))),
+        onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -251,7 +356,7 @@ class RecordingCard extends ConsumerWidget {
                     fontSize: 16,
                     height: 22 / 16,
                     fontWeight: FontWeight.w500,
-                    color: failed ? scheme.onErrorContainer : scheme.onSurface,
+                    color: strong,
                   ),
                 ),
               ],

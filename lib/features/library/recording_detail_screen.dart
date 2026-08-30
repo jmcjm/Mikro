@@ -14,17 +14,45 @@ import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
 import 'library_styles.dart';
+import 'selected_recording.dart';
 
-class RecordingDetailScreen extends ConsumerStatefulWidget {
+/// Rama, w ktorej stoja szczegoly nagrania. Rozstrzyga wylacznie o tym, co jest u gory
+/// i dokad prowadzi kasowanie — tresc jest w obu przypadkach ta sama.
+enum DetailChrome {
+  /// Osobna trasa: pasek aplikacji z powrotem, akcje w jego prawym rogu.
+  screen,
+
+  /// Prawa kolumna biblioteki na szerokim ekranie: naglowek z makiety desktopowej,
+  /// bez paska aplikacji i bez wlasnej trasy.
+  panel,
+}
+
+/// Pelnoekranowe szczegoly nagrania. Cienka obudowa na [RecordingDetailView], zeby wywolania
+/// przez Navigator.push nie musialy znac trybu ramy.
+class RecordingDetailScreen extends StatelessWidget {
   const RecordingDetailScreen({super.key, required this.recordingId});
 
   final String recordingId;
 
   @override
-  ConsumerState<RecordingDetailScreen> createState() => _RecordingDetailScreenState();
+  Widget build(BuildContext context) => RecordingDetailView(recordingId: recordingId);
 }
 
-class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
+class RecordingDetailView extends ConsumerStatefulWidget {
+  const RecordingDetailView({
+    super.key,
+    required this.recordingId,
+    this.chrome = DetailChrome.screen,
+  });
+
+  final String recordingId;
+  final DetailChrome chrome;
+
+  @override
+  ConsumerState<RecordingDetailView> createState() => _RecordingDetailViewState();
+}
+
+class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   final _player = AudioPlayer();
   Duration _position = Duration.zero;
   Duration _total = Duration.zero;
@@ -71,6 +99,11 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
     // w trakcie dialogu, pozniejsze ref.read rzucaloby "used after dispose" — i to jako
     // nieobsluzony wyjatek, bo nikt tego nie lapie.
     final db = ref.read(databaseProvider);
+    // Z tego samego powodu bierzemy tu kontroler wyboru: po awaitach widget moze byc juz
+    // zutylizowany, a wtedy ref.read rzuca. `null` znaczy "rama ma wlasna trase do zdjecia".
+    final selection = widget.chrome == DetailChrome.panel
+        ? ref.read(selectedRecordingProvider.notifier)
+        : null;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -99,7 +132,14 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
       } catch (_) {
         // Sprzatanie plikow jest best-effort.
       }
-      if (mounted) Navigator.of(context).pop();
+      if (!mounted) return;
+      // Panel nie jest osobna trasa, wiec nie ma czego popowac: pusty panel powstaje przez
+      // wyczyszczenie wyboru, czyli powrot do stanu sprzed stukniecia w karte.
+      if (selection != null) {
+        selection.clear();
+      } else {
+        Navigator.of(context).pop();
+      }
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -137,11 +177,23 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final all = ref.watch(recordingsStreamProvider).value ?? [];
     final match = all.where((r) => r.recording.id == widget.recordingId).toList();
-    if (match.isEmpty) return const Scaffold(body: Center(child: Text('Nagranie usunięte.')));
-    final item = match.first;
+    if (match.isEmpty) {
+      const message = Center(child: Text('Nagranie usunięte.'));
+      return switch (widget.chrome) {
+        DetailChrome.screen => const Scaffold(body: message),
+        DetailChrome.panel => message,
+      };
+    }
+    return switch (widget.chrome) {
+      DetailChrome.screen => _screen(match.first),
+      DetailChrome.panel => _panel(match.first),
+    };
+  }
+
+  Widget _screen(RecordingWithTags item) {
+    final scheme = Theme.of(context).colorScheme;
     final r = item.recording;
     return Scaffold(
       appBar: AppBar(
@@ -170,32 +222,102 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _playerCard(r),
-            if (item.tags.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: [for (final t in item.tags) TagChip(label: t)],
-              ),
-            ],
-            const SizedBox(height: 16),
-            Expanded(child: _content(r)),
-          ],
-        ),
+        child: _body(item, showMeta: true),
       ),
     );
   }
+
+  /// Panel z makiety desktopowej: zamiast paska aplikacji naglowek z linia techniczna,
+  /// tytulem i dwoma okraglymi przyciskami akcji. Wyplata 24/28/28 jak w makiecie.
+  ///
+  /// Data i status ida tu do naglowka, wiec karta odtwarzacza nie powtarza ich drugi raz —
+  /// makieta desktopowa ma je dokladnie w jednym miejscu.
+  Widget _panel(RecordingWithTags item) => Padding(
+        padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _panelHeader(item.recording),
+            const SizedBox(height: 20),
+            Expanded(child: _body(item, showMeta: false)),
+          ],
+        ),
+      );
+
+  Widget _panelHeader(Recording r) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${formatDateTime(r.createdAt)} · '
+                '${formatDuration(Duration(milliseconds: r.durationMs))} · '
+                '${statusLabel(r.status)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
+              ),
+              const SizedBox(height: 4),
+              // Makieta ma w tym miejscu tytul nagrania, ktorego model danych nie zna —
+              // patrz raport. Zostaje ta sama nazwa, ktora niesie pasek pelnego ekranu.
+              Text(
+                'Nagranie',
+                style: TextStyle(
+                  fontSize: 28,
+                  height: 34 / 28,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.4,
+                  color: scheme.onSurface,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        if (r.transcript != null) ...[
+          _PanelAction(
+            icon: Symbols.share_rounded,
+            tooltip: 'Udostępnij transkrypt',
+            onTap: () => _share(r),
+          ),
+          const SizedBox(width: 16),
+        ],
+        _PanelAction(
+          icon: Symbols.delete_rounded,
+          tooltip: 'Usuń',
+          onTap: () => _delete(r),
+        ),
+      ],
+    );
+  }
+
+  /// Tresc wspolna dla obu ram: karta odtwarzacza, tagi i transkrypt.
+  Widget _body(RecordingWithTags item, {required bool showMeta}) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _playerCard(item.recording, showMeta: showMeta),
+          if (item.tags.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [for (final t in item.tags) TagChip(label: t)],
+            ),
+          ],
+          const SizedBox(height: 16),
+          Expanded(child: _content(item.recording)),
+        ],
+      );
 
   /// Karta odtwarzania: data, status, pasek przebiegu, przycisk transportu i suwak pozycji.
   ///
   /// Przebieg rysuje sie tylko wtedy, gdy nagranie ma zapisana obwiednie. Nagrania sprzed
   /// schematu v3 maja tu NULL i karta wraca do ukladu bez slupkow — zmyslony ksztalt
   /// klamalby o tym, co slychac w pliku.
-  Widget _playerCard(Recording r) {
+  Widget _playerCard(Recording r, {required bool showMeta}) {
     final scheme = Theme.of(context).colorScheme;
     final position = _dragMs == null ? _position : Duration(milliseconds: _dragMs!.round());
     final levels = decodeWaveform(r.waveform);
@@ -208,22 +330,24 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              // Jak na karcie w bibliotece: przy ciasnocie skraca sie data, nie odznaka.
-              Expanded(
-                child: Text(
-                  formatDateTime(r.createdAt),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
+          if (showMeta) ...[
+            Row(
+              children: [
+                // Jak na karcie w bibliotece: przy ciasnocie skraca sie data, nie odznaka.
+                Expanded(
+                  child: Text(
+                    formatDateTime(r.createdAt),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              StatusBadge(status: r.status, showIcon: false),
-            ],
-          ),
-          const SizedBox(height: 16),
+                const SizedBox(width: 8),
+                StatusBadge(status: r.status, showIcon: false),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
           if (levels != null) ...[
             WaveformBars(levels: levels),
             const SizedBox(height: 16),
@@ -429,6 +553,36 @@ class _RecordingDetailScreenState extends ConsumerState<RecordingDetailScreen> {
                 style: monoStyle(size: 13, color: scheme.onSurfaceVariant)),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// Okragly przycisk akcji z naglowka panelu: 48x48 na `surfaceContainer`, ikona 22 px.
+class _PanelAction extends StatelessWidget {
+  const _PanelAction({required this.icon, required this.tooltip, required this.onTap});
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: scheme.surfaceContainer,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Icon(icon, fill: 1, size: 22, color: scheme.onSurfaceVariant),
+          ),
+        ),
       ),
     );
   }
