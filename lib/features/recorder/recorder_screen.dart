@@ -150,7 +150,10 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
                     fontSize: 13,
                     height: 18 / 13,
                     letterSpacing: 0.4,
-                    fontFamily: 'monospace',
+                    // Rodzine bundluje osobny task pod nazwa 'RobotoMono'; do czasu jego
+                    // merge podpis schodzi na monospace systemowy zamiast na proporcjonalny.
+                    fontFamily: 'RobotoMono',
+                    fontFamilyFallback: const ['monospace'],
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
