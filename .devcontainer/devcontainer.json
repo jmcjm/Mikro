@@ -31,7 +31,6 @@
 
     "onCreateCommand": "bash ./.devcontainer/on-create.sh",
     "postStartCommand": "bash ./.devcontainer/post-start.sh",
-    "postAttachCommand": "bash ./.devcontainer/post-attach.sh",
 
     "waitFor": "onCreateCommand",
 

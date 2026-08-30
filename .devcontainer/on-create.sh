@@ -14,10 +14,12 @@ dart --disable-analytics || true
 flutter --disable-analytics || true
 
 # Install Oh My Zsh
+# Guarded, jak reszta kosmetycznych instalacji ponizej: skrypt chodzi pod set -e, a padniety
+# klon czy niedostepny raw.githubusercontent nie moga wywrocic tworzenia kontenera.
 if [ ! -d "$USER_HOME/.oh-my-zsh" ]; then
     echo "Installing Oh My Zsh..."
     # CHSH=no and RUNZSH=no prevent the installer from trying to change the shell or run zsh
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc
+    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended --keep-zshrc || true
 else
     echo "Oh My Zsh is already installed."
 fi
@@ -26,7 +28,7 @@ fi
 P10K_DIR="$USER_HOME/.oh-my-zsh/custom/themes/powerlevel10k"
 if [ ! -d "$P10K_DIR" ]; then
     echo "Installing Powerlevel10k theme..."
-    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR"
+    git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$P10K_DIR" || true
 else
     echo "Powerlevel10k theme is already installed."
 fi
@@ -36,10 +38,10 @@ DOTFILES_REPO_URL="https://github.com/jmcjm/dotfiles-devcontainers.git"
 DOTFILES_DIR="$USER_HOME/dotfiles-devcontainers"
 if [ ! -d "$DOTFILES_DIR" ]; then
     echo "Cloning dotfiles from $DOTFILES_REPO_URL..."
-    git clone "$DOTFILES_REPO_URL" "$DOTFILES_DIR"
+    git clone "$DOTFILES_REPO_URL" "$DOTFILES_DIR" || true
 else
     echo "Dotfiles directory already exists. Pulling latest changes..."
-    (cd "$DOTFILES_DIR" && git pull)
+    (cd "$DOTFILES_DIR" && git pull) || true
 fi
 
 # Create symbolic links for configuration files
