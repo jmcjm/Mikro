@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'features/library/library_screen.dart';
 import 'features/recorder/recorder_screen.dart';
+import 'features/settings/settings_screen.dart';
 
 class MikroApp extends StatelessWidget {
   const MikroApp({super.key});
@@ -29,7 +30,7 @@ class _HomeShellState extends State<HomeShell> {
         body: IndexedStack(index: _index, children: [
           const RecorderScreen(),
           const LibraryScreen(),
-          const Center(child: Text('Ustawienia — Task 13')),
+          const SettingsScreen(),
         ]),
         bottomNavigationBar: NavigationBar(
           selectedIndex: _index,

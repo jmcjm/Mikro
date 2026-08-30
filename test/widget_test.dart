@@ -8,6 +8,7 @@ import 'package:mikro/app.dart';
 import 'package:mikro/core/audio/mikro_recorder.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/providers.dart';
+import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FakeRecorder implements MikroRecorder {
@@ -26,6 +27,15 @@ class FakeRecorder implements MikroRecorder {
   Future<void> dispose() async {}
 }
 
+// Ekran ustawien z Taska 13 czyta konfiguracje w initState, wiec bez podmiany
+// magazynu klucza test wpadlby na kanal platformowy flutter_secure_storage.
+class FakeKeyStore implements KeyStore {
+  @override
+  Future<String?> read() async => null;
+  @override
+  Future<void> write(String value) async {}
+}
+
 void main() {
   testWidgets('apka sie buduje i ma trzy taby', (tester) async {
     SharedPreferences.setMockInitialValues({});
@@ -38,6 +48,7 @@ void main() {
         baseDirProvider.overrideWithValue(Directory.systemTemp),
         databaseProvider.overrideWithValue(db),
         recorderProvider.overrideWithValue(FakeRecorder()),
+        keyStoreProvider.overrideWithValue(FakeKeyStore()),
       ],
       child: const MikroApp(),
     ));
