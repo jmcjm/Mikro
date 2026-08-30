@@ -1,0 +1,12 @@
+#!/bin/sh
+# AppRun - punkt wejscia AppImage'a aplikacji Mikro.
+#
+# Bundle Fluttera lezy w usr/bin: binarka znajduje swoje biblioteki przez
+# RPATH $ORIGIN/lib, a silnik szuka katalogu data/ obok pliku wykonywalnego.
+# Dlatego nie ustawiamy tu LD_LIBRARY_PATH ani nie modyfikujemy PATH -
+# record_linux uruchamia parecord, pactl i ffmpeg z systemu hosta i nie wolno
+# ich przeslonic zawartoscia AppDira.
+set -eu
+
+HERE=$(dirname "$(readlink -f "$0")")
+exec "$HERE/usr/bin/mikro" "$@"
