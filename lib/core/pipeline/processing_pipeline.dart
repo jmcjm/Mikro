@@ -81,9 +81,12 @@ class ProcessingPipeline {
       await db.setTags(id, tags);
       await db.updateStatus(id, RecordingStatus.done);
     } on MikroApiException catch (e) {
-      await db.updateStatus(id, RecordingStatus.error, errorMessage: e.userMessage);
+      // Rodzaj bledu decyduje, czy warto ponowic po powrocie sieci — patrz networkFailedRecordings.
+      await db.updateStatus(id, RecordingStatus.error,
+          errorMessage: e.userMessage, errorKind: e.kind.name);
     } catch (e) {
-      await db.updateStatus(id, RecordingStatus.error, errorMessage: 'Nieoczekiwany błąd: $e');
+      await db.updateStatus(id, RecordingStatus.error,
+          errorMessage: 'Nieoczekiwany błąd: $e', errorKind: 'unknown');
     }
   }
 }

@@ -93,6 +93,17 @@ class $RecordingsTable extends Recordings
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _errorKindMeta = const VerificationMeta(
+    'errorKind',
+  );
+  @override
+  late final GeneratedColumn<String> errorKind = GeneratedColumn<String>(
+    'error_kind',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -103,6 +114,7 @@ class $RecordingsTable extends Recordings
     transcript,
     providerUsed,
     errorMessage,
+    errorKind,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -169,6 +181,12 @@ class $RecordingsTable extends Recordings
         ),
       );
     }
+    if (data.containsKey('error_kind')) {
+      context.handle(
+        _errorKindMeta,
+        errorKind.isAcceptableOrUnknown(data['error_kind']!, _errorKindMeta),
+      );
+    }
     return context;
   }
 
@@ -212,6 +230,10 @@ class $RecordingsTable extends Recordings
         DriftSqlType.string,
         data['${effectivePrefix}error_message'],
       ),
+      errorKind: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}error_kind'],
+      ),
     );
   }
 
@@ -233,6 +255,11 @@ class Recording extends DataClass implements Insertable<Recording> {
   final String? transcript;
   final String? providerUsed;
   final String? errorMessage;
+
+  /// Rodzaj bledu (`MikroApiException.kind.name`, albo `unknown` dla wyjatkow spoza domeny).
+  /// Sluzy do rozroznienia bledow, ktore warto ponowic po powrocie sieci, od tych ktore
+  /// ponawianie tylko powtorzy — np. bledny klucz API.
+  final String? errorKind;
   const Recording({
     required this.id,
     required this.createdAt,
@@ -242,6 +269,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     this.transcript,
     this.providerUsed,
     this.errorMessage,
+    this.errorKind,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -264,6 +292,9 @@ class Recording extends DataClass implements Insertable<Recording> {
     if (!nullToAbsent || errorMessage != null) {
       map['error_message'] = Variable<String>(errorMessage);
     }
+    if (!nullToAbsent || errorKind != null) {
+      map['error_kind'] = Variable<String>(errorKind);
+    }
     return map;
   }
 
@@ -283,6 +314,9 @@ class Recording extends DataClass implements Insertable<Recording> {
       errorMessage: errorMessage == null && nullToAbsent
           ? const Value.absent()
           : Value(errorMessage),
+      errorKind: errorKind == null && nullToAbsent
+          ? const Value.absent()
+          : Value(errorKind),
     );
   }
 
@@ -302,6 +336,7 @@ class Recording extends DataClass implements Insertable<Recording> {
       transcript: serializer.fromJson<String?>(json['transcript']),
       providerUsed: serializer.fromJson<String?>(json['providerUsed']),
       errorMessage: serializer.fromJson<String?>(json['errorMessage']),
+      errorKind: serializer.fromJson<String?>(json['errorKind']),
     );
   }
   @override
@@ -318,6 +353,7 @@ class Recording extends DataClass implements Insertable<Recording> {
       'transcript': serializer.toJson<String?>(transcript),
       'providerUsed': serializer.toJson<String?>(providerUsed),
       'errorMessage': serializer.toJson<String?>(errorMessage),
+      'errorKind': serializer.toJson<String?>(errorKind),
     };
   }
 
@@ -330,6 +366,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     Value<String?> transcript = const Value.absent(),
     Value<String?> providerUsed = const Value.absent(),
     Value<String?> errorMessage = const Value.absent(),
+    Value<String?> errorKind = const Value.absent(),
   }) => Recording(
     id: id ?? this.id,
     createdAt: createdAt ?? this.createdAt,
@@ -339,6 +376,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     transcript: transcript.present ? transcript.value : this.transcript,
     providerUsed: providerUsed.present ? providerUsed.value : this.providerUsed,
     errorMessage: errorMessage.present ? errorMessage.value : this.errorMessage,
+    errorKind: errorKind.present ? errorKind.value : this.errorKind,
   );
   Recording copyWithCompanion(RecordingsCompanion data) {
     return Recording(
@@ -358,6 +396,7 @@ class Recording extends DataClass implements Insertable<Recording> {
       errorMessage: data.errorMessage.present
           ? data.errorMessage.value
           : this.errorMessage,
+      errorKind: data.errorKind.present ? data.errorKind.value : this.errorKind,
     );
   }
 
@@ -371,7 +410,8 @@ class Recording extends DataClass implements Insertable<Recording> {
           ..write('status: $status, ')
           ..write('transcript: $transcript, ')
           ..write('providerUsed: $providerUsed, ')
-          ..write('errorMessage: $errorMessage')
+          ..write('errorMessage: $errorMessage, ')
+          ..write('errorKind: $errorKind')
           ..write(')'))
         .toString();
   }
@@ -386,6 +426,7 @@ class Recording extends DataClass implements Insertable<Recording> {
     transcript,
     providerUsed,
     errorMessage,
+    errorKind,
   );
   @override
   bool operator ==(Object other) =>
@@ -398,7 +439,8 @@ class Recording extends DataClass implements Insertable<Recording> {
           other.status == this.status &&
           other.transcript == this.transcript &&
           other.providerUsed == this.providerUsed &&
-          other.errorMessage == this.errorMessage);
+          other.errorMessage == this.errorMessage &&
+          other.errorKind == this.errorKind);
 }
 
 class RecordingsCompanion extends UpdateCompanion<Recording> {
@@ -410,6 +452,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
   final Value<String?> transcript;
   final Value<String?> providerUsed;
   final Value<String?> errorMessage;
+  final Value<String?> errorKind;
   final Value<int> rowid;
   const RecordingsCompanion({
     this.id = const Value.absent(),
@@ -420,6 +463,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     this.transcript = const Value.absent(),
     this.providerUsed = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.errorKind = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   RecordingsCompanion.insert({
@@ -431,6 +475,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     this.transcript = const Value.absent(),
     this.providerUsed = const Value.absent(),
     this.errorMessage = const Value.absent(),
+    this.errorKind = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        createdAt = Value(createdAt),
@@ -446,6 +491,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Expression<String>? transcript,
     Expression<String>? providerUsed,
     Expression<String>? errorMessage,
+    Expression<String>? errorKind,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -457,6 +503,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       if (transcript != null) 'transcript': transcript,
       if (providerUsed != null) 'provider_used': providerUsed,
       if (errorMessage != null) 'error_message': errorMessage,
+      if (errorKind != null) 'error_kind': errorKind,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -470,6 +517,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     Value<String?>? transcript,
     Value<String?>? providerUsed,
     Value<String?>? errorMessage,
+    Value<String?>? errorKind,
     Value<int>? rowid,
   }) {
     return RecordingsCompanion(
@@ -481,6 +529,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
       transcript: transcript ?? this.transcript,
       providerUsed: providerUsed ?? this.providerUsed,
       errorMessage: errorMessage ?? this.errorMessage,
+      errorKind: errorKind ?? this.errorKind,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -514,6 +563,9 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
     if (errorMessage.present) {
       map['error_message'] = Variable<String>(errorMessage.value);
     }
+    if (errorKind.present) {
+      map['error_kind'] = Variable<String>(errorKind.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -531,6 +583,7 @@ class RecordingsCompanion extends UpdateCompanion<Recording> {
           ..write('transcript: $transcript, ')
           ..write('providerUsed: $providerUsed, ')
           ..write('errorMessage: $errorMessage, ')
+          ..write('errorKind: $errorKind, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -991,6 +1044,7 @@ typedef $$RecordingsTableCreateCompanionBuilder = RecordingsCompanion Function({
   Value<String?> transcript,
   Value<String?> providerUsed,
   Value<String?> errorMessage,
+  Value<String?> errorKind,
   Value<int> rowid,
 });
 typedef $$RecordingsTableUpdateCompanionBuilder = RecordingsCompanion Function({
@@ -1002,6 +1056,7 @@ typedef $$RecordingsTableUpdateCompanionBuilder = RecordingsCompanion Function({
   Value<String?> transcript,
   Value<String?> providerUsed,
   Value<String?> errorMessage,
+  Value<String?> errorKind,
   Value<int> rowid,
 });
 
@@ -1075,6 +1130,11 @@ class $$RecordingsTableFilterComposer
 
   ColumnFilters<String> get errorMessage => $composableBuilder(
     column: $table.errorMessage,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get errorKind => $composableBuilder(
+    column: $table.errorKind,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1152,6 +1212,11 @@ class $$RecordingsTableOrderingComposer
     column: $table.errorMessage,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get errorKind => $composableBuilder(
+    column: $table.errorKind,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$RecordingsTableAnnotationComposer
@@ -1194,6 +1259,9 @@ class $$RecordingsTableAnnotationComposer
     column: $table.errorMessage,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get errorKind =>
+      $composableBuilder(column: $table.errorKind, builder: (column) => column);
 
   Expression<T> recordingTagsRefs<T extends Object>(
     Expression<T> Function($$RecordingTagsTableAnnotationComposer a) f,
@@ -1257,6 +1325,7 @@ class $$RecordingsTableTableManager
                 Value<String?> transcript = const Value.absent(),
                 Value<String?> providerUsed = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<String?> errorKind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion(
                 id: id,
@@ -1267,6 +1336,7 @@ class $$RecordingsTableTableManager
                 transcript: transcript,
                 providerUsed: providerUsed,
                 errorMessage: errorMessage,
+                errorKind: errorKind,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1279,6 +1349,7 @@ class $$RecordingsTableTableManager
                 Value<String?> transcript = const Value.absent(),
                 Value<String?> providerUsed = const Value.absent(),
                 Value<String?> errorMessage = const Value.absent(),
+                Value<String?> errorKind = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => RecordingsCompanion.insert(
                 id: id,
@@ -1289,6 +1360,7 @@ class $$RecordingsTableTableManager
                 transcript: transcript,
                 providerUsed: providerUsed,
                 errorMessage: errorMessage,
+                errorKind: errorKind,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

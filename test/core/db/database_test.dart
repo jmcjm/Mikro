@@ -123,4 +123,89 @@ void main() {
       reason: 'tag tylko-a stracil ostatnie powiazanie i musi zniknac z tabeli tags',
     );
   });
+
+  // --- schemat v2: errorKind (D2c) ---
+
+  test('swieza baza jest w wersji 2 i ma kolumne error_kind', () async {
+    await insert('a');
+    final version = await db.customSelect('PRAGMA user_version').getSingle();
+    expect(version.data.values.first, 2);
+
+    final columns = await db.customSelect('PRAGMA table_info(recordings)').get();
+    expect(columns.map((c) => c.data['name']), contains('error_kind'));
+  });
+
+  test('migracja v1 -> v2 doklada kolumne i nie gubi istniejacych nagran', () async {
+    // Ten test nie korzysta z bazy z setUp, a drift ostrzega, gdy dwie instancje AppDatabase
+    // zyja rownoczesnie. Zamykamy ja, zeby log testow zostal czysty — tearDown zniesie
+    // powtorne close().
+    await db.close();
+
+    // Baza zalozona recznie w ksztalcie v1 (bez error_kind, user_version = 1), zeby drift
+    // musial faktycznie przejsc sciezka onUpgrade zamiast tworzyc schemat od zera.
+    final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
+      rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+          '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
+          '"transcript" TEXT NULL, "provider_used" TEXT NULL, "error_message" TEXT NULL, '
+          'PRIMARY KEY ("id"))');
+      rawDb.execute('CREATE TABLE "tags" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+          '"name" TEXT NOT NULL UNIQUE)');
+      rawDb.execute('CREATE TABLE "recording_tags" ("recording_id" TEXT NOT NULL '
+          'REFERENCES recordings (id) ON DELETE CASCADE, "tag_id" INTEGER NOT NULL '
+          'REFERENCES tags (id) ON DELETE CASCADE, PRIMARY KEY ("recording_id", "tag_id"))');
+      rawDb.execute("INSERT INTO recordings (id, created_at, duration_ms, audio_path, status, "
+          "error_message) VALUES ('stare', 0, 1000, '/stare.m4a', 'error', 'cos padlo')");
+      rawDb.execute('PRAGMA user_version = 1');
+    }));
+    addTearDown(legacy.close);
+
+    final migrated = await legacy.getRecording('stare');
+
+    expect(migrated, isNotNull, reason: 'migracja nie moze zgubic istniejacych nagran');
+    expect(migrated!.errorMessage, 'cos padlo');
+    expect(migrated.errorKind, isNull,
+        reason: 'nie wiemy jakiego rodzaju byl stary blad, wiec zostaje nierozpoznany');
+
+    final version = await legacy.customSelect('PRAGMA user_version').getSingle();
+    expect(version.data.values.first, 2);
+  });
+
+  test('updateStatus zapisuje errorKind i czysci go przy przejsciu na stan nie-bledowy',
+      () async {
+    await insert('a');
+
+    await db.updateStatus('a', RecordingStatus.error,
+        errorMessage: 'brak sieci', errorKind: 'network');
+    expect((await db.getRecording('a'))!.errorKind, 'network');
+
+    await db.updateStatus('a', RecordingStatus.transcribing);
+    expect((await db.getRecording('a'))!.errorKind, isNull,
+        reason: 'stary rodzaj bledu nie moze przezyc sytuacji, ktora go wywolala');
+  });
+
+  test('networkFailedRecordings zwraca tylko bledy sieciowe', () async {
+    await insert('siec');
+    await insert('auth');
+    await insert('wkolejce');
+    await db.updateStatus('siec', RecordingStatus.error, errorKind: 'network');
+    await db.updateStatus('auth', RecordingStatus.error, errorKind: 'auth');
+
+    final ids = (await db.networkFailedRecordings()).map((r) => r.id);
+
+    expect(ids, ['siec'],
+        reason: 'blad autoryzacji ponowi sie tak samo, wiec nie wznawiamy go po powrocie sieci');
+  });
+
+  test('watchQueueLength liczy niedokonczone razem z bledami sieci', () async {
+    await insert('wkolejce');
+    await insert('siec');
+    await insert('auth');
+    await insert('gotowe');
+    await db.updateStatus('siec', RecordingStatus.error, errorKind: 'network');
+    await db.updateStatus('auth', RecordingStatus.error, errorKind: 'auth');
+    await db.updateStatus('gotowe', RecordingStatus.done);
+
+    expect(await db.watchQueueLength().first, 2,
+        reason: 'jedno czeka w kolejce, jedno wisi na sieci; auth i done sie nie licza');
+  });
 }

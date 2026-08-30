@@ -367,4 +367,20 @@ void main() {
     await expectLater(pipeline.idle, completes,
         reason: 'martwa baza nie ma czego wznowic, wiec kolejka zostaje pusta');
   });
+
+  test('blad zapisuje rodzaj, ktory pozniej decyduje o wznowieniu', () async {
+    stt.error = MikroApiException(ApiErrorKind.network, 'brak sieci');
+    await insert('a');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+    expect((await db.getRecording('a'))!.errorKind, 'network');
+
+    tagger.error = null;
+    stt.error = StateError('cos zupelnie innego');
+    await insert('b');
+    pipeline.enqueue('b');
+    await pipeline.idle;
+    expect((await db.getRecording('b'))!.errorKind, 'unknown',
+        reason: 'wyjatek spoza domeny nie ma rodzaju, ale musi byc odrozniony od braku danych');
+  });
 }
