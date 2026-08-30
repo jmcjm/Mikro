@@ -53,4 +53,25 @@ void main() {
     final result = service.search(data, query: 'mleko', tag: 'praca');
     expect(result, isEmpty);
   });
+
+  test('STRAZNIK: wyniki sa sortowane malejaco po trafnosci, nie po kolejnosci wejscia', () {
+    // Punktacja zmierzona na fuzzywuzzy 1.2.0 dla query 'mleko chleb maslo':
+    //   'mleko chleb maslo'      -> 100
+    //   'mlko chlb maslo'        ->  94
+    //   'chleb maslo w sklepie'  ->  79
+    //   'chleb na sniadanie …'   ->  45  (ponizej progu 55, wypada)
+    // Dane wejsciowe sa celowo ulozone ODWROTNIE do oczekiwanego rankingu: bez sortowania
+    // wynik wrocilby w kolejnosci wejscia i asercja by tego nie przepuscila.
+    final ranked = [
+      item('slabo', 'chleb maslo w sklepie', []),
+      item('ponizej-progu', 'chleb na sniadanie i dluga lista innych spraw', []),
+      item('srednio', 'mlko chlb maslo', []),
+      item('najlepiej', 'mleko chleb maslo', []),
+    ];
+
+    final result = service.search(ranked, query: 'mleko chleb maslo');
+
+    expect(result.map((r) => r.recording.id).toList(), ['najlepiej', 'srednio', 'slabo'],
+        reason: 'kolejnosc ma isc od najtrafniejszego, a nagranie ponizej progu ma wypasc');
+  });
 }

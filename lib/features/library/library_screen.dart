@@ -12,9 +12,13 @@ class LibraryScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loading = ref.watch(recordingsStreamProvider).isLoading;
+    final stream = ref.watch(recordingsStreamProvider);
     final items = ref.watch(filteredRecordingsProvider);
     final tagFilter = ref.watch(tagFilterProvider);
+    // Pusta lista znaczy co innego przy aktywnym filtrze (brak trafien), a co innego bez
+    // niego (pusta biblioteka) — komunikat musi te dwa przypadki rozrozniac.
+    final filtering =
+        ref.watch(searchQueryProvider).trim().isNotEmpty || tagFilter != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Biblioteka')),
       body: Column(children: [
@@ -42,14 +46,23 @@ class LibraryScreen extends ConsumerWidget {
             ),
           ),
         Expanded(
-          child: loading
-              ? const Center(child: CircularProgressIndicator())
-              : items.isEmpty
-                  ? const Center(child: Text('Nic nie znaleziono.'))
-                  : ListView.builder(
-                      itemCount: items.length,
-                      itemBuilder: (context, i) => RecordingCard(item: items[i]),
-                    ),
+          child: switch (stream) {
+            // Blad strumienia musi byc widoczny. Bez tej galezi awaria bazy wygladalaby
+            // jak pusta biblioteka, bo filteredRecordingsProvider zwraca wtedy pusta liste.
+            AsyncValue(hasError: true, :final error) =>
+              Center(child: Text('Błąd bazy: $error')),
+            AsyncValue(isLoading: true) => const Center(child: CircularProgressIndicator()),
+            _ => items.isEmpty
+                ? Center(
+                    child: Text(filtering
+                        ? 'Nic nie znaleziono.'
+                        : 'Brak nagrań — nagraj coś.'),
+                  )
+                : ListView.builder(
+                    itemCount: items.length,
+                    itemBuilder: (context, i) => RecordingCard(item: items[i]),
+                  ),
+          },
         ),
       ]),
     );
