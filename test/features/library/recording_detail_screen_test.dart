@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:audioplayers_platform_interface/audioplayers_platform_interface.dart';
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
@@ -87,7 +88,10 @@ void main() {
   /// kanalu zdarzen odtwarzacza i bez niego wisi az do wlasnego limitu czasu, zostawiajac
   /// w tescie tykajacy timer. Kanal zdarzen ma w nazwie identyfikator odtwarzacza, wiec
   /// zaslepiamy go dopiero wtedy, gdy ten identyfikator przyjdzie w wywolaniu `create`.
-  void stubAudioPlayers(WidgetTester tester) {
+  /// [confirmSeek] rozstrzyga, czy udawana warstwa natywna potwierdza przewijanie. Ustawione
+  /// na `false` odwzorowuje platforme, ktora seek przyjmuje i milczy — jedyna sciezka, na
+  /// ktorej wychodzi, czy karta nie zostawia fantomowej pozycji.
+  void stubAudioPlayers(WidgetTester tester, {bool confirmSeek = true}) {
     final messenger = tester.binding.defaultBinaryMessenger;
     MockStreamHandlerEventSink? playerEvents;
 
@@ -112,8 +116,15 @@ void main() {
         switch (call.method) {
           case 'create':
             stubPlayerEvents(args!['playerId']! as String);
+          case 'setSourceUrl':
+            // Gotowosc zrodla melduje osobne zdarzenie; `setSource` czeka na nie i bez niego
+            // wisi az do wlasnego limitu.
+            playerEvents?.success(
+                <String, dynamic>{'event': 'audio.onPrepared', 'value': true});
           case 'seek':
-            playerEvents?.success(<String, dynamic>{'event': 'audio.onSeekComplete'});
+            if (confirmSeek) {
+              playerEvents?.success(<String, dynamic>{'event': 'audio.onSeekComplete'});
+            }
         }
         return null;
       });
@@ -128,8 +139,9 @@ void main() {
     WidgetTester tester,
     String id, {
     Locale locale = const Locale('pl'),
+    bool confirmSeek = true,
   }) async {
-    stubAudioPlayers(tester);
+    stubAudioPlayers(tester, confirmSeek: confirmSeek);
     await tester.pumpWidget(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: localizedApp(
@@ -615,6 +627,18 @@ void main() {
             (call.arguments as Map)['playbackRate'] as double,
       ];
 
+  /// Rozkaz dla odtwarzacza idzie kanalem platformowym tam i z powrotem, a przewijanie przed
+  /// pierwszym odtworzeniem to dwie takie rundy plus zdarzenie gotowosci zrodla. Kilka klatek
+  /// daje im wszystkim dojsc; `pumpAndSettle` odpada, bo w drzewie moze stac zywy ticker.
+  Future<void> settlePlayer(WidgetTester tester) async {
+    for (var i = 0; i < 6; i++) {
+      await tester.pump();
+    }
+  }
+
+  /// Nazwy wywolan kanalu w kolejnosci, w jakiej ekran je wyslal.
+  List<String> methods() => [for (final call in playerCalls) call.method];
+
   /// Nagranie z pelnym przebiegiem. Wszystkie slupki tej samej wysokosci, bo te testy patrza
   /// na podzial zagrane/niezagrane i na gesty, a nie na ksztalt obwiedni.
   Future<void> insertWithWave(String id) async {
@@ -628,8 +652,7 @@ void main() {
 
     await pumpDetail(tester, 'a');
     await tester.tap(find.byType(WaveformSeekBar));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(seeks().length, 1, reason: 'stukniecie to jeden seek, nie seria');
     expect(seeks().single, closeTo(207000 / 2, 300),
@@ -644,8 +667,7 @@ void main() {
     await pumpDetail(tester, 'a');
     final bar = tester.getRect(find.byType(WaveformBars));
     await tester.drag(find.byType(WaveformSeekBar), const Offset(60, 0));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(seeks().length, 1,
         reason: 'przeciaganie prowadzi sam kursor; odtwarzacz rusza sie raz, na koncu gestu');
@@ -679,8 +701,7 @@ void main() {
         reason: 'obwiedni nie wolno zmyslac, a przewijac trzeba dac sie tak samo');
 
     await tester.drag(find.byType(Slider), const Offset(100, 0));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(seeks().length, 1, reason: 'suwak tez przewija raz, na koncu gestu');
 
@@ -700,8 +721,7 @@ void main() {
     expect(colorOf(0), rest, reason: 'przed przewinieciem zaden slupek nie jest zagrany');
 
     await tester.tap(find.byType(WaveformSeekBar));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(colorOf(0), scheme.primary);
     expect(colorOf(kWaveformBuckets ~/ 2 - 1), scheme.primary);
@@ -730,8 +750,7 @@ void main() {
         reason: 'na poczatku nagrania kursor jest wciagniety w pas, nie wisi polowa obok');
 
     await tester.tap(find.byType(WaveformSeekBar));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(tester.getRect(cursor()).center.dx, closeTo(bar.center.dx, 1),
         reason: 'po stuknieciu w srodek kursor staje w srodku');
@@ -746,8 +765,7 @@ void main() {
     expect(find.text('0:00'), findsOneWidget);
 
     await tester.tap(find.byType(WaveformSeekBar));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
 
     expect(find.text('1:43'), findsOneWidget, reason: 'polowa z 3:27');
     expect(find.text('3:27'), findsOneWidget, reason: 'dlugosc nagrania sie nie rusza');
@@ -838,8 +856,7 @@ void main() {
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
       ),
     ));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
   }
 
   testWidgets('panel: nizszy pas, wiersz transportu i pigulka mieszcza sie przy progu',
@@ -863,23 +880,110 @@ void main() {
     await pumpPanel(tester, 'a');
 
     await tester.tap(find.byType(WaveformSeekBar));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
     expect(seeks().length, 1);
     expect(seeks().single, closeTo(207000 / 2, 300));
 
     await tester.tap(find.byTooltip(plL10n.detailForwardTooltip));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
     expect(seeks().last, closeTo(207000 / 2 + 10000, 300),
         reason: 'skok liczy sie od pozycji, na ktorej stoi kursor');
 
     await tester.tap(find.byTooltip(plL10n.detailSpeedTooltip));
-    await tester.pump();
-    await tester.pump();
+    await settlePlayer(tester);
     expect(rates(), [1.25]);
     expect(find.text(plL10n.detailSpeedLabel('1,25')), findsOneWidget,
         reason: 'jedna predkosc na ekran, ta sama pigulka co na telefonie');
+
+    await unmount(tester);
+  });
+
+  // --- leniwe wczytanie zrodla przy przewijaniu (runda fix 1) ---
+
+  testWidgets('przewijanie przed odtwarzaniem wczytuje zrodlo i nie wlacza odtwarzania',
+      (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byType(WaveformSeekBar));
+    await settlePlayer(tester);
+
+    expect(methods(), contains('setSourceUrl'),
+        reason: 'bez wczytanego zrodla natywna warstwa nie ma czego przewijac — seek '
+            'przechodzi bez skutku i bez potwierdzenia');
+    expect(methods().indexOf('setSourceUrl'), lessThan(methods().indexOf('seek')),
+        reason: 'najpierw zrodlo, potem przewiniecie');
+    expect(methods(), isNot(contains('resume')),
+        reason: 'gest przewijania nie wlacza odtwarzania — pauza zostaje pauza');
+    expect(seeks().length, 1);
+    expect(find.text('1:43'), findsOneWidget, reason: 'pozycja jest prawdziwa, nie fantomowa');
+    expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget,
+        reason: 'przycisk nadal zaprasza do odtwarzania');
+
+    await unmount(tester);
+  });
+
+  testWidgets('skok o 10 s przed odtwarzaniem tez wczytuje zrodlo', (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byTooltip(plL10n.detailForwardTooltip));
+    await settlePlayer(tester);
+
+    expect(methods(), contains('setSourceUrl'));
+    expect(seeks(), [10000]);
+    expect(find.text('0:10'), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('odtwarzanie po przewinieciu wznawia, zamiast wczytywac zrodlo od nowa',
+      (tester) async {
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byType(WaveformSeekBar));
+    await settlePlayer(tester);
+    await tester.tap(find.byIcon(Symbols.play_arrow_rounded));
+    await settlePlayer(tester);
+
+    expect(methods().where((m) => m == 'setSourceUrl').length, 1,
+        reason: 'drugie wczytanie zrodla skasowaloby wlasnie wybrana pozycje');
+    expect(methods(), contains('resume'));
+    expect(methods().lastIndexOf('resume'), greaterThan(methods().indexOf('seek')),
+        reason: 'najpierw uzytkownik wybral miejsce, potem wcisnal play');
+
+    await unmount(tester);
+  });
+
+  testWidgets('brak potwierdzenia przewijania nie zostawia fantomowej pozycji',
+      (tester) async {
+    // Limit audioplayers ustawiony DLUZEJ niz limit karty i tak, zeby nie zostawil po tescie
+    // tykajacego timera. Chodzi o to, ktory z nich zdejmuje fantom: ma to zrobic karta,
+    // a nie wtyczka po swoich 30 sekundach.
+    final plugin = AudioPlayer.seekingTimeout;
+    AudioPlayer.seekingTimeout = const Duration(seconds: 5);
+    addTearDown(() => AudioPlayer.seekingTimeout = plugin);
+
+    await insertWithWave('a');
+
+    await pumpDetail(tester, 'a', confirmSeek: false);
+    await tester.tap(find.byType(WaveformSeekBar));
+    await settlePlayer(tester);
+
+    expect(seeks().length, 1, reason: 'przewiniecie zostalo wyslane');
+    expect(find.text('1:43'), findsOneWidget,
+        reason: 'poki proba trwa, kursor stoi tam, gdzie uzytkownik go postawil');
+
+    await tester.pump(const Duration(seconds: 3)); // ponad limit karty, ponizej limitu wtyczki
+
+    expect(find.text('0:00'), findsOneWidget,
+        reason: 'niepotwierdzone przewijanie wraca do prawdziwej pozycji, i to od razu — '
+            'a nie po pol minuty czekania wtyczki');
+    expect(find.text('1:43'), findsNothing);
+
+    // Domkniecie limitu wtyczki, zeby nie zostal na koniec testu jako tykajacy timer.
+    await tester.pump(const Duration(seconds: 3));
 
     await unmount(tester);
   });

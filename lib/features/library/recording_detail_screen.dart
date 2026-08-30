@@ -72,6 +72,22 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   /// ignores incoming position events; the actual seek happens once, on release.
   double? _dragMs;
 
+  /// Czy odtwarzacz ma juz wczytane zrodlo.
+  ///
+  /// Odtwarzacz startuje pusty i zostaje taki az do pierwszego odtworzenia. Natywna warstwa
+  /// nie ma wtedy czego przewijac: seek przechodzi bez skutku I BEZ POTWIERDZENIA, a karta
+  /// pokazywalaby pozycje, ktorej nigdzie nie ma. Dlatego pierwszy gest przewijania wczytuje
+  /// zrodlo — a przycisk odtwarzania musi wiedziec, ze ono juz stoi, bo `play(source)`
+  /// wczytalby je drugi raz i skasowal wlasnie wybrana pozycje.
+  bool _sourceLoaded = false;
+
+  /// Po tylu sekundach karta przestaje pokazywac przewijanie jako trwajace.
+  ///
+  /// audioplayers czeka na potwierdzenie z natywnej warstwy przez `AudioPlayer.seekingTimeout`,
+  /// czyli domyslnie 30 s. Kursor stojacy przez pol minuty w miejscu, w ktorym odtwarzacza nie
+  /// ma, to nie jest czekanie, tylko fantom — wlasny, krotki limit zdejmuje go od razu.
+  static const _seekTimeout = Duration(seconds: 2);
+
   /// Predkosc odtwarzania wybrana pigulka. Zyje tyle, co ekran: nikt nie prosil o pamietanie
   /// jej miedzy wejsciami, a ustawienie, ktore przezywa wyjscie, trzeba by gdzies pokazac.
   double _rate = kPlaybackRates.first;
@@ -99,16 +115,21 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   ///
   /// Kursor przeskakuje PRZED wyslaniem seeku i strumien pozycji milknie na czas jego lotu:
   /// inaczej miedzy gestem a jego skutkiem karta pokazywalaby jeszcze stara pozycje.
-  Future<void> _seekTo(Duration target) async {
+  Future<void> _seekTo(Recording r, Duration target) async {
     setState(() => _dragMs = target.inMilliseconds.toDouble());
     var reached = false;
     try {
-      await _player.seek(target);
+      await _loadAndSeek(r, target).timeout(_seekTimeout);
       reached = true;
+    } on TimeoutException {
+      // Natywna warstwa nie potwierdzila przewijania w zalozonym czasie. Moze jeszcze
+      // dojechac, wiec zrodla nie odznaczamy — ale kursor przestaje udawac, ze wie, gdzie
+      // odtwarzacz stoi. Powie to strumien pozycji.
     } catch (_) {
-      // Odtwarzacz bez wczytanego zrodla nie potwierdza przewijania, a audioplayers czeka na
-      // to potwierdzenie i po swoim limicie konczy wyjatkiem. To nie jest awaria ekranu —
-      // przewijanie po prostu nie doszlo do skutku, wiec nie wolno go pokazac jako udane.
+      // Kazdy inny blad znaczy, ze zrodla nie da sie teraz uzyc: nie ma pliku, nie da sie go
+      // zdekodowac. Odznaczamy je, zeby kolejny gest sprobowal wczytac je od nowa, zamiast
+      // przewijac w pustke.
+      _sourceLoaded = false;
     }
     if (!mounted) return;
     setState(() {
@@ -117,10 +138,22 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     });
   }
 
+  /// Przewiniecie razem z leniwym wczytaniem zrodla.
+  ///
+  /// Gest przewijania na nagraniu, ktore jeszcze nie gralo, jest intencja uzytkownika, a nie
+  /// pomylka — ma zadzialac. Wczytanie zrodla NIE zaczyna odtwarzania: pauza zostaje pauza.
+  Future<void> _loadAndSeek(Recording r, Duration target) async {
+    if (!_sourceLoaded) {
+      await _player.setSource(DeviceFileSource(r.audioPath));
+      _sourceLoaded = true;
+    }
+    await _player.seek(target);
+  }
+
   /// Skok o 10 s w tyl albo w przod. Dziala takze w pauzie — seek nie rusza stanu odtwarzania,
   /// wiec przycisk przesuwa miejsce, od ktorego ruszy nastepne wcisniecie play.
-  Future<void> _skip(Duration step, Duration total) =>
-      _seekTo(skipTarget(_shownPosition(total), step, total));
+  Future<void> _skip(Recording r, Duration step, Duration total) =>
+      _seekTo(r, skipTarget(_shownPosition(total), step, total));
 
   /// Kolejna predkosc z cyklu pigulki. Etykieta zmienia sie od razu, bo obie warstwy —
   /// android i linux — trzymaja predkosc przy odtwarzaczu, a nie przy zrodle: ustawiona przy
@@ -142,8 +175,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     _subs.add(_player.onPlayerStateChanged.listen((s) => setState(() {
           _playerState = s;
           // Po zakonczeniu nagrania suwak wraca na poczatek, zeby stan wizualny zgadzal sie
-          // z tym, co zrobi kolejne wcisniecie przycisku: odtworzenie od zera.
-          if (s == PlayerState.completed) _position = Duration.zero;
+          // z tym, co zrobi kolejne wcisniecie przycisku: odtworzenie od zera. Zrodlo tez
+          // przestaje istniec — przy domyslnym ReleaseMode.release audioplayers zwalnia je
+          // razem z koncem odtwarzania.
+          if (s == PlayerState.completed) {
+            _position = Duration.zero;
+            _sourceLoaded = false;
+          }
         })));
   }
 
@@ -561,7 +599,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
   /// trzeba dac sie tak samo.
   Widget _seekSurface(Recording r, Duration total, {required double height}) {
     final levels = decodeWaveform(r.waveform);
-    if (levels == null) return _positionSlider(total);
+    if (levels == null) return _positionSlider(r, total);
     return WaveformSeekBar(
       levels: levels,
       height: height,
@@ -570,14 +608,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
       label: AppLocalizations.of(context).detailSeekLabel,
       onScrub: (position) =>
           setState(() => _dragMs = position.inMilliseconds.toDouble()),
-      onSeek: _seekTo,
+      onSeek: (target) => _seekTo(r, target),
     );
   }
 
   /// Suwak pozycji dla nagran bez obwiedni. Uchwyt i tor wprost z poprzedniej wersji karty —
   /// jedyne, co sie zmienilo, to ze przewijanie konczy sie tam, gdzie wszystkie pozostale
   /// drogi: w [_seekTo].
-  Widget _positionSlider(Duration total) {
+  Widget _positionSlider(Recording r, Duration total) {
     final scheme = Theme.of(context).colorScheme;
     final maxMs = total.inMilliseconds.toDouble().clamp(1.0, double.infinity);
     return SliderTheme(
@@ -594,7 +632,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         max: maxMs,
         value: _shownPosition(total).inMilliseconds.toDouble().clamp(0.0, maxMs),
         onChanged: (v) => setState(() => _dragMs = v),
-        onChangeEnd: (v) => _seekTo(Duration(milliseconds: v.round())),
+        onChangeEnd: (v) => _seekTo(r, Duration(milliseconds: v.round())),
       ),
     );
   }
@@ -624,13 +662,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
         _TransportAction(
           icon: Symbols.replay_10_rounded,
           tooltip: l10n.detailRewindTooltip,
-          onTap: () => _skip(-kSkipStep, total),
+          onTap: () => _skip(r, -kSkipStep, total),
         ),
         const SizedBox(width: 8),
         _TransportAction(
           icon: Symbols.forward_10_rounded,
           tooltip: l10n.detailForwardTooltip,
-          onTap: () => _skip(kSkipStep, total),
+          onTap: () => _skip(r, kSkipStep, total),
         ),
         const Spacer(),
         _SpeedPill(rate: _rate, onTap: _cycleRate),
@@ -671,7 +709,15 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
       case PlayerState.stopped:
       case PlayerState.completed:
       case PlayerState.disposed:
-        await _player.play(DeviceFileSource(r.audioPath));
+        // Zrodlo wczytane wczesniej gestem przewijania trzeba WZNOWIC, a nie wczytac drugi
+        // raz: `play(source)` zaczalby od zera i skasowal pozycje, ktora uzytkownik wlasnie
+        // wybral, jeszcze zanim uslyszal pierwszy dzwiek.
+        if (_sourceLoaded) {
+          await _player.resume();
+        } else {
+          await _player.play(DeviceFileSource(r.audioPath));
+          _sourceLoaded = true;
+        }
     }
   }
 
