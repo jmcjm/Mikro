@@ -14,7 +14,7 @@ oryginalna nazwe rodziny.
 
 Zrodlo: [google/fonts](https://github.com/google/fonts), katalog `ofl/robotomono`, plik zmienny
 `RobotoMono[wght].ttf` (sha256 `66a80e79d17e4c7cabd162e2916578a4cc08fd19eef6e2a643305eae9c567b2b`).
-Repo nie wydaje plikow statycznych, wiec obie wagi sa instancjami osi `wght`, a potem podzbiorem
+Repo nie wydaje plikow statycznych, wiec font jest instancja osi `wght`, a potem podzbiorem
 znakow — pelny font ma cyrylice, greke i wietnamski, ktorych aplikacja nie uzywa.
 
 Odtworzenie (wymaga `fonttools`):
@@ -30,7 +30,10 @@ python3 -m fontTools.subset inst.ttf --unicodes="$LATIN,$LATIN_EXT" \
   --output-file=RobotoMono-Regular.ttf
 ```
 
-Waga 500 (`RobotoMono-Medium.ttf`) powstaje tak samo, tylko z `wght=500`. Zakresy znakow to te
-same, ktorych Google Fonts uzywa dla podzbiorow `latin` i `latin-ext` — polskie znaki diakrytyczne
-sa w `latin-ext`. Po podzbiorze zostaje 410 znakow zamiast pelnego zestawu, po ~38 KB na wage.
-`--name-IDs='*'` zostawia w pliku noty o prawach autorskich i licencji.
+Zakresy znakow to te same, ktorych Google Fonts uzywa dla podzbiorow `latin` i `latin-ext` —
+polskie znaki diakrytyczne sa w `latin-ext`. Po podzbiorze zostaje 410 znakow zamiast pelnego
+zestawu, okolo 38 KB. `--name-IDs='*'` zostawia w pliku noty o prawach autorskich i licencji.
+
+Aplikacja bundluje wylacznie wage 400: zaden styl nie ustawia `fontWeight` na tekscie mono,
+wiec waga 500 byla nieosiagalna. Gdyby kiedys byla potrzebna, powstaje ta sama recepta
+z `wght=500`.

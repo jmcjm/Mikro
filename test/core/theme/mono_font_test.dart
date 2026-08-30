@@ -45,7 +45,7 @@ void main() {
   // ktoregokolwiek z nich Flutter zjada bez slowa — tekst po prostu wraca na font domyslny — wiec
   // testy pilnuja calej trojki, a nie samej stalej.
   group('rodzina monospace', () {
-    test('pubspec deklaruje monoFontFamily w wagach 400 i 500', () {
+    test('pubspec deklaruje monoFontFamily w wadze 400', () {
       final pubspec = File('pubspec.yaml').readAsStringSync();
       final start = pubspec.indexOf('family: $monoFontFamily');
       expect(start, isNot(-1), reason: 'pubspec nie deklaruje rodziny $monoFontFamily');
@@ -55,9 +55,10 @@ void main() {
           .allMatches(block)
           .map((match) => match.group(1)!)
           .toList();
-      expect(assets, hasLength(2), reason: 'oczekiwane dwie wagi fontu');
+      // Jedna waga, bo zaden styl nie ustawia fontWeight na tekscie mono — bundlowanie
+      // drugiego pliku dokladaloby ~38 KB, ktorych nic nie siega.
+      expect(assets, hasLength(1), reason: 'oczekiwana jedna waga fontu');
       expect(block, contains('weight: 400'));
-      expect(block, contains('weight: 500'));
 
       for (final asset in assets) {
         final file = File(asset);
