@@ -138,6 +138,9 @@ void main() {
             'jako pierwszy.');
     expect(find.byType(RecordingDetailView), findsNothing);
     expect(await db.getRecording('a'), isNull);
+    expect(Directory('${audioRoot.path}/a').existsSync(), isFalse,
+        reason: 'katalog nagrania idzie za wpisem w bazie; guard przed rekursywnym kasowaniem '
+            'ma odsiewac obce sciezki, a nie blokowac wlasciwa');
     // Lista zostaje na miejscu i pokazuje juz stan pusty biblioteki.
     expect(find.text(plL10n.libraryEmptyNoRecordings), findsOneWidget);
 

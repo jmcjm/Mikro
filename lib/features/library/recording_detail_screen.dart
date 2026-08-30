@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:path/path.dart' as p;
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/audio/waveform.dart';
@@ -140,7 +141,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
       // sprzatania nie przerywa zamkniecia ekranu.
       try {
         final dir = File(recording.audioPath).parent;
-        if (dir.existsSync()) dir.deleteSync(recursive: true);
+        // Sciezka przychodzi z bazy, a kasowanie jest rekursywne, wiec najpierw upewniamy sie,
+        // ze celujemy w katalog TEGO nagrania. Kazde audio zapisane przez aplikacje lezy
+        // w <docs>/recordings/<id>/audio.m4a, wiec warunek nic nie kosztuje, a nie pozwala
+        // zepsutemu albo obcemu wpisowi wyciac dowolnego katalogu.
+        if (p.basename(dir.path) == recording.id && dir.existsSync()) {
+          dir.deleteSync(recursive: true);
+        }
       } catch (_) {
         // Sprzatanie plikow jest best-effort.
       }
@@ -224,21 +231,39 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    final all = ref.watch(recordingsStreamProvider).value ?? [];
+    final stream = ref.watch(recordingsStreamProvider);
+    final l10n = AppLocalizations.of(context);
+    // Blad i ladowanie rozstrzygaja sie PRZED pustka. W obu tych stanach strumien nie ma
+    // jeszcze wartosci, wiec nagranie wygladaloby na skasowane: awaria bazy i pierwsza klatka
+    // po wejsciu na ekran meldowaly sie tym samym zdaniem, co faktycznie usuniety wpis.
+    // Podzial jak na liscie w library_screen.dart.
+    return switch (stream) {
+      AsyncValue(hasError: true, :final error) =>
+        _standalone(Center(child: Text(l10n.libraryDatabaseError('$error')))),
+      AsyncValue(isLoading: true) =>
+        _standalone(const Center(child: CircularProgressIndicator())),
+      AsyncValue(:final value) => _loaded(value ?? const []),
+    };
+  }
+
+  Widget _loaded(List<RecordingWithTags> all) {
     final match = all.where((r) => r.recording.id == widget.recordingId).toList();
     if (match.isEmpty) {
-      final message =
-          Center(child: Text(AppLocalizations.of(context).detailRecordingDeleted));
-      return switch (widget.chrome) {
-        DetailChrome.screen => Scaffold(body: message),
-        DetailChrome.panel => message,
-      };
+      return _standalone(
+          Center(child: Text(AppLocalizations.of(context).detailRecordingDeleted)));
     }
     return switch (widget.chrome) {
       DetailChrome.screen => _screen(match.first),
       DetailChrome.panel => _panel(match.first),
     };
   }
+
+  /// Komunikat zamiast tresci nagrania. Pelny ekran stoi na wlasnej trasie, wiec potrzebuje
+  /// wlasnego Scaffolda; panel siedzi juz w Scaffoldzie biblioteki.
+  Widget _standalone(Widget child) => switch (widget.chrome) {
+        DetailChrome.screen => Scaffold(body: child),
+        DetailChrome.panel => child,
+      };
 
   Widget _screen(RecordingWithTags item) {
     final scheme = Theme.of(context).colorScheme;
@@ -352,17 +377,22 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView> {
     );
   }
 
-  /// Tresc wspolna dla obu ram: karta odtwarzacza, tagi i transkrypt.
-  Widget _body(RecordingWithTags item, {required bool showMeta}) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _playerCard(item.recording, showMeta: showMeta),
-          const SizedBox(height: 16),
-          _tagRow(item),
-          const SizedBox(height: 16),
-          Expanded(child: _content(item.recording)),
-        ],
-      );
+  /// Tresc wspolna dla obu ram: karta odtwarzacza, tagi i transkrypt. Odstep idzie za rama,
+  /// bo tak ma go makieta: kolumna panelu desktopowego oddycha 20 px, kolumna pelnego
+  /// ekranu 16 px.
+  Widget _body(RecordingWithTags item, {required bool showMeta}) {
+    final gap = widget.chrome == DetailChrome.panel ? 20.0 : 16.0;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _playerCard(item.recording, showMeta: showMeta),
+        SizedBox(height: gap),
+        _tagRow(item),
+        SizedBox(height: gap),
+        Expanded(child: _content(item.recording)),
+      ],
+    );
+  }
 
   /// Rzad tagow z makiety: chipy nagrania i kafelek "+ tag" na koncu. Rzad stoi tu ZAWSZE,
   /// takze przy nagraniu bez ani jednego tagu — inaczej pierwszego tagu nie byloby jak

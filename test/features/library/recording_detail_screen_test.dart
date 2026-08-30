@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,13 @@ import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 
 import '../../support/l10n_harness.dart';
+
+/// Blad z przewidywalnym toString: banner sklada komunikat wprost z niego, wiec test moze
+/// porownac cale zdanie zamiast szukac fragmentu.
+class _FakeDbError {
+  @override
+  String toString() => 'baza padla';
+}
 
 void main() {
   late AppDatabase db;
@@ -144,6 +153,53 @@ void main() {
     await pumpDetail(tester, 'nie-ma-takiego');
 
     expect(find.text(plL10n.detailRecordingDeleted), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  /// Podmienia caly strumien nagran, zeby dalo sie postawic ekran w stanie, ktorego drift
+  /// w tescie nie wyprodukuje: awaria bazy albo strumien, ktory jeszcze nic nie oddal.
+  Future<void> pumpWithStream(
+      WidgetTester tester, Stream<List<RecordingWithTags>> stream) async {
+    stubAudioPlayers(tester);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        recordingsStreamProvider.overrideWith((ref) => stream),
+      ],
+      child: localizedApp(
+        const RecordingDetailScreen(recordingId: 'a'),
+        theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
+      ),
+    ));
+    await tester.pump();
+    await tester.pump();
+  }
+
+  testWidgets('awaria bazy melduje sie bledem, a nie komunikatem o skasowaniu',
+      (tester) async {
+    await pumpWithStream(
+        tester, Stream<List<RecordingWithTags>>.error(_FakeDbError()));
+
+    expect(find.text(plL10n.libraryDatabaseError('baza padla')), findsOneWidget);
+    expect(find.text(plL10n.detailRecordingDeleted), findsNothing,
+        reason: 'padnieta baza to nie to samo, co nagranie usuniete przez uzytkownika — '
+            'komunikat o skasowaniu kazalby szukac wpisu, ktory wciaz tam jest');
+
+    await unmount(tester);
+  });
+
+  testWidgets('strumien bez pierwszej wartosci pokazuje postep, nie komunikat o skasowaniu',
+      (tester) async {
+    // Strumien, ktory nigdy nic nie oddaje: ekran zostaje w stanie ladowania.
+    final pending = StreamController<List<RecordingWithTags>>();
+    addTearDown(pending.close);
+
+    await pumpWithStream(tester, pending.stream);
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text(plL10n.detailRecordingDeleted), findsNothing,
+        reason: 'zanim strumien cokolwiek odda, o istnieniu nagrania nic nie wiadomo');
 
     await unmount(tester);
   });
