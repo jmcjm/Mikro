@@ -129,6 +129,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
+    final canPop = ModalRoute.of(context)?.canPop ?? false;
 
     return Scaffold(
       backgroundColor: colors.surface,
@@ -137,16 +138,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: Text(
-                l10n.settingsTitle,
-                style: TextStyle(
-                  fontSize: 32,
-                  height: 40 / 32,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                  color: colors.onSurface,
-                ),
+              padding: EdgeInsets.fromLTRB(canPop ? 8 : 20, 16, 20, 12),
+              child: Row(
+                children: [
+                  if (canPop) ...[
+                    IconButton(
+                      icon: Icon(Symbols.arrow_back_rounded, color: colors.onSurface),
+                      tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    l10n.settingsTitle,
+                    style: TextStyle(
+                      fontSize: 32,
+                      height: 40 / 32,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: colors.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ),
             Expanded(

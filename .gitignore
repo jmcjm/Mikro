@@ -61,3 +61,8 @@ android/app/key.properties
 *.jks
 *.keystore
 
+# Local release build binaries & screenshots
+*.apk
+Screenshot_*.png
+
+

@@ -49,10 +49,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.1" date="2026-08-31">
+      <description>
+        <p>Poprawki nawigacji w ustawieniach i przeniesienie bazy danych do katalogu danych aplikacji.</p>
+        <p xml:lang="en">Settings navigation fix and moving database/recordings into application support directory.</p>
+      </description>
+    </release>
     <release version="1.0.0" date="2026-08-30">
       <description>
-        <p>Pierwsze wydanie desktopowe: nagrywanie, transkrypcja i biblioteka nagrań.</p>
-        <p xml:lang="en">First desktop release: recording, transcription and the recordings library.</p>
+        <p>Pierwsze wydanie: nagrywanie, transkrypcja i biblioteka nagrań.</p>
+        <p xml:lang="en">First release: recording, transcription and the recordings library.</p>
       </description>
     </release>
   </releases>

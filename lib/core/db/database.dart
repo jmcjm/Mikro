@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/recording_status.dart';
 import '../models/tag_name.dart';
@@ -59,7 +60,13 @@ class RecordingWithTags {
 
 @DriftDatabase(tables: [Recordings, Tags, RecordingTags])
 class AppDatabase extends _$AppDatabase {
-  AppDatabase() : super(driftDatabase(name: 'mikro'));
+  AppDatabase()
+      : super(driftDatabase(
+          name: 'mikro',
+          native: const DriftNativeOptions(
+            databaseDirectory: getApplicationSupportDirectory,
+          ),
+        ));
   AppDatabase.forTesting(super.e);
 
   @override

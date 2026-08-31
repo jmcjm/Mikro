@@ -10,10 +10,10 @@ import 'core/providers.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
-  final docsDir = await getApplicationDocumentsDirectory();
+  final appDir = await getApplicationSupportDirectory();
   final container = ProviderContainer(overrides: [
     sharedPrefsProvider.overrideWithValue(prefs),
-    baseDirProvider.overrideWithValue(docsDir),
+    baseDirProvider.overrideWithValue(appDir),
   ]);
   final pipeline = container.read(pipelineProvider);
   final connectivity = container.read(connectivityServiceProvider);

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:mikro/features/settings/settings_screen.dart';
@@ -92,5 +93,50 @@ void main() {
     await tester.tap(find.byTooltip(plL10n.settingsShowKey));
     await tester.pumpAndSettle();
     expect(keyField().obscureText, isFalse);
+  });
+
+  testWidgets('shows back button when pushed to Navigator and pops route on tap', (tester) async {
+    await tester.binding.setSurfaceSize(_designFrame);
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        keyStoreProvider.overrideWithValue(FakeKeyStore()),
+      ],
+      child: localizedApp(
+        Builder(
+          builder: (context) => Scaffold(
+            body: ElevatedButton(
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+              ),
+              child: const Text('Open Settings'),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    // Tap Open Settings
+    await tester.tap(find.text('Open Settings'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.byIcon(Symbols.arrow_back_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Symbols.arrow_back_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsNothing);
+    expect(find.text('Open Settings'), findsOneWidget);
+  });
+
+  testWidgets('does not show back button when opened at root (canPop = false)', (tester) async {
+    await pumpSettings(tester);
+    expect(find.byIcon(Symbols.arrow_back_rounded), findsNothing);
   });
 }
