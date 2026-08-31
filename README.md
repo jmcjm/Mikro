@@ -1,14 +1,14 @@
-<p align="center">
-  <img src="packaging/icons/mikro-icon-1024.png" width="128" height="128" alt="Mikro Logo">
-</p>
+<h1>
+  <img src="packaging/icons/mikro-icon-1024.png" width="64" height="64" alt="Mikro Logo"
+       align="absmiddle">
+  Mikro
+</h1>
 
-<h1 align="center">Mikro</h1>
-
-<p align="center">
+<p>
   <b>Modern voice recorder & AI-powered transcription app for Android and Linux desktop.</b>
 </p>
 
-<p align="center">
+<p>
   Voice recorder for Android and Linux that turns audio recordings into text using OpenAI-compatible transcription and completion APIs. Recordings and data stay local on your device.
 </p>
 
@@ -17,14 +17,10 @@
 ### Mobile (Android)
 
 <p align="center">
-  <img src="docs/screenshots/mobile_home.png" width="22%" alt="Recorder Idle">
   <img src="docs/screenshots/mobile_home_recording.png" width="22%" alt="Recording in Progress">
   <img src="docs/screenshots/mobile_library.png" width="22%" alt="Library">
   <img src="docs/screenshots/mobile_recording_page.png" width="22%" alt="Recording Detail">
-</p>
-
-<p align="center">
-  <img src="docs/screenshots/mobile_setting.png" width="30%" alt="Settings">
+  <img src="docs/screenshots/mobile_setting.png" width="22%" alt="Settings">
 </p>
 
 ### Desktop (Linux)
