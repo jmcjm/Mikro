@@ -1,6 +1,38 @@
-# Mikro
+<p align="center">
+  <img src="packaging/icons/mikro-icon-1024.png" width="128" height="128" alt="Mikro Logo">
+</p>
 
-Voice recorder for Android and Linux that turns audio recordings into text using an external OpenAI-compatible transcription API. Recordings are saved locally on the device; nothing other than audio and transcript leaves your machine.
+<h1 align="center">Mikro</h1>
+
+<p align="center">
+  <b>Modern voice recorder & AI-powered transcription app for Android and Linux desktop.</b>
+</p>
+
+<p align="center">
+  Voice recorder for Android and Linux that turns audio recordings into text using OpenAI-compatible transcription and completion APIs. Recordings and data stay local on your device.
+</p>
+
+## Screenshots
+
+### Mobile (Android)
+
+<p align="center">
+  <img src="docs/screenshots/mobile_home.png" width="22%" alt="Recorder Idle">
+  <img src="docs/screenshots/mobile_home_recording.png" width="22%" alt="Recording in Progress">
+  <img src="docs/screenshots/mobile_library.png" width="22%" alt="Library">
+  <img src="docs/screenshots/mobile_recording_page.png" width="22%" alt="Recording Detail">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/mobile_setting.png" width="30%" alt="Settings">
+</p>
+
+### Desktop (Linux)
+
+<p align="center">
+  <img src="docs/screenshots/pc_home.png" width="48%" alt="Desktop Recorder">
+  <img src="docs/screenshots/pc_library.png" width="48%" alt="Desktop Library and Detail Panel">
+</p>
 
 ## Features
 

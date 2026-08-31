@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.3" date="2026-08-31">
+      <description>
+        <p>Dodano zrzuty ekranu i logo do dokumentacji oraz naprawiono zależnosci CI/CD dla wersji desktopowych.</p>
+        <p xml:lang="en">Added screenshots and logo to documentation and fixed CI/CD Linux build dependencies.</p>
+      </description>
+    </release>
     <release version="1.0.2" date="2026-08-31">
       <description>
         <p>Włączono przewijanie tagów kółkiem myszy i przeciąganiem na desktopie.</p>
