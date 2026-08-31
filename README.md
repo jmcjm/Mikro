@@ -12,6 +12,15 @@
   Voice recorder for Android and Linux that turns audio recordings into text using OpenAI-compatible transcription and completion APIs. Recordings and data stay local on your device.
 </p>
 
+<p>
+  <a href="https://github.com/jmcjm/mikro/releases/latest">
+    <img src="https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get it on GitHub" height="36">
+  </a>
+  <a href="https://apps.obtainium.imranr.dev/?r=https://github.com/jmcjm/mikro">
+    <img src="https://img.shields.io/badge/Obtainium-Add%20to%20Obtainium-4878a6?style=for-the-badge&logo=android&logoColor=white" alt="Get it on Obtainium" height="36">
+  </a>
+</p>
+
 ## Screenshots
 
 ### Mobile (Android)
