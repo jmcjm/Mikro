@@ -7,12 +7,12 @@ import '../../core/models/recording_status.dart';
 import '../../core/theme/app_theme.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Wspolne elementy wizualne biblioteki i szczegolow nagrania, przepisane 1:1 z makiet
-/// (`design/Mikro-MD3.dc.html`, sekcje "Biblioteka" i "Szczegoly"). Oba ekrany rysuja te same
-/// odznaki statusu i chipy tagow, wiec mieszkaja tutaj zamiast byc kopiowane.
+/// Shared visual elements for library and recording details, matching design mockups
+/// (`design/Mikro-MD3.dc.html`, "Library" and "Details" sections). Both screens render identical
+/// status badges and tag chips.
 
-/// Podpis techniczny (data, nazwa modelu) krojem monospace — tak sklada je design. Rodzina idzie
-/// ze stalej [monoFontFamily], bo font jest bundlowany pod ta jedna nazwa.
+/// Technical caption (date, model name) in monospace font per design. Font family is resolved
+/// from [monoFontFamily] constant matching the bundled asset.
 TextStyle monoStyle({required double size, required Color color}) => TextStyle(
       fontFamily: monoFontFamily,
       fontFamilyFallback: monoFontFallback,
@@ -20,9 +20,8 @@ TextStyle monoStyle({required double size, required Color color}) => TextStyle(
       color: color,
     );
 
-/// Liczby, ktore zmieniaja sie w miejscu (czasy odtwarzania, dlugosc nagrania). Cyfry o stalej
-/// szerokosci, zgodnie z `font-variant-numeric:tabular-nums` z makiety — bez tego licznik
-/// pozycji skacze przy kazdej zmianie cyfry.
+/// Fixed-width numbers for text values updating in place (playback timestamps, duration).
+/// Matches `font-variant-numeric:tabular-nums` from mockup to prevent jitter during updates.
 TextStyle tabularStyle({
   required double size,
   required Color color,
@@ -35,8 +34,7 @@ TextStyle tabularStyle({
       fontFeatures: const [FontFeature.tabularFigures()],
     );
 
-/// Etykieta statusu w odznace. Makieta pisze je wielka litera ("Tagowanie…", "Gotowe",
-/// "Blad"), bo w restylowanym ukladzie status jest odznaka, a nie zdaniem w tresci karty.
+/// Status badge label. Displayed in title case matching the restyled badge design.
 String statusLabel(RecordingStatus status, AppLocalizations l10n) => switch (status) {
       RecordingStatus.recorded => l10n.statusQueued,
       RecordingStatus.transcribing => l10n.statusTranscribing,
@@ -45,22 +43,22 @@ String statusLabel(RecordingStatus status, AppLocalizations l10n) => switch (sta
       RecordingStatus.error => l10n.statusError,
     };
 
-/// Czy nagranie jest w trakcie przetwarzania — decyduje o pasku postepu na karcie.
+/// Whether a recording is currently in progress — determines progress indicator visibility on the card.
 bool isInProgress(RecordingStatus status) =>
     status == RecordingStatus.recorded ||
     status == RecordingStatus.transcribing ||
     status == RecordingStatus.tagging;
 
-/// Odznaka statusu: wysokosc 24, promien 8, ikona 14 i etykieta 12/w700 — jak w makiecie.
+/// Status badge: height 24, radius 8, icon 14, label 12/w700 — per mockup.
 ///
-/// Kolory bierze z rol schematu: gotowe siedzi na `surfaceContainerHigh`, przetwarzanie na
-/// `primaryContainer`, blad na pelnym `error`.
+/// Role-based color tokens: done uses `surfaceContainerHigh`, in-progress uses
+/// `primaryContainer`, error uses `error`.
 class StatusBadge extends StatelessWidget {
   const StatusBadge({super.key, required this.status, this.showIcon = true});
 
   final RecordingStatus status;
 
-  /// Karta w bibliotece ma ikone w odznace, naglowek szczegolow — sama etykiete.
+  /// Library list cards include the badge icon, whereas the detail header shows only the label.
   final bool showIcon;
 
   @override
@@ -109,11 +107,10 @@ class StatusBadge extends StatelessWidget {
   }
 }
 
-/// Chip tagu na karcie (`dense`) i w szczegolach (pelny rozmiar).
+/// Tag chip used on library card (`dense`) and in detail views (full size).
 ///
-/// [onDelete] doklada krzyzyk zdejmujacy tag z nagrania. Dostaja go wylacznie szczegoly:
-/// na karcie w bibliotece i w pasku filtru tag jest nawigacja, a nie polem do edycji, wiec
-/// krzyzyk myliby sie tam z odznaczeniem filtru.
+/// [onDelete] adds a trailing delete icon to remove the tag from the recording.
+/// Only detail views receive deletion capability; on library cards and filter bars tags act as filters.
 class TagChip extends StatelessWidget {
   const TagChip({
     super.key,
@@ -142,12 +139,11 @@ class TagChip extends StatelessWidget {
           height: dense ? 26 : 32,
           padding: EdgeInsets.only(
             left: dense ? 10 : 12,
-            // Krzyzyk niesie wlasny padding, wiec przy nim chip nie potrzebuje pelnego.
+            // The delete icon carries its own padding, so the chip needs less right padding when present.
             right: onDelete != null ? 4 : (dense ? 10 : 12),
           ),
-          // Center z widthFactor 1 centruje tresc w pionie, ale szerokosc bierze
-          // od dziecka. Container.alignment robilby to samo w pionie, tyle ze przy
-          // ograniczonych constraints (np. w Wrap) rozciaga chip na cala szerokosc.
+          // Center with widthFactor 1 centers content vertically while sizing horizontally to the child.
+          // Container.alignment would stretch the chip full width inside bounded constraints.
           child: Center(
             widthFactor: 1,
             child: Row(
@@ -164,8 +160,7 @@ class TagChip extends StatelessWidget {
                 if (onDelete != null)
                   Tooltip(
                     message: l10n.detailRemoveTagTooltip,
-                    // Sam krzyzyk jest celem dotyku, nie caly chip: stukniecie w nazwe tagu
-                    // nie moze kasowac czegos, co uzytkownik chcial tylko przeczytac.
+                    // The close icon itself is the tap target, preventing accidental deletions when tapping the label.
                     child: InkResponse(
                       onTap: onDelete,
                       radius: 16,
@@ -185,9 +180,8 @@ class TagChip extends StatelessWidget {
   }
 }
 
-/// Kafelek "+ tag" z rzedu tagow w szczegolach: ta sama bryla co [TagChip] (wysokosc 32,
-/// promien 8, wypelnienie poziome 12), ale zamiast tla ma przerywana ramke w kolorze
-/// `outline` — w makiecie jest jedynym elementem rzedu, ktory zaprasza do dzialania.
+/// "+ tag" action chip in detail tag list: shares geometry with [TagChip] (height 32,
+/// radius 8, horizontal padding 12), rendered with a dashed border in `outline` color.
 class AddTagChip extends StatelessWidget {
   const AddTagChip({super.key, required this.onTap});
 
@@ -208,9 +202,7 @@ class AddTagChip extends StatelessWidget {
           child: Container(
             height: 32,
             padding: const EdgeInsets.symmetric(horizontal: 12),
-            // Center z widthFactor 1 zamiast Container.alignment — patrz komentarz
-            // w [TagChip]: alignment przy ograniczonych constraints rozciaga kafelek
-            // na cala szerokosc.
+            // Center with widthFactor 1 instead of Container.alignment — see [TagChip] note.
             child: Center(
               widthFactor: 1,
               child: Row(
@@ -233,8 +225,8 @@ class AddTagChip extends StatelessWidget {
   }
 }
 
-/// Przerywana ramka o promieniu 8 — `border: 1px dashed` z makiety. Flutter nie ma tego
-/// w BoxDecoration, wiec kreski wycinamy z konturu przez [Path.computeMetrics].
+/// Dashed border painter with corner radius 8 — `border: 1px dashed` from mockup.
+/// Extracted via [Path.computeMetrics].
 class _DashedBorderPainter extends CustomPainter {
   const _DashedBorderPainter({required this.color});
 
@@ -245,8 +237,7 @@ class _DashedBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Deflacja o pol piksela trzyma kreske o szerokosci 1 w calosci wewnatrz kafelka;
-    // bez tego kontur rysowalby sie w polowie poza nim.
+    // Half-pixel deflation keeps 1 px stroke fully within tile bounds.
     final outline = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(8))
         .deflate(0.5);
     final paint = Paint()
@@ -267,7 +258,7 @@ class _DashedBorderPainter extends CustomPainter {
   bool shouldRepaint(_DashedBorderPainter oldDelegate) => oldDelegate.color != color;
 }
 
-/// Przycisk akcji na tle bledu: wysokosc 32, promien 16, wypelnienie rola `error`.
+/// Action button for error banner: height 32, radius 16, filled with `error` role.
 class ErrorActionButton extends StatelessWidget {
   const ErrorActionButton({super.key, required this.label, required this.onPressed});
 

@@ -22,7 +22,7 @@ class _FakeKeyStore implements KeyStore {
   Future<void> write(String v) async => value = v;
 }
 
-/// Rozmiar ramki telefonu z makiety — na domyslnych 800x600 ekran ustawien sie nie miesci.
+/// Phone frame size from mockup — settings screen overflows on default 800x600.
 const _designFrame = Size(412, 892);
 
 Future<void> pumpSettings(WidgetTester tester) async {
@@ -41,56 +41,56 @@ Future<void> pumpSettings(WidgetTester tester) async {
 }
 
 void main() {
-  // Rodzina fontu laczy trzy miejsca: nazwe w pubspecu, stala w kodzie i pliki na dysku. Rozjazd
-  // ktoregokolwiek z nich Flutter zjada bez slowa — tekst po prostu wraca na font domyslny — wiec
-  // testy pilnuja calej trojki, a nie samej stalej.
-  group('rodzina monospace', () {
-    test('pubspec deklaruje monoFontFamily w wadze 400', () {
+  // Font family spans three places: name in pubspec, constant in code, and files on disk. Desync
+  // in any of them is silently ignored by Flutter — text simply falls back to default font — so
+  // tests guard all three, not just the constant.
+  group('monospace family', () {
+    test('pubspec declares monoFontFamily with weight 400', () {
       final pubspec = File('pubspec.yaml').readAsStringSync();
       final start = pubspec.indexOf('family: $monoFontFamily');
-      expect(start, isNot(-1), reason: 'pubspec nie deklaruje rodziny $monoFontFamily');
+      expect(start, isNot(-1), reason: 'pubspec does not declare family $monoFontFamily');
 
       final block = pubspec.substring(start);
       final assets = RegExp(r'asset: (assets/fonts/\S+\.ttf)')
           .allMatches(block)
           .map((match) => match.group(1)!)
           .toList();
-      // Jedna waga, bo zaden styl nie ustawia fontWeight na tekscie mono — bundlowanie
-      // drugiego pliku dokladaloby ~38 KB, ktorych nic nie siega.
-      expect(assets, hasLength(1), reason: 'oczekiwana jedna waga fontu');
+      // Single weight because no style sets fontWeight on mono text — bundling
+      // a second file would add ~38 KB that nothing references.
+      expect(assets, hasLength(1), reason: 'expected single font weight');
       expect(block, contains('weight: 400'));
 
       for (final asset in assets) {
         final file = File(asset);
-        expect(file.existsSync(), isTrue, reason: 'brak pliku fontu $asset');
-        // Pusty albo skrocony plik przechodzi przez git tak samo cicho jak brak deklaracji.
-        expect(file.lengthSync(), greaterThan(10 * 1024), reason: 'podejrzanie maly plik $asset');
+        expect(file.existsSync(), isTrue, reason: 'missing font file $asset');
+        // Empty or truncated file passes git just as silently as missing declaration.
+        expect(file.lengthSync(), greaterThan(10 * 1024), reason: 'suspiciously small file $asset');
       }
     });
 
-    test('licencja fontu lezy razem z fontami', () {
-      // OFL wymaga, zeby tekst licencji szedl z kazda kopia fontu.
+    test('font license sits alongside fonts', () {
+      // OFL requires license text to accompany every copy of font.
       expect(File('assets/fonts/OFL.txt').existsSync(), isTrue);
     });
 
-    test('podpisy techniczne biblioteki uzywaja zbundlowanej rodziny', () {
+    test('technical captions in library use bundled family', () {
       final style = monoStyle(size: 13, color: const Color(0xFF000000));
 
       expect(style.fontFamily, monoFontFamily);
       expect(style.fontFamilyFallback, contains('monospace'));
     });
 
-    testWidgets('pola techniczne ustawien uzywaja zbundlowanej rodziny', (tester) async {
+    testWidgets('technical fields in settings use bundled family', (tester) async {
       await pumpSettings(tester);
 
       final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
       for (final label in ['Base URL', 'Model STT', 'Model tagowania']) {
         final field = fields.firstWhere(
           (candidate) => candidate.decoration?.labelText == label,
-          orElse: () => fail('brak pola $label'),
+          orElse: () => fail('missing field $label'),
         );
-        expect(field.style?.fontFamily, monoFontFamily, reason: 'pole $label nie jest mono');
-        expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'pole $label');
+        expect(field.style?.fontFamily, monoFontFamily, reason: 'field $label is not mono');
+        expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'field $label');
       }
     });
   });

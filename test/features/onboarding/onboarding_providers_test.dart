@@ -14,19 +14,19 @@ Future<ProviderContainer> containerWith(Map<String, Object> stored) async {
 
 void main() {
   group('onboardingCompletedProvider', () {
-    test('swieza instalacja nie ma flagi, wiec onboarding jest do przejscia', () async {
+    test('fresh installation has no flag, so onboarding must be shown', () async {
       final container = await containerWith({});
 
       expect(container.read(onboardingCompletedProvider), isFalse);
     });
 
-    test('zapisana flaga pomija onboarding', () async {
+    test('stored flag skips onboarding', () async {
       final container = await containerWith({onboardingCompletedKey: true});
 
       expect(container.read(onboardingCompletedProvider), isTrue);
     });
 
-    test('complete() natychmiast przelacza stan', () async {
+    test('complete() switches state immediately', () async {
       final container = await containerWith({});
 
       await container.read(onboardingCompletedProvider.notifier).complete();
@@ -34,11 +34,11 @@ void main() {
       expect(container.read(onboardingCompletedProvider), isTrue);
     });
 
-    test('flaga przezywa restart aplikacji', () async {
+    test('flag survives app restart', () async {
       final container = await containerWith({});
       await container.read(onboardingCompletedProvider.notifier).complete();
 
-      // Nowy kontener nad tymi samymi preferencjami to symulacja kolejnego uruchomienia.
+      // New container over same preferences simulates subsequent app launch.
       final prefs = await SharedPreferences.getInstance();
       final restarted =
           ProviderContainer(overrides: [sharedPrefsProvider.overrideWithValue(prefs)]);
@@ -47,7 +47,7 @@ void main() {
       expect(restarted.read(onboardingCompletedProvider), isTrue);
     });
 
-    test('wartosc innego typu w preferencjach nie wywraca startu', () async {
+    test('different value type in preferences does not crash launch', () async {
       final container = await containerWith({onboardingCompletedKey: 'yes'});
 
       expect(container.read(onboardingCompletedProvider), isFalse);

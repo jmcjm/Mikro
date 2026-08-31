@@ -13,15 +13,15 @@ void main() {
   test('413 -> tooLarge', () => expect(mapDioError(_withStatus(413)).kind, ApiErrorKind.tooLarge));
   test('429 -> rateLimit', () => expect(mapDioError(_withStatus(429)).kind, ApiErrorKind.rateLimit));
   test('500 -> server', () => expect(mapDioError(_withStatus(500)).kind, ApiErrorKind.server));
-  test('brak odpowiedzi -> network', () {
+  test('no response -> network', () {
     final e = DioException(requestOptions: RequestOptions(path: '/x'), type: DioExceptionType.connectionError);
     expect(mapDioError(e).kind, ApiErrorKind.network);
   });
-  test('auth niesie sam kod, a nie zdanie dla uzytkownika', () {
-    // Zdanie sklada UI z kind przez l10n; warstwa sieciowa oddaje wylacznie techniczny detal.
+  test('auth carries only the code, not a sentence for the user', () {
+    // The UI constructs the sentence from kind via l10n; the network layer returns only technical details.
     expect(mapDioError(_withStatus(401)).message, 'HTTP 401');
   });
-  test('404 -> badResponse bez sladu surowego body', () {
+  test('404 -> badResponse without trace of raw body', () {
     final e = DioException(
       requestOptions: RequestOptions(path: '/x'),
       response: Response(

@@ -18,16 +18,16 @@ class FakeRecorder implements MikroRecorder {
   bool stopped = false;
   int startCalls = 0;
 
-  /// Strumien dlugozyjacy, jak u prawdziwego pluginu: jest broadcastem, wspoldzielonym
-  /// i NIE konczy sie po stop(). Stream.empty() konczyl sie natychmiast, wiec subskrypcja
-  /// byla martwa zanim _cleanup zdazyl ja anulowac — i test nie odroznial jednego od drugiego.
+  /// Long-lived stream, like real plugin: broadcast, shared,
+  /// and DOES NOT end after stop(). Stream.empty() ended immediately, so subscription
+  /// was dead before _cleanup could cancel it — and test could not tell one from another.
   final amplitudeController = StreamController<double>.broadcast();
 
   @override
   String get fileExtension => 'm4a';
-  /// Gdy ustawiona, hasPermission() czeka na jej domkniecie. Pozwala wejsc drugim wywolaniem
-  /// startRecording dokladnie w luke miedzy awaitami — tam, gdzie synchroniczny guard na
-  /// wejsciu jeszcze nie widzi zadnego nagrania w toku.
+  /// When set, hasPermission() waits for its completion. Allows a second startRecording call
+  /// to enter precisely into the gap between awaits — where synchronous guard at entry
+  /// does not yet see any recording in progress.
   Completer<void>? permissionGate;
 
   @override
@@ -35,8 +35,8 @@ class FakeRecorder implements MikroRecorder {
     if (permissionGate != null) await permissionGate!.future;
     return permission;
   }
-  /// Gdy ustawione, start() rzuca zamiast zaczac nagranie. Sciezka jest zapamietywana
-  /// mimo bledu, zeby test mial czego szukac na dysku.
+  /// When set, start() throws instead of starting recording. Path is remembered
+  /// despite error, so test has something to look for on disk.
   Object? startError;
 
   @override
@@ -47,8 +47,8 @@ class FakeRecorder implements MikroRecorder {
     File(path).createSync(recursive: true);
   }
 
-  /// Gdy ustawiona, stop() czeka na jej domkniecie — odpowiednik [permissionGate] po stronie
-  /// zatrzymania. Pozwala wejsc drugim wywolaniem stopRecording w luke miedzy awaitami.
+  /// When set, stop() waits for its completion — equivalent of [permissionGate] on stop side.
+  /// Allows a second stopRecording call to enter the gap between awaits.
   Completer<void>? stopGate;
 
   @override
@@ -58,7 +58,7 @@ class FakeRecorder implements MikroRecorder {
   }
   @override
   Stream<double> amplitude() => amplitudeController.stream;
-  // P1: kontrakt MikroRecorder ma dispose() od rulingu z Taska 8.
+  // P1: MikroRecorder contract has dispose() since ruling in Task 8.
   @override
   Future<void> dispose() async {}
 }
@@ -100,20 +100,20 @@ void main() {
     db.close();
   });
 
-  test('start ustawia isRecording i sciezke w katalogu recordings', () async {
+  test('start sets isRecording and path in recordings directory', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isTrue);
     expect(recorder.startedPath, contains('/recordings/'));
     expect(recorder.startedPath, endsWith('.m4a'));
 
-    // Drugie wcisniecie przycisku w trakcie nagrania nie moze zaczac nagrania od nowa.
+    // Second button press during recording must not restart recording.
     await controller.startRecording();
     expect(recorder.startCalls, 1,
-        reason: 'powtorny start przed stopem musi byc zignorowany');
+        reason: 'repeated start before stop must be ignored');
   });
 
-  test('stop zapisuje rekord i enqueue`uje pipeline', () async {
+  test('stop saves record and enqueues pipeline', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
     await controller.stopRecording();
@@ -125,85 +125,84 @@ void main() {
     expect(all.first.recording.audioPath, recorder.startedPath);
     expect(pipeline.enqueued, [all.first.recording.id]);
 
-    // Czas nagrania trafia do bazy i to jego pokazuje biblioteka (T11), wiec musi pochodzic
-    // ze stopera, a nie byc dowolna liczba.
+    // Recording duration goes to database and is displayed by library (T11), so it must originate
+    // from stopwatch rather than being an arbitrary number.
     final durationMs = all.first.recording.durationMs;
     expect(durationMs, greaterThanOrEqualTo(0));
     expect(durationMs, lessThan(10000),
-        reason: 'przebieg testowy trwa milisekundy, nie sekundy');
+        reason: 'test run lasts milliseconds, not seconds');
   });
 
-  test('brak permission -> lastError, bez startu', () async {
+  test('missing permission -> lastError, without start', () async {
     recorder.permission = false;
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isFalse);
     expect(container.read(recorderControllerProvider).lastError, isNotNull);
 
-    // Odmowa nie moze zablokowac kontrolera na stale: flaga _starting musi zostac zwolniona
-    // rowniez na sciezce bledu. Bez tego uzytkownik, ktory pozniej przyznal uprawnienia,
-    // nie nagralby juz nigdy niczego.
+    // Denial must not permanently lock controller: _starting flag must be released
+    // on error path as well. Otherwise a user who grants permission later
+    // would never be able to record anything.
     recorder.permission = true;
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isTrue,
-        reason: 'po przyznaniu uprawnien nagrywanie musi ruszyc');
+        reason: 'after granting permission recording must start');
     expect(recorder.startCalls, 1,
-        reason: 'pierwsze podejscie odbilo sie na uprawnieniach i nie doszlo do start()');
+        reason: 'first attempt was rejected by permissions and did not reach start()');
   });
 
-  test('STRAZNIK: subskrypcja amplitudy zyje w trakcie nagrania i znika po stopie', () async {
+  test('GUARD: amplitude subscription is active during recording and disappears after stop', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     expect(recorder.amplitudeController.hasListener, isFalse,
-        reason: 'przed startem nikt nie slucha amplitudy');
+        reason: 'before start nobody is listening to amplitude');
 
     await controller.startRecording();
     expect(recorder.amplitudeController.hasListener, isTrue,
-        reason: 'w trakcie nagrania kontroler musi sluchac amplitudy');
+        reason: 'during recording controller must listen to amplitude');
 
     await controller.stopRecording();
     expect(recorder.amplitudeController.hasListener, isFalse,
-        reason: 'strumien pluginu jest wspoldzielony i nie konczy sie sam, '
-            'wiec subskrypcje trzeba anulowac jawnie');
+        reason: 'plugin stream is shared and does not end automatically, '
+            'so subscription must be cancelled explicitly');
   });
 
-  test('STRAZNIK: dwa starty w luce miedzy awaitami nie dubluja nagrania', () async {
+  test('GUARD: two starts in gap between awaits do not duplicate recording', () async {
     recorder.permissionGate = Completer<void>();
     final controller = container.read(recorderControllerProvider.notifier);
 
-    // Oba wejscia zdarzaja sie ZANIM pierwsze zdazy ustawic isRecording — flaga flipuje sie
-    // dopiero po awaitach, wiec sam guard na stanie tego nie lapie.
+    // Both entries happen BEFORE first one sets isRecording — flag flips
+    // only after awaits, so state guard alone does not catch it.
     final firstStart = controller.startRecording();
     final secondStart = controller.startRecording();
     recorder.permissionGate!.complete();
     await Future.wait([firstStart, secondStart]);
 
     expect(recorder.startCalls, 1,
-        reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej pierwszy timer, '
-            'subskrypcja i plik zostaja osierocone');
+        reason: 'second entry in async gap must be rejected, otherwise first timer, '
+            'subscription and file are orphaned');
   });
 
-  test('STRAZNIK: dwa stopy w luce miedzy awaitami nie dubluja nagrania', () async {
+  test('GUARD: two stops in gap between awaits do not duplicate recording', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
     recorder.stopGate = Completer<void>();
 
-    // Oba wejscia zdarzaja sie ZANIM pierwsze zdazy zgasic isRecording — flaga gasnie dopiero
-    // po zapisie do bazy, wiec sam guard na stanie tego nie lapie. Bez guardu drugie wejscie
-    // wstawia to samo id po raz drugi i wywraca sie na kluczu glownym, do tego w zonie,
-    // ktorej nikt nie lapie.
+    // Both entries happen BEFORE first one clears isRecording — flag clears only
+    // after saving to database, so state guard alone does not catch it. Without guard second entry
+    // inserts the same ID again and crashes on primary key, inside an unhandled zone.
     final firstStop = controller.stopRecording();
     final secondStop = controller.stopRecording();
     recorder.stopGate!.complete();
     await Future.wait([firstStop, secondStop]);
 
     expect(await db.pendingRecordings(), hasLength(1),
-        reason: 'drugie wejscie w luke async musi zostac odrzucone, inaczej ten sam wpis '
-            'leci do bazy dwa razy');
+        reason: 'second entry in async gap must be rejected, otherwise the same entry '
+            'goes to database twice');
     expect(pipeline.enqueued, hasLength(1),
-        reason: 'pipeline nie moze dostac tego samego nagrania dwa razy');
+        reason: 'pipeline must not receive the same recording twice');
   });
 
-  test('STRAZNIK: nieudany start nie zostawia osieroconego katalogu ani zablokowanego kontrolera',
+  test('GUARD: failed start leaves neither orphaned directory nor locked controller',
       () async {
     recorder.startError = StateError('mikrofon zajety');
     final controller = container.read(recorderControllerProvider.notifier);
@@ -214,19 +213,19 @@ void main() {
     expect(container.read(recorderControllerProvider).isRecording, isFalse);
     expect(container.read(recorderControllerProvider).lastError, isNotNull);
     expect(File(failedPath).parent.existsSync(), isFalse,
-        reason: 'katalog utworzony pod nagranie musi zniknac, skoro nagranie nie ruszylo');
+        reason: 'directory created for recording must disappear if recording failed to start');
 
-    // Nieudany start tez nie moze zostawic kontrolera w stanie zablokowanym.
+    // Failed start must also not leave controller in locked state.
     recorder.startError = null;
     await controller.startRecording();
     expect(container.read(recorderControllerProvider).isRecording, isTrue,
-        reason: 'po ustaniu awarii nagrywanie musi ruszyc');
+        reason: 'after failure resolves recording must proceed');
   });
 
-  // --- obwiednia amplitudy (D2f) ---
+  // --- amplitude envelope (D2f) ---
 
-  /// Probki jada strumieniem, wiec po `add()` trzeba oddac sterowanie petli zdarzen,
-  /// zanim kontroler zdazy je zobaczyc.
+  /// Samples travel via stream, so after `add()` we must yield to event loop
+  /// before controller can observe them.
   Future<void> pushAmplitudes(List<double> values) async {
     for (final v in values) {
       recorder.amplitudeController.add(v);
@@ -234,12 +233,12 @@ void main() {
     await Future<void>.delayed(Duration.zero);
   }
 
-  test('stop zapisuje obwiednie zebrana z probek amplitudy', () async {
+  test('stop saves envelope collected from amplitude samples', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
 
-    // Cicha pierwsza polowa, glosna druga — po redukcji ma to zostac widoczne
-    // w ksztalcie kubelkow, a nie rozmyc sie w jedna wartosc.
+    // Quiet first half, loud second — after reduction this must remain visible
+    // in bucket shapes rather than blurring into a single value.
     await pushAmplitudes([...List.filled(22, 0.2), ...List.filled(22, 0.8)]);
     await controller.stopRecording();
 
@@ -253,17 +252,17 @@ void main() {
     expect(buckets.where((b) => b == 0.8), hasLength(22));
   });
 
-  test('nagranie bez ani jednej probki zapisuje NULL, a nie plaska linie', () async {
+  test('recording without any samples saves NULL rather than flat line', () async {
     final controller = container.read(recorderControllerProvider.notifier);
     await controller.startRecording();
     await controller.stopRecording();
 
     final saved = (await db.pendingRecordings()).single;
     expect(saved.waveform, isNull,
-        reason: 'brak pomiaru to brak przebiegu — ekran ma pokazac stan pusty');
+        reason: 'no measurement means no waveform — screen should show empty state');
   });
 
-  test('STRAZNIK: kolejne nagranie nie dziedziczy probek po poprzednim', () async {
+  test('GUARD: subsequent recording does not inherit samples from previous one', () async {
     final controller = container.read(recorderControllerProvider.notifier);
 
     await controller.startRecording();
@@ -278,6 +277,6 @@ void main() {
     final second =
         (await db.pendingRecordings()).firstWhere((r) => r.id != firstId);
     expect(decodeWaveform(second.waveform)!.every((b) => b == 0.1), isTrue,
-        reason: 'glosne probki z pierwszego nagrania nie moga wyciec do drugiego');
+        reason: 'loud samples from first recording must not leak into second');
   });
 }

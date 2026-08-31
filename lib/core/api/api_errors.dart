@@ -1,11 +1,11 @@
 import 'package:dio/dio.dart';
 
-/// Rodzaj awarii rozmowy z dostawca. Kazda wartosc ma po drugiej stronie wlasne zdanie
-/// w ARB — dlatego ksztalty odpowiedzi lamiace kontrakt maja osobne rodzaje, a nie jeden
-/// worek z doklejanym opisem: opis bylby techniczna angielszczyzna wklejona w srodek
-/// polskiego zdania.
+/// Kind of failure when communicating with a provider. Each value has a corresponding
+/// message in ARB — that is why response shapes that break the contract have distinct kinds,
+/// rather than a single bucket with an attached description: the description would be technical
+/// English injected into the localized UI message.
 ///
-/// Nazwy wartosci ida do kolumny `errorKind` i sa czescia formatu bazy.
+/// Enum value names are stored in the `errorKind` column and form part of the database schema.
 enum ApiErrorKind {
   network,
   auth,
@@ -13,20 +13,20 @@ enum ApiErrorKind {
   rateLimit,
   server,
 
-  /// Nieoczekiwany kod HTTP. Jedyny rodzaj z domeny API, ktory wciaga [MikroApiException.message]
-  /// do zdania — bo tym szczegolem jest sam numer.
+  /// Unexpected HTTP status code. The only API error kind that interpolates [MikroApiException.message]
+  /// into the message — because that detail is the status number itself.
   badResponse,
 
-  /// Cialo odpowiedzi nie jest obiektem JSON.
+  /// Response body is not a JSON object.
   badFormat,
 
-  /// Odpowiedz czatu bez tresci wiadomosci: brak `choices`, pusta lista, zly ksztalt.
+  /// Chat response without message content: missing `choices`, empty list, or invalid structure.
   noContent,
 
-  /// Odpowiedz transkrypcji bez pola `text`.
+  /// Transcription response without `text` field.
   noTranscript,
 
-  /// Model dwa razy z rzedu nie oddal listy tagow, ktora da sie sparsowac.
+  /// Model failed twice in a row to return a parsable tag list.
   badTags,
 }
 
@@ -35,15 +35,15 @@ class MikroApiException implements Exception {
 
   final ApiErrorKind kind;
 
-  /// Techniczny szczegol awarii: kod HTTP albo krotka notka o tym, czym odpowiedz zlamala
-  /// kontrakt. NIE jest to tekst dla uzytkownika i celowo nie przechodzi przez l10n — warstwa
-  /// sieciowa nie ma dostepu do BuildContextu, a komunikat i tak lezalby potem w bazie
-  /// zamrozony w jezyku, ktory akurat obowiazywal przy zapisie. Zdanie dla uzytkownika sklada
-  /// UI z samego [kind] (patrz `recordingErrorText`).
+  /// Technical failure detail: HTTP code or a brief note describing how the response violated
+  /// the contract. This is NOT user-facing text and deliberately does not go through l10n —
+  /// the network layer has no access to BuildContext, and the message would otherwise be persisted
+  /// in the database frozen in the locale active at write time. The user-facing string is assembled
+  /// by UI solely from [kind] (see `recordingErrorText`).
   ///
-  /// Do zdania wchodzi jako `{detail}` tylko tam, gdzie szczegolem jest liczba:
-  /// [ApiErrorKind.server] i [ApiErrorKind.badResponse]. Dla reszty zostaje sladem w logach
-  /// i w bazie — nie ma po co wklejac angielskiej frazy debugowej w polskie zdanie.
+  /// Interpolated into the localized string as `{detail}` only where the detail is a number:
+  /// [ApiErrorKind.server] and [ApiErrorKind.badResponse]. For other kinds it remains in logs
+  /// and the database.
   final String message;
 
   @override
@@ -56,8 +56,8 @@ MikroApiException mapDioError(DioException e) {
   if (code == 413) return MikroApiException(ApiErrorKind.tooLarge, 'HTTP 413');
   if (code == 429) return MikroApiException(ApiErrorKind.rateLimit, 'HTTP 429');
   if (code != null && code >= 500) return MikroApiException(ApiErrorKind.server, 'HTTP $code');
-  // Sam kod, bez cienia ciala odpowiedzi: pole wyladuje w bazie i na ekranie, a odpowiedzi
-  // bledow potrafia odbijac echem to, co poszlo w zapytaniu.
+  // Status code only, without response body: field lands in database and UI, and error
+  // responses can echo sensitive data sent in the request.
   if (code != null) return MikroApiException(ApiErrorKind.badResponse, 'HTTP $code');
   return MikroApiException(ApiErrorKind.network, e.message ?? 'network error');
 }

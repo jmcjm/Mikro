@@ -17,13 +17,14 @@ Future<void> main() async {
   ]);
   final pipeline = container.read(pipelineProvider);
   final connectivity = container.read(connectivityServiceProvider);
-  // Wznowienie po powrocie sieci podpinamy w bootstrapie, a nie w pipelineProvider — providers
-  // to wspolny plik kilku rownoleglych nurtow pracy, a to wiazanie i tak nalezy do startu
-  // aplikacji, tak samo jak resumePending ponizej.
+  // Resuming on network reconnect is hooked up during bootstrap, not in pipelineProvider —
+  // providers is a shared file across multiple concurrent workflows, and this binding belongs
+  // to application startup anyway, just like resumePending below.
   //
-  // Dwa wywolania, bo dotycza dwoch roznych rzeczy: resumePending podnosi statusy in-flight
-  // (recorded/transcribing/tagging) niezaleznie od sieci, a watchConnectivity uzgadnia stan
-  // lacznosci i wznawia bledy sieciowe — te sa bramkowane lacznoscia.
+  // Two calls because they handle two different concerns: resumePending picks up in-flight
+  // statuses (recorded/transcribing/tagging) regardless of network connectivity, while
+  // watchConnectivity reconciles connectivity state and retries network errors — which are
+  // gated by connectivity.
   pipeline.resumePending();
   pipeline.watchConnectivity(
     onlineChanges: connectivity.onlineChanges,

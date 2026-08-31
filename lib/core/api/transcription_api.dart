@@ -19,9 +19,9 @@ class TranscriptionApi {
         data: form,
         options: Options(headers: {'Authorization': 'Bearer ${config.apiKey}'}),
       );
-      // Rzutowanie na mape robimy sami. Gdyby robil je generyk post<Map<String, dynamic>>,
-      // dio opakowaloby _TypeError w DioException bez odpowiedzi, a mapDioError uznaloby to
-      // za awarie sieci — uzytkownik zobaczylby "Brak polaczenia z siecia." zamiast bledu API.
+      // Type casting to Map is done explicitly. If generic post<Map<String, dynamic>> did it,
+      // dio would wrap _TypeError in a DioException without response, and mapDioError would classify it
+      // as a network failure — the user would see "No network connection." instead of an API error.
       final data = response.data;
       if (data is! Map<String, dynamic>) {
         throw MikroApiException(ApiErrorKind.badFormat, 'response body is not an object');

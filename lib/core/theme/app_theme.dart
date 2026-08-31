@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 
-/// Rodzina monospace bundlowana z aplikacja (`pubspec.yaml`, sekcja `fonts`). Design sklada nia
-/// wartosci techniczne: adresy, nazwy modeli, znaczniki czasu i parametry nagrania. Nazwa musi
-/// zgadzac sie co do znaku z `family:` w pubspecu — Flutter dopasowuje rodziny po literalnej
-/// nazwie i przy literowce cicho spada na font domyslny, wiec ekrany biora ja stad, a nie z
-/// wlasnych literalow. Pinowane testem.
+/// Monospace font family bundled with the app (`pubspec.yaml`, `fonts` section). The design renders
+/// technical values in this font: endpoints, model names, timestamps, and recording parameters. The name must
+/// match `family:` in pubspec exactly — Flutter matches font families literally and falls back silently
+/// to the default font on typos, so screens reference this constant instead of raw string literals.
+/// Verified by test.
 const monoFontFamily = 'RobotoMono';
 
-/// Zapas na wypadek, gdyby zbundlowanej rodziny zabraklo (np. przyciety build): lepiej zejsc na
-/// systemowy monospace niz na proporcjonalny font domyslny, bo kolumny cyfr i tak maja sie
-/// zgadzac.
+/// Fallback list in case the bundled font family is unavailable (e.g. stripped build):
+/// better to fall back to system monospace than proportional default font, preserving digit column alignment.
 const monoFontFallback = <String>['monospace'];
 
 /// Available colour palettes. The design source (`design/Mikro-MD3.dc.html`) defines five

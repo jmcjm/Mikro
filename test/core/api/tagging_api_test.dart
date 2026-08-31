@@ -9,51 +9,51 @@ void main() {
   const config = ProviderConfig(baseUrl: 'https://api.test/v1', apiKey: 'k', sttModel: 's', tagModel: 't');
 
   group('parseMeta', () {
-    test('czysty obiekt JSON: tytul i tagi', () {
+    test('clean JSON object: title and tags', () {
       final meta = TaggingApi.parseMeta('{"title":"Standup i release","tags":["Praca","notatki"]}');
       expect(meta!.title, 'Standup i release');
       expect(meta.tags, ['praca', 'notatki']);
     });
-    test('JSON w plocie markdown', () {
+    test('JSON in markdown code block', () {
       final meta = TaggingApi.parseMeta('```json\n{"title":"Zakupy","tags":["a","b"]}\n```');
       expect(meta!.title, 'Zakupy');
       expect(meta.tags, ['a', 'b']);
     });
-    test('tekst dookola obiektu', () {
+    test('text surrounding the object', () {
       final meta = TaggingApi.parseMeta('Oto wynik: {"title":"X","tags":["x"]} mam nadzieje ze pomoglem');
       expect(meta!.title, 'X');
       expect(meta.tags, ['x']);
     });
-    test('dedupe, trim i twardy cap na 5 tagach', () {
+    test('deduplicate, trim and hard cap at 5 tags', () {
       final meta = TaggingApi.parseMeta(
           '{"title":"T","tags":[" a ","a","b","c","d","e","f","g"]}');
       expect(meta!.tags, ['a', 'b', 'c', 'd', 'e']);
     });
-    test('pusta tablica tagow to poprawna odpowiedz: transkrypt bez konkretow', () {
-      // Prompt wprost pozwala modelowi oddac [], gdy nie ma czego otagowac. Tytul zostaje.
+    test('empty tags array is a valid response: transcript without specifics', () {
+      // The prompt explicitly allows the model to return [] when there is nothing to tag. The title remains.
       final meta = TaggingApi.parseMeta('{"title":"Luzna mysl","tags":[]}');
       expect(meta!.tags, isEmpty);
       expect(meta.title, 'Luzna mysl');
     });
-    test('lista bez ani jednego uzytecznego tagu -> null, czyli retry', () {
-      // Pinning: [] to swiadoma odpowiedz modelu, ale lista samych smieci to zepsuty output
-      // i ma dostac druga szanse. Te dwie sciezki nie moga sie skleic.
+    test('list without any useful tags -> null, i.e. retry', () {
+      // Pinning: [] is an intentional response from the model, but a list of garbage is broken output
+      // and should get a second chance. These two paths must not be conflated.
       expect(TaggingApi.parseMeta('{"title":"T","tags":[1,2,3]}'), isNull);
       expect(TaggingApi.parseMeta('{"title":"T","tags":["","   "]}'), isNull);
     });
-    test('brak pola tags albo zly typ tags -> null, czyli retry', () {
+    test('missing tags field or invalid tags type -> null, i.e. retry', () {
       expect(TaggingApi.parseMeta('{"title":"T"}'), isNull);
       expect(TaggingApi.parseMeta('{"title":"T","tags":"praca"}'), isNull);
       expect(TaggingApi.parseMeta('{}'), isNull);
     });
-    test('ZMIANA KONTRAKTU: gola tablica tagow to juz nie jest poprawna odpowiedz', () {
-      // Do v4 model oddawal sama tablice. Teraz kontrakt to obiekt z tytulem i tagami,
-      // wiec stary ksztalt musi isc w ponowienie zamiast po cichu gubic tytul.
+    test('CONTRACT CHANGE: bare array of tags is no longer a valid response', () {
+      // Prior to v4 the model returned a bare array. Now the contract is an object with title and tags,
+      // so the old shape must trigger a retry instead of silently dropping the title.
       expect(TaggingApi.parseMeta('["praca","notatki"]'), isNull);
       expect(TaggingApi.parseMeta('[]'), isNull);
     });
-    test('tytul pusty, nie-string albo nieobecny -> null, ale tagi przechodza', () {
-      // Tytul jest polem miekkim: brak tytulu nie moze kosztowac calego wyniku tagowania.
+    test('title empty, non-string or absent -> null, but tags pass through', () {
+      // Title is an optional field: missing title must not invalidate the entire tagging result.
       for (final content in const [
         '{"title":"","tags":["praca"]}',
         '{"title":"   ","tags":["praca"]}',
@@ -67,18 +67,18 @@ void main() {
         expect(meta.tags, ['praca'], reason: content);
       }
     });
-    test('tytul dostaje twardy limit dlugosci w kodzie, nie tylko w prompcie', () {
+    test('title gets a hard length limit in code, not just in prompt', () {
       final long = 'a' * (TaggingApi.maxTitleChars + 40);
       final meta = TaggingApi.parseMeta('{"title":"$long","tags":["praca"]}');
       expect(meta!.title, hasLength(TaggingApi.maxTitleChars),
-          reason: 'prompt to prosba, przyciecie musi zyc w kodzie');
+          reason: 'prompt is a request, truncation must exist in code');
     });
-    test('tytul jest skladany do jednej linii', () {
+    test('title is collapsed into a single line', () {
       final meta = TaggingApi.parseMeta('{"title":"Standup\\n  i   release","tags":["praca"]}');
       expect(meta!.title, 'Standup i release',
-          reason: 'naglowek jest jednoliniowy, wiec bialy znak nie moze go rozpychac');
+          reason: 'the heading is single-line, so whitespace must not inflate it');
     });
-    test('smieci -> null', () {
+    test('garbage -> null', () {
       expect(TaggingApi.parseMeta('nie mam tagow, przykro mi'), isNull);
       expect(TaggingApi.parseMeta('{"tags": "zly typ"}'), isNull);
     });
@@ -91,7 +91,7 @@ void main() {
           ]
         };
 
-    test('szczesliwa sciezka: tytul i tagi z jednego wywolania', () async {
+    test('happy path: title and tags from a single call', () async {
       final dio = Dio();
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
           (server) => server.reply(200, chatReply('{"title":"Standup","tags":["praca"]}')),
@@ -101,7 +101,7 @@ void main() {
       expect(meta.tags, ['praca']);
     });
 
-    test('smieciowa odpowiedz -> retry raz -> badTags, dokladnie 2 requesty', () async {
+    test('garbage response -> retry once -> badTags, exactly 2 requests', () async {
       final dio = Dio();
       var calls = 0;
       dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
@@ -119,8 +119,8 @@ void main() {
       expect(calls, 2);
     });
 
-    test('ZMIANA KONTRAKTU: stara tablica tagow konczy retry i badTags', () async {
-      // Swiadomie zmieniona semantyka: przed v4 ta odpowiedz byla poprawna.
+    test('CONTRACT CHANGE: old array of tags ends in retry and badTags', () async {
+      // Deliberately changed semantics: prior to v4 this response was valid.
       final dio = Dio();
       var calls = 0;
       dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
@@ -134,12 +134,12 @@ void main() {
         TaggingApi(dio).generateMeta(transcript: 'tekst', config: config),
         throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.badTags)),
       );
-      expect(calls, 2, reason: 'zly ksztalt dostaje druga szanse, tak jak kazdy inny');
+      expect(calls, 2, reason: 'invalid shape gets a second chance, just like any other');
     });
 
-    // --- P1: klasyfikacja i osloniecie ekstrakcji (ruling koordynatora) ---
+    // --- P1: classification and extraction guard (coordinator ruling) ---
 
-    test('cialo odpowiedzi nie bedace mapa -> badFormat, nie network', () async {
+    test('response body that is not a map -> badFormat, not network', () async {
       final dio = Dio();
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
           (server) => server.reply(200, [1, 2, 3]),
@@ -150,7 +150,7 @@ void main() {
       );
     });
 
-    test('pusta lista choices -> noContent bez surowego bledu', () async {
+    test('empty choices list -> noContent without raw error', () async {
       final dio = Dio();
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
           (server) => server.reply(200, {'choices': <dynamic>[]}),
@@ -161,13 +161,13 @@ void main() {
       );
     });
 
-    test('pozostale niekonformne ksztalty odpowiedzi tez daja noContent', () async {
-      // Ruling P1 wymienia cztery ksztalty, ktore nie moga wypuscic surowego bledu.
-      // Dwa maja wlasne testy wyzej; te trzy domykaja liste.
+    test('other non-conforming response shapes also return noContent', () async {
+      // Ruling P1 lists four shapes that must not emit a raw error.
+      // Two have their own tests above; these three complete the list.
       final shapes = <String, Map<String, dynamic>>{
-        'brak pola choices': {'usage': 1},
-        'choices nie jest lista': {'choices': 'nope'},
-        'message nie jest mapa': {
+        'missing choices field': {'usage': 1},
+        'choices is not a list': {'choices': 'nope'},
+        'message is not a map': {
           'choices': [
             {'message': 'nope'}
           ]
@@ -186,10 +186,10 @@ void main() {
       }
     });
 
-    // --- P2: straznik zadania (ruling koordynatora) ---
+    // --- P2: request guard (coordinator ruling) ---
 
-    test('STRAZNIK: zadanie niesie klucz API, model, temperature i oba komunikaty', () async {
-      // Mock dopasowuje `data: Matchers.any`, wiec sam z siebie nie sprawdza NICZEGO z zadania.
+    test('GUARD: request carries API key, model, temperature, and both messages', () async {
+      // The mock matches `data: Matchers.any`, so on its own it verifies NOTHING from the request.
       final dio = Dio();
       RequestOptions? sentRequest;
       dio.interceptors.add(InterceptorsWrapper(
@@ -205,35 +205,35 @@ void main() {
       await TaggingApi(dio)
           .generateMeta(transcript: 'transkrypt do otagowania', config: config);
 
-      expect(sentRequest, isNotNull, reason: 'interceptor musial zobaczyc zadanie');
+      expect(sentRequest, isNotNull, reason: 'interceptor must have seen the request');
       expect(sentRequest!.headers['Authorization'], 'Bearer k',
-          reason: 'klucz API musi jechac w naglowku Authorization');
+          reason: 'API key must be sent in the Authorization header');
 
       final body = sentRequest!.data as Map<String, dynamic>;
-      expect(body['model'], config.tagModel, reason: 'zadanie musi niesc wybrany model tagujacy');
-      expect(body['temperature'], 0, reason: 'tagowanie ma byc deterministyczne');
+      expect(body['model'], config.tagModel, reason: 'request must carry the selected tagging model');
+      expect(body['temperature'], 0, reason: 'tagging must be deterministic');
 
       final messages = body['messages'] as List<dynamic>;
-      expect(messages, hasLength(2), reason: 'system prompt oraz transkrypt uzytkownika');
+      expect(messages, hasLength(2), reason: 'system prompt and user transcript');
 
       final systemMessage = messages[0] as Map<String, dynamic>;
       expect(systemMessage['role'], 'system');
       expect(systemMessage['content'], isA<String>(),
-          reason: 'system prompt musi byc tekstem');
+          reason: 'system prompt must be text');
       expect((systemMessage['content'] as String).isNotEmpty, isTrue,
-          reason: 'system prompt nie moze byc pusty');
+          reason: 'system prompt cannot be empty');
 
       final userMessage = messages[1] as Map<String, dynamic>;
       expect(userMessage['role'], 'user');
       expect(userMessage['content'], 'transkrypt do otagowania',
-          reason: 'transkrypt musi dojechac do modelu w calosci');
+          reason: 'transcript must reach the model in its entirety');
     });
 
-    // --- Cap 5 tagow: prompt to prosba do modelu, kod to gwarancja ---
+    // --- Cap 5 tags: prompt is a request to the model, code is a guarantee ---
 
-    test('STRAZNIK CAPA: model oddaje 8 tagow -> na wyjsciu dokladnie 5', () async {
-      // Model potrafi zignorowac limit z promptu, wiec przyciecie musi zyc w kodzie.
-      // Zdjecie cap-a z parseMeta pali ten test.
+    test('CAP GUARD: model returns 8 tags -> exactly 5 on output', () async {
+      // The model can ignore the limit in the prompt, so truncation must live in code.
+      // Removing the cap from parseMeta fails this test.
       final dio = Dio();
       DioAdapter(dio: dio).onPost(
           'https://api.test/v1/chat/completions',
@@ -245,11 +245,11 @@ void main() {
 
       final meta = await TaggingApi(dio).generateMeta(transcript: 'tekst', config: config);
 
-      expect(meta.tags, hasLength(5), reason: 'twardy limit 5 tagow na nagranie');
+      expect(meta.tags, hasLength(5), reason: 'hard limit of 5 tags per recording');
       expect(meta.tags, ['rekrutacja', 'onboarding', 'java', 'budzet q3', 'migracja']);
     });
 
-    test('STRAZNIK TRIMA: dlugi tytul z API dojezdza przyciety', () async {
+    test('TRIM GUARD: long title from API arrives truncated', () async {
       final dio = Dio();
       final long = 'z' * 200;
       DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
@@ -261,7 +261,7 @@ void main() {
       expect(meta.title, hasLength(TaggingApi.maxTitleChars));
     });
 
-    test('pusta tablica z API -> pusta lista tagow, bez retry i bez wyjatku', () async {
+    test('empty array from API -> empty tags list, without retry and without exception', () async {
       final dio = Dio();
       var calls = 0;
       dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
@@ -275,16 +275,16 @@ void main() {
       final meta = await TaggingApi(dio).generateMeta(transcript: 'tekst', config: config);
 
       expect(meta.tags, isEmpty);
-      expect(calls, 1, reason: '[] to poprawna odpowiedz, nie powod do ponowienia');
+      expect(calls, 1, reason: '[] is a valid response, not a reason to retry');
     });
 
-    test('STRAZNIK PROMPTU: system prompt niesie limit 5, jezyk transkryptu i tytul',
+    test('PROMPT GUARD: system prompt carries limit of 5, transcript language, and title',
         () async {
-      // Celowo NIE asercjonujemy brzmienia zakazu generykow — to instrukcja semantyczna,
-      // ktorej kazde sensowne przeformulowanie paliloby test, nie dowodzac niczego o modelu.
-      // Pilnujemy tego, czego zniknieciu towarzyszy realna regresja: liczby 5, reguly
-      // "w jezyku transkryptu" (l10n EN nie moze dostac polskich tagow), obu kluczy
-      // kontraktu oraz limitu dlugosci tytulu.
+      // Deliberately do NOT assert exact phrasing for prohibiting generics — that is a semantic instruction
+      // where any sensible rephrasing would break the test without proving anything about the model.
+      // We safeguard what leads to real regression if omitted: the number 5, the rule
+      // "in the transcript language" (EN l10n must not get Polish tags), both contract
+      // keys, and the title length limit.
       final dio = Dio();
       RequestOptions? sentRequest;
       dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
@@ -301,15 +301,15 @@ void main() {
       final systemPrompt = (messages[0] as Map<String, dynamic>)['content'] as String;
 
       expect(systemPrompt, matches(RegExp(r'\b(5|five|piec)\b', caseSensitive: false)),
-          reason: 'prompt musi prosic model o co najwyzej 5 tagow');
+          reason: 'prompt must request at most 5 tags from the model');
       expect(systemPrompt, matches(RegExp('language|jezyk', caseSensitive: false)),
-          reason: 'prompt musi wiazac jezyk tytulu i tagow z jezykiem transkryptu');
+          reason: 'prompt must bind title and tags language to transcript language');
       expect(systemPrompt, contains('"title"'),
-          reason: 'model musi wiedziec, ze kontrakt to obiekt z tytulem');
+          reason: 'model must know the contract is an object with a title');
       expect(systemPrompt, contains('"tags"'),
-          reason: 'model musi wiedziec, ze kontrakt to obiekt z tagami');
+          reason: 'model must know the contract is an object with tags');
       expect(systemPrompt, contains('${TaggingApi.maxTitleChars}'),
-          reason: 'limit dlugosci tytulu ma byc tez prosba do modelu, nie tylko cieciem w kodzie');
+          reason: 'title length limit must also be a request to the model, not just code truncation');
     });
   });
 }

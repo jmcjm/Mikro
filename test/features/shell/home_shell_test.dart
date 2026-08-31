@@ -40,10 +40,10 @@ class FakeKeyStore implements KeyStore {
   Future<void> write(String value) async {}
 }
 
-/// Nagrywanie przechodzi przez prawdziwe operacje na dysku, a `testWidgets` biegnie
-/// w strefie fake-async, w ktorej realne I/O nigdy sie nie konczy — kontroler z produkcji
-/// utknalby na tworzeniu katalogu. Mechanike nagrywania pokrywa recorder_controller_test;
-/// tutaj chodzi wylacznie o to, co ekran robi po zatrzymaniu.
+/// Recording performs real disk operations, and `testWidgets` runs
+/// in a fake-async zone where real I/O never finishes — production controller
+/// would get stuck on directory creation. Recording mechanics are covered by recorder_controller_test;
+/// here we only care about what the screen does after stopping.
 class FakeRecorderController extends RecorderController {
   @override
   RecorderState build() => const RecorderState();
@@ -58,8 +58,8 @@ class FakeRecorderController extends RecorderController {
 void main() {
   late ProviderContainer container;
 
-  /// Montuje sama powloke, z pominieciem OnboardingGate — ten ma wlasne testy, a tutaj
-  /// tylko zaslanialby nawigacje przy pierwszym uruchomieniu.
+  /// Mounts shell directly, skipping OnboardingGate — that has its own tests, and here
+  /// it would only obscure navigation on first launch.
   Future<void> mount(
     WidgetTester tester, {
     Size size = const Size(412, 892),
@@ -90,9 +90,9 @@ void main() {
     await tester.pump();
   }
 
-  /// Biblioteka subskrybuje strumien drifta, a IndexedStack buduje kazda zakladke, wiec ta
-  /// subskrypcja zyje przez caly test. Przy rozbiorce drift planuje zerowy Timer na jej
-  /// wyrejestrowanie — samo pump() go nie odpali, bo czas wirtualny musi ruszyc.
+  /// Library subscribes to drift stream and IndexedStack builds every tab, so this
+  /// subscription lives throughout the test. On teardown drift schedules a zero Timer
+  /// to unregister it — pump() alone won't trigger it because virtual time needs to advance.
   Future<void> settle(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
@@ -101,7 +101,7 @@ void main() {
   int? shownTab(WidgetTester tester) =>
       tester.widget<IndexedStack>(find.byType(IndexedStack)).index;
 
-  testWidgets('CTA pustej biblioteki przelacza na Nagrywaj', (tester) async {
+  testWidgets('empty library CTA switches to Record', (tester) async {
     await mount(tester);
     container.read(homeTabProvider.notifier).select(HomeTab.library);
     await tester.pump();
@@ -114,7 +114,7 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('ikona historii na ekranie Nagrywaj przelacza na Biblioteke', (tester) async {
+  testWidgets('history icon on Record screen switches to Library', (tester) async {
     await mount(tester);
 
     await tester.tap(find.descendant(
@@ -128,21 +128,21 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('snackbar po nagraniu ma akcje Pokaz prowadzaca do Biblioteki', (tester) async {
+  testWidgets('snackbar after recording has View action leading to Library', (tester) async {
     await mount(tester, extraOverrides: [
       recorderControllerProvider.overrideWith(FakeRecorderController.new),
     ]);
 
-    // Skalowanie ikony w blobie jest inne niz w pasku nawigacji, ale obie to ten sam
-    // Symbols.mic_rounded — zawezenie do RecorderScreen odsiewa destynacje paska.
+    // Icon scaling in blob differs from navigation bar, but both use the same
+    // Symbols.mic_rounded — narrowing to RecorderScreen filters out bar destinations.
     Finder inRecorder(IconData icon) => find.descendant(
           of: find.byType(RecorderScreen),
           matching: find.byIcon(icon),
         );
 
-    /// Start i stop przechodza przez prawdziwe operacje na dysku, a w trakcie nagrania puls
-    /// planuje klatke za klatka — pumpAndSettle nigdy by stad nie wrocil. Pompujemy wiec do
-    /// skutku, z twardym limitem, zeby brak reakcji konczyl sie asercja, a nie zawieszeniem.
+    /// Start and stop perform real disk operations, and during recording pulsing
+    /// schedules frame after frame — pumpAndSettle would never return. We pump until
+    /// condition is met, with a hard limit so inaction results in an assertion rather than hanging.
     Future<void> pumpUntil(Finder finder) async {
       for (var i = 0; i < 40 && finder.evaluate().isEmpty; i++) {
         await tester.pump(const Duration(milliseconds: 20));
@@ -152,16 +152,16 @@ void main() {
     await tester.tap(inRecorder(Symbols.mic_rounded));
     await pumpUntil(inRecorder(Symbols.stop_rounded));
     expect(inRecorder(Symbols.stop_rounded), findsOneWidget,
-        reason: 'bez wejscia w stan nagrywania nie ma czego zatrzymywac');
+        reason: 'without entering recording state there is nothing to stop');
 
     await tester.tap(inRecorder(Symbols.stop_rounded));
     await pumpUntil(find.text(plL10n.recorderSavedAction));
     expect(find.text(plL10n.recorderSavedAction), findsOneWidget,
-        reason: 'makieta pokazuje snackbar z akcja po zapisaniu nagrania');
+        reason: 'mockup shows snackbar with action after saving recording');
 
-    // Po zatrzymaniu nagrania puls juz nie tyka, wiec settle jest bezpieczne — a jest tu
-    // konieczne: w polowie animacji wjazdu snackbara akcja stoi jeszcze poza kadrem i stuk
-    // trafialby w pustke.
+    // After stopping recording pulsing no longer ticks, so settle is safe — and necessary
+    // here: halfway through snackbar entrance animation the action is still off-screen and tapping
+    // would hit empty space.
     await tester.pumpAndSettle();
 
     await tester.tap(find.text(plL10n.recorderSavedAction));
@@ -172,7 +172,7 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('waski ekran zostaje przy dolnym pasku', (tester) async {
+  testWidgets('narrow screen keeps bottom bar', (tester) async {
     await mount(tester);
 
     expect(find.byType(NavigationBar), findsOneWidget);
@@ -180,7 +180,7 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('szeroki ekran dostaje rail zamiast dolnego paska', (tester) async {
+  testWidgets('wide screen gets rail instead of bottom bar', (tester) async {
     await mount(tester, size: const Size(1280, 800));
 
     expect(find.byType(NavigationRail), findsOneWidget);
@@ -188,22 +188,22 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('prog nawigacji bocznej stoi na 840 dp', (tester) async {
-    // Makieta pokazuje rail na 1280 px i nie podaje wlasnego progu, wiec 840 dp jest
-    // decyzja, nie odczytem — tym bardziej ma byc przypiete.
+  testWidgets('navigation rail threshold is set at 840 dp', (tester) async {
+    // Mockup shows rail at 1280 px without specifying threshold, so 840 dp is
+    // a design decision, not a transcription — all the more reason to pin it.
     await mount(tester, size: const Size(839, 800));
     expect(find.byType(NavigationBar), findsOneWidget,
-        reason: 'jeden dp ponizej progu nawigacja zostaje na dole');
+        reason: 'one dp below threshold navigation stays at bottom');
     expect(find.byType(NavigationRail), findsNothing);
     await settle(tester);
 
     await mount(tester, size: const Size(840, 800));
-    expect(find.byType(NavigationRail), findsOneWidget, reason: 'prog jest domkniety od gory');
+    expect(find.byType(NavigationRail), findsOneWidget, reason: 'threshold is inclusive from above');
     expect(find.byType(NavigationBar), findsNothing);
     await settle(tester);
   });
 
-  testWidgets('rail przelacza zakladki tak samo jak dolny pasek', (tester) async {
+  testWidgets('rail switches tabs same as bottom bar', (tester) async {
     await mount(tester, size: const Size(1280, 800));
 
     await tester.tap(find.descendant(

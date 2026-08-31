@@ -8,8 +8,8 @@ import 'package:uuid/uuid.dart';
 import '../../core/audio/waveform.dart';
 import '../../core/providers.dart';
 
-/// Powod, dla ktorego nagrywanie nie ruszylo. Kontroler nie zna jezyka interfejsu ani
-/// BuildContextu, wiec oddaje rodzaj bledu, a zdanie sklada z niego ekran.
+/// Reason why recording could not start. The controller does not know the UI language or
+/// BuildContext, so it yields an error kind, which the UI converts into localized text.
 enum RecorderErrorKind { micPermission, startFailed }
 
 class RecorderError {
@@ -17,7 +17,7 @@ class RecorderError {
 
   final RecorderErrorKind kind;
 
-  /// Techniczny opis wyjatku dla [RecorderErrorKind.startFailed]; nietlumaczony.
+  /// Technical exception description for [RecorderErrorKind.startFailed]; not localized.
   final String? detail;
 }
 
@@ -63,18 +63,18 @@ class RecorderController extends Notifier<RecorderState> {
   /// would both pass the check and race.
   bool _starting = false;
 
-  /// Symetrycznie do [_starting], trzymana od synchronicznego wejscia w [stopRecording].
-  /// Flaga stanu tez tu nie wystarcza: gasnie dopiero po zapisie do bazy, wiec dwa stukniecia
-  /// w oknie awaitow zdazylyby wejsc oba i wstawic to samo id dwa razy — a nikt tego zapisu
-  /// nie awaituje, wiec naruszenie klucza glownego wylecialoby jako nieobsluzony wyjatek.
+  /// Symmetrical to [_starting], held from synchronous entry into [stopRecording].
+  /// The state flag alone is not sufficient: it only clears after the database write,
+  /// so two taps in the await window could both proceed and insert the same id twice —
+  /// and since no caller awaits this write, a primary key violation would escape as an unhandled exception.
   bool _stopping = false;
   StreamSubscription<double>? _ampSub;
   String? _currentId;
   String? _currentPath;
 
-  /// Kolejne odczyty amplitudy (0..1) z biezacego nagrania, jeden na ~200 ms. Przy stopie
-  /// redukuja sie do obwiedni zapisywanej razem z nagraniem. Godzina nagrania to niecale
-  /// 18 tys. liczb, wiec trzymanie ich w pamieci jest tansze niz dogrywanie do pliku.
+  /// Successive amplitude readings (0..1) from current recording, one per ~200 ms. On stop,
+  /// they are reduced to a waveform saved alongside the recording. An hour of recording is under
+  /// 18k numbers, so keeping them in memory is cheaper than writing to disk incrementally.
   final _amplitudeSamples = <double>[];
 
   @override
@@ -136,9 +136,9 @@ class RecorderController extends Notifier<RecorderState> {
       _cleanup();
       await ref.read(recorderProvider).stop();
       final id = _currentId!;
-      // Pusta lista probek zapisuje sie jako NULL, a nie jako 44 zera: mikrofon, ktory nic nie
-      // oddal, to brak pomiaru, a nie zmierzona cisza. Ekran szczegolow rozroznia te dwie
-      // sytuacje i przy NULL nie rysuje slupkow.
+      // An empty sample list is saved as NULL rather than 44 zeros: a microphone that yielded
+      // no samples indicates missing measurements, not measured silence. The details screen distinguishes
+      // these two situations and skips waveform bars on NULL.
       final buckets = reduceToBuckets(_amplitudeSamples);
       _amplitudeSamples.clear();
       await ref.read(databaseProvider).insertRecording(

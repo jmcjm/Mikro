@@ -14,7 +14,7 @@ Future<ProviderContainer> containerWith(Map<String, Object> stored) async {
 
 void main() {
   group('buildTheme', () {
-    test('paleta md3 w wersji jasnej odwzorowuje tokeny z designu', () {
+    test('md3 light palette reproduces tokens from design', () {
       final scheme =
           buildTheme(palette: AppPalette.md3, brightness: Brightness.light).colorScheme;
 
@@ -41,7 +41,7 @@ void main() {
       expect(scheme.onInverseSurface, const Color(0xFFF5EFF7));
     });
 
-    test('paleta md3 w wersji ciemnej odwzorowuje tokeny z designu', () {
+    test('md3 dark palette reproduces tokens from design', () {
       final scheme =
           buildTheme(palette: AppPalette.md3, brightness: Brightness.dark).colorScheme;
 
@@ -66,18 +66,18 @@ void main() {
       expect(scheme.onErrorContainer, const Color(0xFFF9DEDC));
     });
 
-    test('motyw jest Material 3 i uzupelnia role, ktorych design nie podaje', () {
+    test('theme is Material 3 and fills in roles not provided by design', () {
       final light = buildTheme(palette: AppPalette.md3, brightness: Brightness.light);
       expect(light.useMaterial3, isTrue);
-      // Design nie definiuje secondary/onSecondary — musza byc czyms sensownym, nie null-em
-      // ani przypadkiem tym samym co primary.
+      // Design does not define secondary/onSecondary — they must be reasonable, not null
+      // or accidentally identical to primary.
       expect(light.colorScheme.secondary, isNot(light.colorScheme.primary));
       expect(light.colorScheme.onSecondary, isNotNull);
     });
   });
 
-  group('providery motywu', () {
-    test('domyslnie system i md3, gdy nic nie zapisano', () async {
+  group('theme providers', () {
+    test('defaults to system and md3 when nothing is stored', () async {
       final container = await containerWith({});
       addTearDown(container.dispose);
 
@@ -85,7 +85,7 @@ void main() {
       expect(container.read(themePaletteProvider), AppPalette.md3);
     });
 
-    test('odczytuje zapisane wartosci z preferencji', () async {
+    test('reads stored values from preferences', () async {
       final container =
           await containerWith({'theme_mode': 'dark', 'theme_palette': 'md3'});
       addTearDown(container.dispose);
@@ -94,7 +94,7 @@ void main() {
       expect(container.read(themePaletteProvider), AppPalette.md3);
     });
 
-    test('zapis trybu robi rundtrip przez preferencje', () async {
+    test('saving mode roundtrips through preferences', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final first =
@@ -105,14 +105,14 @@ void main() {
       expect(first.read(themeModeProvider), ThemeMode.dark);
       expect(prefs.getString('theme_mode'), 'dark');
 
-      // Nowy kontener na tych samych preferencjach — jak po restarcie aplikacji.
+      // New container on same preferences — like after app restart.
       final second =
           ProviderContainer(overrides: [sharedPrefsProvider.overrideWithValue(prefs)]);
       addTearDown(second.dispose);
       expect(second.read(themeModeProvider), ThemeMode.dark);
     });
 
-    test('nieznana wartosc w preferencjach nie wywraca startu', () async {
+    test('unknown value in preferences does not crash startup', () async {
       final container = await containerWith(
           {'theme_mode': 'zupelnie-nie-tryb', 'theme_palette': 'nie-ma-takiej'});
       addTearDown(container.dispose);
@@ -121,11 +121,11 @@ void main() {
       expect(container.read(themePaletteProvider), AppPalette.md3);
     });
 
-    test('wartosc obcego typu pod kluczem motywu tez nie wywraca startu', () async {
-      // Nie hipotetyczne: downgrade aplikacji albo kolizja klucza zostawia pod tym samym
-      // nazwiskiem liczbe czy flage. Typowany getString() rzucilby wtedy w pierwszej klatce
-      // budowania motywu, czyli zanim cokolwiek zdazy sie narysowac — bialy ekran bez
-      // sciezki wyjscia, bo motyw czyta sie przy kazdym starcie.
+    test('value of wrong type under theme key also does not crash startup', () async {
+      // Not hypothetical: app downgrade or key collision leaves a number or boolean under the same
+      // key name. Typed getString() would then throw in the very first frame
+      // of building theme, before anything can render — white screen without
+      // escape path, since theme is read on every startup.
       final container = await containerWith({'theme_mode': 7, 'theme_palette': true});
       addTearDown(container.dispose);
 
@@ -134,10 +134,10 @@ void main() {
     });
   });
 
-  group('palety z designu', () {
-    // Tokeny przepisane z mapy THEMES w design/Mikro-MD3.dc.html (linie 606-612). Kazdy expect
-    // odpowiada jednemu kluczowi tej mapy, zeby audyt wobec zrodla byl mechaniczny.
-    test('dracula odwzorowuje komplet tokenow z mapy THEMES', () {
+  group('palettes from design', () {
+    // Tokens transcribed from THEMES map in design/Mikro-MD3.dc.html (lines 606-612). Each expect
+    // corresponds to one key in that map, making source auditing mechanical.
+    test('dracula reproduces full set of tokens from THEMES map', () {
       final scheme =
           buildTheme(palette: AppPalette.dracula, brightness: Brightness.dark).colorScheme;
 
@@ -167,7 +167,7 @@ void main() {
       expect(scheme.onInverseSurface, const Color(0xFF282A36)); // oninv
     });
 
-    test('nord odwzorowuje komplet tokenow z mapy THEMES', () {
+    test('nord reproduces full set of tokens from THEMES map', () {
       final scheme =
           buildTheme(palette: AppPalette.nord, brightness: Brightness.dark).colorScheme;
 
@@ -197,7 +197,7 @@ void main() {
       expect(scheme.onInverseSurface, const Color(0xFF2E3440)); // oninv
     });
 
-    test('gruvbox odwzorowuje komplet tokenow z mapy THEMES', () {
+    test('gruvbox reproduces full set of tokens from THEMES map', () {
       final scheme =
           buildTheme(palette: AppPalette.gruvbox, brightness: Brightness.dark).colorScheme;
 
@@ -227,38 +227,38 @@ void main() {
       expect(scheme.onInverseSurface, const Color(0xFF282828)); // oninv
     });
 
-    // Design daje dla dracula/nord/gruvbox po JEDNYM zestawie tokenow i sa to zestawy ciemne.
-    // MikroApp buduje jednak zawsze oba warianty (theme i darkTheme), wiec jasny wariant tych
-    // palet musi byc czyms zdefiniowanym. Zwracamy ten sam, ciemny zestaw zamiast dogenerowywac
-    // jasny, ktorego design nie definiuje.
-    test('palety ciemne daja ten sam schemat niezaleznie od zadanej jasnosci', () {
+    // Design provides ONE token set each for dracula/nord/gruvbox and these are dark sets.
+    // However MikroApp always builds both variants (theme and darkTheme), so light variant of these
+    // palettes must be defined. We return the same dark set rather than synthesizing
+    // a light one not defined in design.
+    test('dark palettes produce same scheme regardless of requested brightness', () {
       for (final palette in [AppPalette.dracula, AppPalette.nord, AppPalette.gruvbox]) {
         final asLight = buildTheme(palette: palette, brightness: Brightness.light).colorScheme;
         final asDark = buildTheme(palette: palette, brightness: Brightness.dark).colorScheme;
 
-        expect(asLight.brightness, Brightness.dark, reason: '$palette jest paleta ciemna');
+        expect(asLight.brightness, Brightness.dark, reason: '$palette is a dark palette');
         expect(asLight.primary, asDark.primary, reason: '$palette');
         expect(asLight.surface, asDark.surface, reason: '$palette');
         expect(asLight.onSurface, asDark.onSurface, reason: '$palette');
       }
     });
 
-    // Role, ktorych design NIE nazywa (secondary, onSecondary, surfaceTint...), pochodza z
-    // ColorScheme.fromSeed. Gdyby kazda paleta siala tym samym ziarnem co md3, fioletowy akcent
-    // baseline'u przeciekalby do Draculi, Norda i Gruvboxa wlasnie tymi rolami.
-    test('role spoza designu nie dziedzicza ziarna md3', () {
+    // Roles NOT named in design (secondary, onSecondary, surfaceTint...) come from
+    // ColorScheme.fromSeed. If every palette seeded from same seed as md3, purple accent
+    // from baseline would leak into Dracula, Nord and Gruvbox via those roles.
+    test('roles outside design do not inherit md3 seed', () {
       final md3 = buildTheme(palette: AppPalette.md3, brightness: Brightness.dark).colorScheme;
 
       for (final palette in [AppPalette.dracula, AppPalette.nord, AppPalette.gruvbox]) {
         final scheme = buildTheme(palette: palette, brightness: Brightness.dark).colorScheme;
 
-        expect(scheme.secondary, isNot(md3.secondary), reason: '$palette: secondary z md3');
-        expect(scheme.onSecondary, isNot(md3.onSecondary), reason: '$palette: onSecondary z md3');
-        expect(scheme.surfaceTint, isNot(md3.surfaceTint), reason: '$palette: surfaceTint z md3');
+        expect(scheme.secondary, isNot(md3.secondary), reason: '$palette: secondary from md3');
+        expect(scheme.onSecondary, isNot(md3.onSecondary), reason: '$palette: onSecondary from md3');
+        expect(scheme.surfaceTint, isNot(md3.surfaceTint), reason: '$palette: surfaceTint from md3');
       }
     });
 
-    test('md3 nadal ma osobny wariant jasny i ciemny', () {
+    test('md3 still has separate light and dark variants', () {
       final light = buildTheme(palette: AppPalette.md3, brightness: Brightness.light).colorScheme;
       final dark = buildTheme(palette: AppPalette.md3, brightness: Brightness.dark).colorScheme;
 
@@ -267,8 +267,8 @@ void main() {
       expect(light.surface, isNot(dark.surface));
     });
 
-    // Kropki podgladu na kartach wyboru motywu — wartosci wprost z kart w makiecie.
-    test('podglad palety zwraca trojke kolorow z kart makiety', () {
+    // Preview swatches on theme selector cards — values directly from mockup cards.
+    test('palette preview returns color triplet from mockup cards', () {
       expect(paletteSwatch(AppPalette.md3, Brightness.light), const [
         Color(0xFF65558F),
         Color(0xFFE9DDFF),
@@ -297,8 +297,8 @@ void main() {
     });
   });
 
-  group('persystencja palet', () {
-    test('wybor kazdej nowej palety robi rundtrip przez preferencje', () async {
+  group('palette persistence', () {
+    test('selecting each new palette roundtrips through preferences', () async {
       for (final palette in [AppPalette.dracula, AppPalette.nord, AppPalette.gruvbox]) {
         SharedPreferences.setMockInitialValues({});
         final prefs = await SharedPreferences.getInstance();
@@ -310,16 +310,16 @@ void main() {
         expect(first.read(themePaletteProvider), palette);
         expect(prefs.getString('theme_palette'), palette.name);
 
-        // Nowy kontener na tych samych preferencjach — jak po restarcie aplikacji.
+        // New container on same preferences — like after app restart.
         final second =
             ProviderContainer(overrides: [sharedPrefsProvider.overrideWithValue(prefs)]);
         addTearDown(second.dispose);
         expect(second.read(themePaletteProvider), palette,
-            reason: '$palette nie przetrwala restartu');
+            reason: '$palette did not survive restart');
       }
     });
 
-    test('nazwy palet w preferencjach sa stabilnym formatem na dysku', () {
+    test('palette names in preferences are a stable on-disk format', () {
       expect(AppPalette.values.map((p) => p.name).toList(),
           ['md3', 'dracula', 'nord', 'gruvbox']);
     });

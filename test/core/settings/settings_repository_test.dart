@@ -12,13 +12,13 @@ class FakeKeyStore implements KeyStore {
 }
 
 void main() {
-  test('load zwraca null gdy nic nie zapisano', () async {
+  test('load returns null when nothing is stored', () async {
     SharedPreferences.setMockInitialValues({});
     final repo = SettingsRepository(await SharedPreferences.getInstance(), FakeKeyStore());
     expect(await repo.load(), isNull);
   });
 
-  test('save/load robi rundtrip, klucz idzie do keystore', () async {
+  test('save/load round-trips, key goes to keystore', () async {
     SharedPreferences.setMockInitialValues({});
     final keyStore = FakeKeyStore();
     final repo = SettingsRepository(await SharedPreferences.getInstance(), keyStore);
@@ -37,21 +37,21 @@ void main() {
     expect(loaded.tagModel, config.tagModel);
   });
 
-  test('load zwraca null gdy jest baseUrl ale brak klucza', () async {
+  test('load returns null when baseUrl exists but key is missing', () async {
     SharedPreferences.setMockInitialValues({'base_url': 'https://x', 'stt_model': 'a', 'tag_model': 'b'});
     final repo = SettingsRepository(await SharedPreferences.getInstance(), FakeKeyStore());
     expect(await repo.load(), isNull);
   });
 
-  // --- Straznicy regresji (Task 4, uzupelnienie) ---
-  // Testy z planu nie przypinaja ani nazw kluczy w preferencjach, ani obslugi pustych
-  // wartosci: roundtrip save/load chodzi przez te same stale, a jedyny test siegajacy po
-  // surowe klucze robi asercje NEGATYWNA (load == null), ktora przechodzi rowniez wtedy,
-  // gdy nazwa klucza jest zupelnie inna.
+  // --- Regression guards (Task 4, follow-up) ---
+  // Tests in the plan do not pin preference key names or empty value
+  // handling: roundtrip save/load uses the same constants, and the only test accessing
+  // raw keys performs a NEGATIVE assertion (load == null), which passes even
+  // when the key name is completely different.
 
-  test('STRAZNIK: load czyta dokladnie klucze base_url, stt_model i tag_model', () async {
-    // Te trzy literaly to format danych na dysku — przezywaja aktualizacje aplikacji.
-    // Ich zmiana osierociłaby ustawienia kazdego istniejacego uzytkownika.
+  test('GUARD: load reads exact keys base_url, stt_model, and tag_model', () async {
+    // These three literals are the on-disk data format — they survive app updates.
+    // Changing them would orphan the settings of every existing user.
     SharedPreferences.setMockInitialValues({
       'base_url': 'https://api.groq.com/openai/v1',
       'stt_model': 'whisper-large-v3-turbo',
@@ -63,23 +63,23 @@ void main() {
     );
 
     final loaded = await repo.load();
-    expect(loaded, isNotNull, reason: 'komplet surowych kluczy musi dac konfiguracje');
-    expect(loaded!.baseUrl, 'https://api.groq.com/openai/v1', reason: 'klucz base_url');
-    expect(loaded.sttModel, 'whisper-large-v3-turbo', reason: 'klucz stt_model');
-    expect(loaded.tagModel, 'llama-3.1-8b-instant', reason: 'klucz tag_model');
-    expect(loaded.apiKey, 'sekret', reason: 'klucz API pochodzi z KeyStore, nie z preferencji');
+    expect(loaded, isNotNull, reason: 'complete raw keys must yield configuration');
+    expect(loaded!.baseUrl, 'https://api.groq.com/openai/v1', reason: 'base_url key');
+    expect(loaded.sttModel, 'whisper-large-v3-turbo', reason: 'stt_model key');
+    expect(loaded.tagModel, 'llama-3.1-8b-instant', reason: 'tag_model key');
+    expect(loaded.apiKey, 'sekret', reason: 'API key comes from KeyStore, not preferences');
   });
 
-  test('STRAZNIK: pusta wartosc liczy sie jak brak — i dla baseUrl, i dla klucza', () async {
-    // Pokrywa OBA guardy isEmpty. Sam pusty base_url zostawilby polowe apiKey.isEmpty
-    // bez straznika.
+  test('GUARD: empty value counts as absent — for both baseUrl and key', () async {
+    // Covers BOTH isEmpty guards. An empty base_url alone would leave half of apiKey.isEmpty
+    // without a guard.
     SharedPreferences.setMockInitialValues({'base_url': '', 'stt_model': 'a', 'tag_model': 'b'});
     final emptyUrlRepo = SettingsRepository(
       await SharedPreferences.getInstance(),
       FakeKeyStore()..value = 'sekret',
     );
     expect(await emptyUrlRepo.load(), isNull,
-        reason: 'pusty baseUrl to brak konfiguracji, nie konfiguracja z pustym URL');
+        reason: 'empty baseUrl means missing configuration, not configuration with empty URL');
 
     SharedPreferences.setMockInitialValues(
         {'base_url': 'https://x', 'stt_model': 'a', 'tag_model': 'b'});
@@ -88,6 +88,6 @@ void main() {
       FakeKeyStore()..value = '',
     );
     expect(await emptyKeyRepo.load(), isNull,
-        reason: 'pusty klucz API to brak klucza, nie klucz o zerowej dlugosci');
+        reason: 'empty API key means missing key, not zero-length key');
   });
 }

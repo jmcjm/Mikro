@@ -22,19 +22,18 @@ import 'playback.dart';
 import 'recording_error.dart';
 import 'selected_recording.dart';
 
-/// Rama, w ktorej stoja szczegoly nagrania. Rozstrzyga wylacznie o tym, co jest u gory
-/// i dokad prowadzi kasowanie — tresc jest w obu przypadkach ta sama.
+/// Host container frame for recording details. Dictates top chrome and deletion navigation —
+/// content is identical in both modes.
 enum DetailChrome {
-  /// Osobna trasa: pasek aplikacji z powrotem, akcje w jego prawym rogu.
+  /// Standalone route: app bar with back navigation, action buttons in top-right corner.
   screen,
 
-  /// Prawa kolumna biblioteki na szerokim ekranie: naglowek z makiety desktopowej,
-  /// bez paska aplikacji i bez wlasnej trasy.
+  /// Right column of library in wide layouts: desktop mockup header without app bar or separate route.
   panel,
 }
 
-/// Pelnoekranowe szczegoly nagrania. Cienka obudowa na [RecordingDetailView], zeby wywolania
-/// przez Navigator.push nie musialy znac trybu ramy.
+/// Fullscreen recording details. Thin wrapper around [RecordingDetailView] allowing
+/// Navigator.push invocations without needing explicit frame configuration.
 class RecordingDetailScreen extends StatelessWidget {
   const RecordingDetailScreen({super.key, required this.recordingId});
 
@@ -62,42 +61,40 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     with SingleTickerProviderStateMixin {
   final _player = AudioPlayer();
 
-  /// Pozycja z ostatniego PRAWDZIWEGO zdarzenia odtwarzacza (albo z przewiniecia). Miedzy
-  /// zdarzeniami karta ja interpoluje — patrz [_publish].
+  /// Position from the last REAL player event (or seek). Between
+  /// events the card interpolates smoothly — see [_publish].
   Duration _eventPosition = Duration.zero;
   Duration _total = Duration.zero;
   final _subs = <StreamSubscription<dynamic>>[];
 
-  /// Zegar animacji przebiegu. Chodzi WYLACZNIE w trakcie odtwarzania: poza nim nie ma czego
-  /// interpolowac, a ticker trzymany na wyrost kazalby przeliczac karte 60 razy na sekunde
-  /// przez cale zycie ekranu.
+  /// Waveform animation ticker. Runs ONLY during active playback: no need to
+  /// interpolate otherwise, avoiding unnecessary 60 FPS recalculations when idle.
   late final Ticker _ticker;
 
-  /// Ostatni odczyt tickera i jego wartosc w chwili ustawienia [_eventPosition]. Roznica tych
-  /// dwoch to czas, ktory uplynal od ostatniego zdarzenia.
+  /// Last ticker reading and its value when [_eventPosition] was captured.
+  /// The difference represents elapsed time since the last event.
   Duration _tick = Duration.zero;
   Duration _baseTick = Duration.zero;
 
-  /// Zegar „tanca" slupkow: ten sam uplyw czasu, co interpolacja pozycji, ale osobny
-  /// listenable. Osobny, bo taniec ma isc takze wtedy, gdy pozycja akurat nie drgnela —
-  /// na przyklad gdy interpolacja dobila do konca nagrania i tam stoi.
+  /// Bar dance animation clock: shares elapsed time with position interpolation,
+  /// but maintains a separate listenable so animation continues even when position is stationary
+  /// (e.g. when position reaches end of track).
   final _beat = ValueNotifier<Duration>(Duration.zero);
 
-  /// Przebieg odrysowuje sie i na ruch pozycji, i na takt tanca; czasy tylko na pozycje.
+  /// Waveform redraws on both position movement and bar dance beat; timestamps redraw on position only.
   late final Listenable _waveBeat = Listenable.merge([_shown, _beat]);
 
-  /// Pozycja, za ktora ida przebieg i czasy. Osobny notifier, a nie `setState`: klatka
-  /// animacji ma odbudowac przebieg i wiersz czasow, a nie cala karte z transkryptem.
+  /// Displayed position driving waveform and timestamp updates. Dedicated notifier instead of `setState`:
+  /// animation frames rebuild only waveform and time indicators, not the full card or transcript.
   final _shown = ValueNotifier<Duration>(Duration.zero);
 
-  /// Obwiednia rozpakowana z bazy, trzymana obok surowego zapisu, z ktorego powstala.
-  /// Klatka animacji odbudowuje przebieg 60 razy na sekunde, a rozpakowywanie tego samego
-  /// JSON-a przy kazdej z nich byloby czysta strata.
+  /// Parsed waveform cached alongside the raw database string.
+  /// Prevents reparsing the same JSON 60 times per second during animation frames.
   String? _waveformRaw;
   List<double>? _waveformLevels;
 
-  /// Dlugosc nagrania zapamietana przy budowaniu karty. Interpolacja biegnie z tickera, czyli
-  /// poza budowaniem, a nie ma prawa wybiec poza koniec nagrania.
+  /// Recording duration cached during card build. Interpolation runs from the ticker
+  /// outside build phases and must not exceed track duration.
   Duration _duration = Duration.zero;
 
   /// Single source of truth for the transport button. `play(source)` re-sets the source and
@@ -109,50 +106,43 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   /// ignores incoming position events; the actual seek happens once, on release.
   double? _dragMs;
 
-  /// Czy odtwarzacz ma juz wczytane zrodlo.
+  /// Whether audio source has been loaded into the player.
   ///
-  /// Odtwarzacz startuje pusty i zostaje taki az do pierwszego odtworzenia. Natywna warstwa
-  /// nie ma wtedy czego przewijac: seek przechodzi bez skutku I BEZ POTWIERDZENIA, a karta
-  /// pokazywalaby pozycje, ktorej nigdzie nie ma. Dlatego pierwszy gest przewijania wczytuje
-  /// zrodlo — a przycisk odtwarzania musi wiedziec, ze ono juz stoi, bo `play(source)`
-  /// wczytalby je drugi raz i skasowal wlasnie wybrana pozycje.
+  /// Player initializes empty and remains unloaded until first playback.
+  /// Seeking an uninitialized native player fails silently WITHOUT CONFIRMATION.
+  /// The first seek gesture initializes the source — and playback resume must be aware
+  /// of loaded state so `play(source)` does not reset the user's selected position.
   bool _sourceLoaded = false;
 
-  /// Po tylu sekundach karta przestaje pokazywac przewijanie jako trwajace.
+  /// Timeout threshold after which seeking state is reset.
   ///
-  /// audioplayers czeka na potwierdzenie z natywnej warstwy przez `AudioPlayer.seekingTimeout`,
-  /// czyli domyslnie 30 s. Kursor stojacy przez pol minuty w miejscu, w ktorym odtwarzacza nie
-  /// ma, to nie jest czekanie, tylko fantom — wlasny, krotki limit zdejmuje go od razu.
+  /// audioplayers defaults `AudioPlayer.seekingTimeout` to 30 s. A cursor frozen in limbo
+  /// for half a minute is unhelpful — our shorter timeout resets the phantom state quickly.
   static const _seekTimeout = Duration(seconds: 2);
 
-  /// Predkosc odtwarzania wybrana pigulka. Zyje tyle, co ekran: nikt nie prosil o pamietanie
-  /// jej miedzy wejsciami, a ustawienie, ktore przezywa wyjscie, trzeba by gdzies pokazac.
+  /// Playback speed selected via speed pill. Transient state tied to the screen lifecycle.
   double _rate = kPlaybackRates.first;
 
   bool get _playing => _playerState == PlayerState.playing;
 
-  /// Dlugosc, wedlug ktorej karta liczy pozycje, podzial slupkow i cel przewijania.
+  /// Total duration used for position calculations, bar partitioning, and seek clamping.
   ///
-  /// Bierze sie z bazy, bo to ta wartosc stoi na karcie od pierwszej klatki i to ja pokazuje
-  /// licznik po prawej — odtwarzacz zna swoja dopiero po wczytaniu zrodla. Nagranie bez
-  /// zapisanej dlugosci (nie powinno takich byc, ale kolumna nie jest tego pewna) spada na
-  /// dlugosc z odtwarzacza.
+  /// Prioritizes database value to render consistently from the first frame before
+  /// player initialization, falling back to player duration if missing.
   Duration _totalOf(Recording r) =>
       r.durationMs > 0 ? Duration(milliseconds: r.durationMs) : _total;
 
-  /// Pozycja pokazywana na karcie: w trakcie gestu prowadzi palec, poza gestem odtwarzacz —
-  /// plynnie, bo miedzy jego zdarzeniami wchodzi interpolacja z tickera.
+  /// Effective displayed position: finger drag position takes precedence during scrubbing,
+  /// followed by interpolated player position.
   Duration _shownPosition(Duration total) {
     final ms = _dragMs?.round() ?? _shown.value.inMilliseconds;
     return Duration(milliseconds: ms.clamp(0, total.inMilliseconds));
   }
 
-  /// Jedyne wyjscie na przewijanie: stukniecie w przebieg, koniec przeciagania, skok o 10 s
-  /// i suwak nagran bez obwiedni wchodza tedy. Dyscyplina jednego seeku na gest siedzi wiec
-  /// w jednym miejscu, zamiast powtarzac sie w kazdym uchwycie.
+  /// Unified seek handler: waveform taps, scrub release, 10 s skips, and fallback slider converge here.
   ///
-  /// Kursor przeskakuje PRZED wyslaniem seeku i strumien pozycji milknie na czas jego lotu:
-  /// inaczej miedzy gestem a jego skutkiem karta pokazywalaby jeszcze stara pozycje.
+  /// Cursor jumps immediately BEFORE dispatching seek, and position stream is muted during transit
+  /// to prevent jumping back to stale positions.
   Future<void> _seekTo(Recording r, Duration target) async {
     setState(() => _dragMs = target.inMilliseconds.toDouble());
     var reached = false;
@@ -160,27 +150,25 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
       await _loadAndSeek(r, target).timeout(_seekTimeout);
       reached = true;
     } on TimeoutException {
-      // Natywna warstwa nie potwierdzila przewijania w zalozonym czasie. Moze jeszcze
-      // dojechac, wiec zrodla nie odznaczamy — ale kursor przestaje udawac, ze wie, gdzie
-      // odtwarzacz stoi. Powie to strumien pozycji.
+      // Native layer did not confirm seek within timeout.
+      // Reset drag state and let position stream update naturally.
     } catch (_) {
-      // Kazdy inny blad znaczy, ze zrodla nie da sie teraz uzyc: nie ma pliku, nie da sie go
-      // zdekodowac. Odznaczamy je, zeby kolejny gest sprobowal wczytac je od nowa, zamiast
-      // przewijac w pustke.
+      // Errors indicate source is unusable (missing file, decode error).
+      // Mark unloaded so subsequent gestures reattempt initialization.
       _sourceLoaded = false;
     }
     if (!mounted) return;
     setState(() {
       if (reached) _rebase(target);
-      _dragMs = null; // od teraz znowu prowadzi onPositionChanged
+      _dragMs = null; // onPositionChanged resumes control
     });
     _publish();
   }
 
-  /// Przewiniecie razem z leniwym wczytaniem zrodla.
+  /// Seek with lazy source loading.
   ///
-  /// Gest przewijania na nagraniu, ktore jeszcze nie gralo, jest intencja uzytkownika, a nie
-  /// pomylka — ma zadzialac. Wczytanie zrodla NIE zaczyna odtwarzania: pauza zostaje pauza.
+  /// Seeking an unplayed track is a deliberate user action and should succeed.
+  /// Loading the source does NOT initiate playback: paused state remains paused.
   Future<void> _loadAndSeek(Recording r, Duration target) async {
     if (!_sourceLoaded) {
       await _player.setSource(DeviceFileSource(r.audioPath));
@@ -189,19 +177,16 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     await _player.seek(target);
   }
 
-  /// Skok o 10 s w tyl albo w przod. Dziala takze w pauzie — seek nie rusza stanu odtwarzania,
-  /// wiec przycisk przesuwa miejsce, od ktorego ruszy nastepne wcisniecie play.
+  /// Skip 10 s backward or forward. Works during pause without altering playback state.
   Future<void> _skip(Recording r, Duration step, Duration total) =>
       _seekTo(r, skipTarget(_shownPosition(total), step, total));
 
-  /// Kolejna predkosc z cyklu pigulki. Etykieta zmienia sie od razu, bo obie warstwy —
-  /// android i linux — trzymaja predkosc przy odtwarzaczu, a nie przy zrodle: ustawiona przy
-  /// zatrzymanym odtwarzaczu wchodzi w zycie przy najblizszym starcie.
+  /// Cycles playback rate. Label updates immediately; native players (Android/Linux)
+  /// retain rate configuration across pauses and starts.
   Future<void> _cycleRate() async {
     final next = nextPlaybackRate(_rate);
     setState(() {
-      // Nowa predkosc obowiazuje OD TERAZ. Bez przestawienia bazy interpolacja policzylaby ja
-      // takze dla czasu, ktory uplynal jeszcze przy poprzedniej, i kursor by podskoczyl.
+      // New rate takes effect immediately. Rebase ensures prior elapsed time is not scaled retroactively.
       _rebase(_shown.value);
       _rate = next;
     });
@@ -209,8 +194,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     await _player.setPlaybackRate(next);
   }
 
-  /// Wystawia pozycje dla przebiegu i czasow: w trakcie odtwarzania interpolowana, poza nim
-  /// wprost z ostatniego zdarzenia. Palec ma pierwszenstwo nad jednym i drugim.
+  /// Publishes position for waveform and timers: interpolated during playback,
+  /// direct from event otherwise. Touch drag takes precedence.
   void _publish() {
     if (_dragMs != null) return;
     _shown.value = _ticker.isActive
@@ -223,14 +208,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
         : _eventPosition;
   }
 
-  /// Przestawia baze interpolacji na [position] i zeruje uplyw czasu od niej.
+  /// Rebases interpolation to [position] and resets elapsed ticker offset.
   void _rebase(Duration position) {
     _eventPosition = position;
     _baseTick = _tick;
   }
 
-  /// Ticker chodzi dokladnie na zboczach stanu odtwarzania. Start zeruje jego zegar, wiec
-  /// razem z nim trzeba przestawic punkt odniesienia.
+  /// Ticker runs strictly when playback state is active. Starting resets the reference baseline.
   void _syncTicker() {
     if (_playing) {
       if (!_ticker.isActive) {
@@ -239,9 +223,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
         _ticker.start();
       }
     } else if (_ticker.isActive) {
-      // Zatrzymanie zamraza kursor TAM, GDZIE STOI, a nie tam, gdzie bylo ostatnie zdarzenie
-      // pozycji: te dwa punkty dzieli nawet sekunda, a cofniecie kursora w chwili pauzy widac
-      // golym okiem. Roznica jest szacunkiem i pierwsze prawdziwe zdarzenie ja poprawi.
+      // Pausing freezes cursor at current displayed position rather than last event position:
+      // preventing visible rewinding jumps.
       _rebase(_shown.value);
       _ticker.stop();
     }
@@ -256,21 +239,18 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
       _publish();
     });
     _subs.add(_player.onPositionChanged.listen((event) {
-      if (_dragMs != null) return; // przeciaganie ma pierwszenstwo nad strumieniem
+      if (_dragMs != null) return; // drag gestures take precedence over position stream
       _rebase(reconcilePosition(shown: _shown.value, event: event));
-      // Bez setState: zdarzenie pozycji nie zmienia niczego poza tym, co wisi na [_shown].
+      // No setState: position updates only notify [_shown].
       _publish();
     }));
     _subs.add(_player.onDurationChanged.listen((d) => setState(() => _total = d)));
     _subs.add(_player.onPlayerStateChanged.listen((s) {
       setState(() {
         _playerState = s;
-        // Ticker najpierw, zeby pauza zamrozila kursor tam, gdzie stoi...
+        // Sync ticker first so pause freezes cursor at current location...
         _syncTicker();
-        // ...a dopiero potem koniec nagrania odeslal go na poczatek — tak, zeby stan wizualny
-        // zgadzal sie z tym, co zrobi kolejne wcisniecie przycisku: odtworzenie od zera.
-        // Zrodlo tez przestaje istniec: przy domyslnym ReleaseMode.release audioplayers
-        // zwalnia je razem z koncem odtwarzania.
+        // ...and track completion resets position to start, matching next play action.
         if (s == PlayerState.completed) {
           _rebase(Duration.zero);
           _sourceLoaded = false;
@@ -293,12 +273,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   }
 
   Future<void> _delete(Recording recording) async {
-    // Zaleznosci z ref pobierane PRZED pierwszym awaitem. Gdyby widget zostal zutylizowany
-    // w trakcie dialogu, pozniejsze ref.read rzucaloby "used after dispose" — i to jako
-    // nieobsluzony wyjatek, bo nikt tego nie lapie.
+    // Read dependencies from ref BEFORE first await to avoid "used after dispose" if unmounted during dialog.
     final db = ref.read(databaseProvider);
-    // Z tego samego powodu bierzemy tu kontroler wyboru: po awaitach widget moze byc juz
-    // zutylizowany, a wtedy ref.read rzuca. `null` znaczy "rama ma wlasna trase do zdjecia".
     final selection = widget.chrome == DetailChrome.panel
         ? ref.read(selectedRecordingProvider.notifier)
         : null;
@@ -330,24 +306,18 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
 
     try {
       await db.deleteRecording(recording.id);
-      // Katalog kasujemy dopiero po udanym usunieciu z bazy. Gdy to zawiedzie, na dysku
-      // zostaje osierocone audio — mniejsze zlo niz wpis w bazie bez pliku. Dlatego blad
-      // sprzatania nie przerywa zamkniecia ekranu.
+      // Delete directory on disk only after successful database deletion.
       try {
         final dir = File(recording.audioPath).parent;
-        // Sciezka przychodzi z bazy, a kasowanie jest rekursywne, wiec najpierw upewniamy sie,
-        // ze celujemy w katalog TEGO nagrania. Kazde audio zapisane przez aplikacje lezy
-        // w <docs>/recordings/<id>/audio.m4a, wiec warunek nic nie kosztuje, a nie pozwala
-        // zepsutemu albo obcemu wpisowi wyciac dowolnego katalogu.
+        // Verify target path matches recording id before recursive deletion.
         if (p.basename(dir.path) == recording.id && dir.existsSync()) {
           dir.deleteSync(recursive: true);
         }
       } catch (_) {
-        // Sprzatanie plikow jest best-effort.
+        // File cleanup is best-effort.
       }
       if (!mounted) return;
-      // Panel nie jest osobna trasa, wiec nie ma czego popowac: pusty panel powstaje przez
-      // wyczyszczenie wyboru, czyli powrot do stanu sprzed stukniecia w karte.
+      // Panel clears selection; standalone screen pops route.
       if (selection != null) {
         selection.clear();
       } else {
@@ -361,10 +331,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     }
   }
 
-  /// Systemowy arkusz udostepniania istnieje tylko tam, gdzie share_plus ma natywna
-  /// implementacje. Na Linuksie wtyczka sklada `mailto:` i oddaje go url_launcherowi —
-  /// dyktafon otwieralby wtedy klienta poczty albo wywalal wyjatek, gdy zadnego nie ma.
-  /// Dlatego desktop dostaje uczciwy zamiennik: kopie transkryptu do schowka.
+  /// Native share sheet is supported on mobile and macOS.
+  /// On Linux, fallback to copying transcript to clipboard.
   bool get _hasNativeShareSheet =>
       Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
 
@@ -390,11 +358,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
         message: AppLocalizations.of(context).detailCopiedTranscript);
   }
 
-  /// Dopisuje tag wpisany recznie w kafelku "+ tag". Nazwa wraca z okna juz znormalizowana,
-  /// bo to samo sito decydowalo tam o blokadzie duplikatu.
+  /// Adds manual tag from "+ tag" dialog. Tag name is already normalized.
   Future<void> _addTag(RecordingWithTags item) async {
-    // Jak przy kasowaniu: zaleznosci z ref przed pierwszym awaitem, bo po zamknieciu okna
-    // widget moze byc juz zutylizowany, a wtedy ref.read rzuca.
     final db = ref.read(databaseProvider);
     final name = await showDialog<String>(
       context: context,
@@ -404,14 +369,11 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     await _writeTags(() => db.addTag(item.recording.id, name));
   }
 
-  /// Kasowanie bez okna potwierdzenia: stawka jest niska, a ruch odwracalny tym samym
-  /// kafelkiem "+ tag", ktory stoi tuz obok.
+  /// Delete tag without confirmation dialog: low consequence action easily reversible via adjacent "+ tag" button.
   Future<void> _removeTag(String recordingId, String tag) =>
       _writeTags(() => ref.read(databaseProvider).removeTag(recordingId, tag));
 
-  /// Zapis do bazy jest jedynym miejscem, w ktorym reczna edycja tagow moze sie wywrocic —
-  /// i wywroci sie po cichu, bo nikt tego nie awaituje. Komunikat wychodzi wiec tutaj, raz
-  /// dla obu sciezek.
+  /// Database writes are the only point of failure for manual tag edits; handle errors and notify user.
   Future<void> _writeTags(Future<void> Function() write) async {
     final messenger = ScaffoldMessenger.of(context);
     final message = AppLocalizations.of(context).detailTagSaveError;
@@ -427,10 +389,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   Widget build(BuildContext context) {
     final stream = ref.watch(recordingsStreamProvider);
     final l10n = AppLocalizations.of(context);
-    // Blad i ladowanie rozstrzygaja sie PRZED pustka. W obu tych stanach strumien nie ma
-    // jeszcze wartosci, wiec nagranie wygladaloby na skasowane: awaria bazy i pierwsza klatka
-    // po wejsciu na ekran meldowaly sie tym samym zdaniem, co faktycznie usuniety wpis.
-    // Podzial jak na liscie w library_screen.dart.
+    // Error and loading states resolve BEFORE checking empty list.
     return switch (stream) {
       AsyncValue(hasError: true, :final error) =>
         _standalone(Center(child: Text(l10n.libraryDatabaseError('$error')))),
@@ -453,8 +412,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     };
   }
 
-  /// Komunikat zamiast tresci nagrania. Pelny ekran stoi na wlasnej trasie, wiec potrzebuje
-  /// wlasnego Scaffolda; panel siedzi juz w Scaffoldzie biblioteki.
+  /// Fallback content message wrapper. Standalone screen needs Scaffold; panel resides within library Scaffold.
   Widget _standalone(Widget child) => switch (widget.chrome) {
         DetailChrome.screen => Scaffold(body: child),
         DetailChrome.panel => child,
@@ -467,14 +425,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     return Scaffold(
       appBar: AppBar(
         backgroundColor: scheme.surface,
-        toolbarHeight: 64, // makieta ma naglowek 64 px, domyslne 56 sciskaloby go za mocno
+        toolbarHeight: 64, // mockup specifies 64 px header height
         leading: IconButton(
           icon: Icon(Symbols.arrow_back_rounded, fill: 1, color: scheme.onSurface),
           tooltip: l10n.detailBackTooltip,
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        // Makieta ma tu nazwe rodzajowa, bo model danych nie znal jeszcze tytulu. Teraz zna:
-        // pasek niesie tytul nagrania, a rodzajowa zostaje opadem dla nagran bez tytulu.
+        // Title from recording, falling back to generic name if null.
         title: Text(
           r.title ?? l10n.detailTitle,
           maxLines: 1,
@@ -502,11 +459,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Panel z makiety desktopowej: zamiast paska aplikacji naglowek z linia techniczna,
-  /// tytulem i dwoma okraglymi przyciskami akcji. Wyplata 24/28/28 jak w makiecie.
-  ///
-  /// Data i status ida tu do naglowka, wiec karta odtwarzacza nie powtarza ich drugi raz —
-  /// makieta desktopowa ma je dokladnie w jednym miejscu.
+  /// Desktop panel layout: technical metadata line, title, and action buttons.
+  /// Header handles date and status, so player card omits duplicates.
   Widget _panel(RecordingWithTags item) => Padding(
         padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
         child: Column(
@@ -537,8 +491,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                 style: monoStyle(size: 13, color: scheme.onSurfaceVariant),
               ),
               const SizedBox(height: 4),
-              // Tytul nagrania z makiety desktopowej. Bez tytulu zostaje ta sama nazwa
-              // rodzajowa, ktora niesie pasek pelnego ekranu.
+              // Recording title from desktop mockup, falling back to generic detail title.
               Text(
                 r.title ?? l10n.detailTitle,
                 maxLines: 1,
@@ -572,9 +525,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Tresc wspolna dla obu ram: karta odtwarzacza, tagi i transkrypt. Odstep idzie za rama,
-  /// bo tak ma go makieta: kolumna panelu desktopowego oddycha 20 px, kolumna pelnego
-  /// ekranu 16 px.
+  /// Common body content: player card, tags row, and transcript.
   Widget _body(RecordingWithTags item) {
     final gap = widget.chrome == DetailChrome.panel ? 20.0 : 16.0;
     return Column(
@@ -589,9 +540,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Rzad tagow z makiety: chipy nagrania i kafelek "+ tag" na koncu. Rzad stoi tu ZAWSZE,
-  /// takze przy nagraniu bez ani jednego tagu — inaczej pierwszego tagu nie byloby jak
-  /// dodac recznie.
+  /// Tag row from mockup: recording chips followed by trailing "+ tag" action button.
   Widget _tagRow(RecordingWithTags item) => Wrap(
         spacing: 6,
         runSpacing: 6,
@@ -602,16 +551,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
         ],
       );
 
-  /// Karta odtwarzania. Uklad idzie za rama, bo makieta rysuje dwa rozne: telefon stawia
-  /// przebieg na calej szerokosci i wiersz transportu pod spodem, panel desktopowy kladzie
-  /// przycisk odtwarzania obok przebiegu.
+  /// Player card variant determined by host frame: mobile stacks transport below waveform, desktop places play button beside waveform.
   Widget _playerCard(Recording r) => switch (widget.chrome) {
         DetailChrome.screen => _mobileCard(r),
         DetailChrome.panel => _panelCard(r),
       };
 
-  /// Karta z makiety telefonu: data i status, przebieg, wiersz czasow, wiersz transportu.
-  /// Odstepy 16 px, jak `gap:16` w kolumnie karty.
+  /// Mobile mockup player card: metadata, waveform, timestamps, transport row.
   Widget _mobileCard(Recording r) {
     final scheme = Theme.of(context).colorScheme;
     final total = _totalOf(r);
@@ -626,7 +572,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
         children: [
           Row(
             children: [
-              // Jak na karcie w bibliotece: przy ciasnocie skraca sie data, nie odznaka.
+              // Date text truncates before badge on small widths.
               Expanded(
                 child: Text(
                   formatDateTime(r.createdAt),
@@ -641,7 +587,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
           ),
           const SizedBox(height: 16),
           _followingWave(
-              () => _seekSurface(r, total, height: 64)), // makieta: pas 64 px w karcie telefonu
+              () => _seekSurface(r, total, height: 64)), // mockup: 64 px waveform on mobile
           const SizedBox(height: 16),
           _followingPosition(() => _times(total)),
           const SizedBox(height: 16),
@@ -651,13 +597,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Karta z makiety desktopowej: przycisk odtwarzania po lewej, przebieg i czasy w kolumnie
-  /// obok. Data i status stoja w naglowku panelu, wiec karta ich nie powtarza.
-  ///
-  /// Wiersz transportu idzie POD ta pare, a nie obok przycisku odtwarzania: przy progu ukladu
-  /// szerokiego (840 px okna) na karte zostaje okolo 256 px, a play, oba skoki i pigulka nie
-  /// mieszcza sie w jednej linii razem z przebiegiem. W osobnym wierszu mieszcza sie z zapasem
-  /// i zachowuja rozklad z makiety telefonu: skoki po lewej, pigulka dosunieta do prawej.
+  /// Desktop mockup player card: play button on the left, waveform and timestamps adjacent.
+  /// Transport skip actions and speed pill sit below the pair.
   Widget _panelCard(Recording r) {
     final scheme = Theme.of(context).colorScheme;
     final total = _totalOf(r);
@@ -677,7 +618,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                 child: Column(
                   children: [
                     _followingWave(
-                        () => _seekSurface(r, total, height: 52)), // makieta: pas 52 px w panelu
+                        () => _seekSurface(r, total, height: 52)), // mockup: 52 px waveform in panel
                     const SizedBox(height: 10),
                     _followingPosition(() => _times(total)),
                   ],
@@ -692,34 +633,29 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Owija przebieg: odrysowuje sie na ruch pozycji ORAZ na takt tanca slupkow.
+  /// Wraps waveform to rebuild on position changes and bar dance ticks.
   Widget _followingWave(Widget Function() build) => ListenableBuilder(
         listenable: _waveBeat,
         builder: (context, _) => build(),
       );
 
-  /// Owija fragment karty, ktory ma isc za plynna pozycja odtwarzania. Klatka animacji
-  /// odbudowuje wtedy sam przebieg albo sam wiersz czasow — a nie cala karte razem
-  /// z transkryptem, ktory przez cale odtwarzanie stoi w miejscu.
+  /// Wraps position-dependent widgets to avoid rebuilding transcript or full card on 60 FPS animation frames.
   Widget _followingPosition(Widget Function() build) => ValueListenableBuilder<Duration>(
         valueListenable: _shown,
         builder: (context, _, _) => build(),
       );
 
-  /// Powierzchnia przewijania.
+  /// Seek surface.
   ///
-  /// Nagranie z zapisana obwiednia przewija sie po slupkach — tam, gdzie widac, co w nagraniu
-  /// sie dzieje. Nagranie sprzed schematu v3 obwiedni nie ma i nie wolno jej zmyslac, wiec
-  /// zostaje przy dotychczasowym suwaku: makieta nie rysuje takiego wariantu, a przewijac
-  /// trzeba dac sie tak samo.
+  /// Recordings with stored waveforms render interactive waveform bars;
+  /// legacy recordings without waveforms fall back to slider.
   Widget _seekSurface(Recording r, Duration total, {required double height}) {
     final levels = _levelsOf(r);
     if (levels == null) return _positionSlider(r, total);
     return WaveformSeekBar(
       levels: levels,
       height: height,
-      // Slupki tancza tylko w trakcie odtwarzania. Poza nim `null` znaczy „stoj na wlasnej
-      // wysokosci" — obwiednia ma byc wtedy zwyklym, czytelnym wykresem.
+      // Bars animate only during playback. Static waveform renders when idle.
       beat: _playing ? _tick : null,
       position: _shownPosition(total),
       total: total,
@@ -730,7 +666,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Obwiednia nagrania, rozpakowywana najwyzej raz na jej zmiane. Patrz [_waveformLevels].
+  /// Cached waveform levels, decoded at most once per change. See [_waveformLevels].
   List<double>? _levelsOf(Recording r) {
     if (_waveformRaw != r.waveform) {
       _waveformRaw = r.waveform;
@@ -739,9 +675,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     return _waveformLevels;
   }
 
-  /// Suwak pozycji dla nagran bez obwiedni. Uchwyt i tor wprost z poprzedniej wersji karty —
-  /// jedyne, co sie zmienilo, to ze przewijanie konczy sie tam, gdzie wszystkie pozostale
-  /// drogi: w [_seekTo].
+  /// Position slider fallback for recordings without waveforms.
   Widget _positionSlider(Recording r, Duration total) {
     final scheme = Theme.of(context).colorScheme;
     final maxMs = total.inMilliseconds.toDouble().clamp(1.0, double.infinity);
@@ -764,7 +698,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Wiersz czasow z makiety: pozycja po lewej, dlugosc nagrania po prawej.
+  /// Timestamps row from mockup: current position on left, duration on right.
   Widget _times(Duration total) {
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(
@@ -776,8 +710,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Wiersz transportu: skoki o 10 s i pigulka predkosci dosunieta do prawej. Przycisk
-  /// odtwarzania dolacza tu tylko w karcie telefonu — w panelu stoi juz obok przebiegu.
+  /// Transport row: skip buttons and speed pill aligned to right.
   Widget _transportRow(Recording r, Duration total, {required bool playButton}) {
     final l10n = AppLocalizations.of(context);
     return Row(
@@ -803,8 +736,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Przycisk transportu z makiety: 68x68 na `primary`, przejście koło (34 dp) ⇄ squircle (18 dp)
-  /// w 320 ms (emphasized curve `(0.2, 0, 0, 1)`), ikona 34 dp.
+  /// Mockup transport button: 68x68 on `primary`, circle (34 dp) ⇄ squircle (18 dp) transition
+  /// in 320 ms (emphasized curve `(0.2, 0, 0, 1)`), 34 dp icon.
   Widget _playButton(Recording r) {
     final scheme = Theme.of(context).colorScheme;
     final borderRadius = BorderRadius.circular(_playing ? 18 : 34);
@@ -851,14 +784,12 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
       case PlayerState.playing:
         await _player.pause();
       case PlayerState.paused:
-        // Wznowienie od miejsca pauzy — play(source) wczytalby zrodlo od nowa.
+        // Resume from paused position.
         await _player.resume();
       case PlayerState.stopped:
       case PlayerState.completed:
       case PlayerState.disposed:
-        // Zrodlo wczytane wczesniej gestem przewijania trzeba WZNOWIC, a nie wczytac drugi
-        // raz: `play(source)` zaczalby od zera i skasowal pozycje, ktora uzytkownik wlasnie
-        // wybral, jeszcze zanim uslyszal pierwszy dzwiek.
+        // Resume preloaded source from seek gesture rather than restarting from zero.
         if (_sourceLoaded) {
           await _player.resume();
         } else {
@@ -868,7 +799,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     }
   }
 
-  /// Dolna czesc ekranu: banner bledu, oczekiwanie na transkrypcje albo gotowy transkrypt.
+  /// Lower screen content: error banner, loading indicator, or transcript.
   Widget _content(Recording r) {
     if (r.status == RecordingStatus.error) return _errorBanner(r);
     return _transcriptCard(r);
@@ -992,7 +923,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   }
 }
 
-/// Okragly przycisk akcji z naglowka panelu: 48x48 na `surfaceContainer`, ikona 22 px.
+/// Circular panel header action button: 48x48 on `surfaceContainer`, 22 px icon.
 class _PanelAction extends StatelessWidget {
   const _PanelAction({required this.icon, required this.tooltip, required this.onTap});
 
@@ -1022,12 +953,9 @@ class _PanelAction extends StatelessWidget {
   }
 }
 
-/// Przebieg jako powierzchnia przewijania: slupki, kursor pozycji i gesty.
+/// Waveform seek surface: level bars, progress cursor, and scrub gestures.
 ///
-/// Stukniecie przewija RAZ. Przeciaganie prowadzi kursor za palcem przez [onScrub] — to sam
-/// stan wizualny, bez ruszania odtwarzacza — i konczy sie JEDNYM przewinieciem przez [onSeek].
-/// Ta sama dyscyplina siedziala wczesniej w `onChangeEnd` suwaka: seek w kazdej klatce gestu
-/// zasypywalby odtwarzacz zadaniami, ktorych i tak nikt nie uslyszy.
+/// Tap seeks ONCE. Dragging scrubs position visually via [onScrub] and triggers ONE seek on release via [onSeek].
 class WaveformSeekBar extends StatefulWidget {
   const WaveformSeekBar({
     super.key,
@@ -1041,28 +969,27 @@ class WaveformSeekBar extends StatefulWidget {
     required this.onSeek,
   });
 
-  /// Wysokosci slupkow, 0..1.
+  /// Bar levels, normalized 0..1.
   final List<double> levels;
 
-  /// Wysokosc pasa: 64 w karcie telefonu, 52 w panelu desktopowym.
+  /// Strip height: 64 in mobile card, 52 in desktop panel.
   final double height;
 
-  /// Czas od startu odtwarzania, ktorym plynie taniec slupkow. `null` poza odtwarzaniem.
+  /// Monotonic playback elapsed time for bar dance. `null` when paused/stopped.
   final Duration? beat;
 
-  /// Pozycja, na ktorej stoi kursor. W trakcie gestu jest to wartosc z ostatniego [onScrub],
-  /// bo rodzic oddaje ja z powrotem — i dlatego koniec przeciagania ma czym przewinac.
+  /// Displayed position.
   final Duration position;
 
   final Duration total;
 
-  /// Etykieta dostepnosci. Suwak niosl ja sam z siebie, powierzchnia gestow juz nie.
+  /// Accessibility label.
   final String label;
 
-  /// Pozycja w trakcie gestu: stan wizualny, bez przewijania.
+  /// Visual scrub position callback.
   final ValueChanged<Duration> onScrub;
 
-  /// Jedno przewiniecie: stukniecie albo koniec przeciagania.
+  /// Final seek callback on gesture completion.
   final ValueChanged<Duration> onSeek;
 
   @override
@@ -1070,10 +997,7 @@ class WaveformSeekBar extends StatefulWidget {
 }
 
 class _WaveformSeekBarState extends State<WaveformSeekBar> {
-  /// Ostatnia pozycja z trwajacego przeciagania. Koniec gestu nie niesie wspolrzednych, a
-  /// czytanie ich z `widget.position` bylo by spoznione o klatke: rodzic dostaje je przez
-  /// setState, wiec do widgetu wracaja dopiero przy nastepnym budowaniu — a to potrafi nie
-  /// zdazyc przed puszczeniem palca. Pole nie maluje niczego, wiec nie wola setState.
+  /// Last scrub position from active drag gesture.
   Duration? _dragged;
 
   @override
@@ -1101,7 +1025,7 @@ class _WaveformSeekBarState extends State<WaveformSeekBar> {
           );
 
           return GestureDetector(
-            // Slupki wypelniaja caly pas, a przerwy miedzy nimi maja przewijac tak samo
+            // Opaque hit testing ensures taps in gaps between bars register seeks
             behavior: HitTestBehavior.opaque,
             onTapUp: (d) => widget.onSeek(at(d.localPosition)),
             onHorizontalDragStart: (d) => scrub(d.localPosition),
@@ -1137,7 +1061,7 @@ class _HorizontalProgressClipper extends CustomClipper<Rect> {
       oldClipper.progress != progress;
 }
 
-/// Gęsta mikro-obwiednia audio wypełniająca 100% szerokości z subpikselowym, płynnym wskaźnikiem postępu.
+/// Dense audio micro-waveform filling 100% width with smooth subpixel progress clipping.
 class WaveformBars extends StatelessWidget {
   const WaveformBars({
     super.key,
@@ -1242,7 +1166,7 @@ class _DensePillsPainter extends CustomPainter {
       oldDelegate.levels != levels;
 }
 
-/// Przycisk skoku o 10 s: 48x48 bez tla, ikona 24 — jak w wierszu transportu makiety.
+/// 10 s skip button: 48x48 transparent, 24 px icon.
 class _TransportAction extends StatelessWidget {
   const _TransportAction({required this.icon, required this.tooltip, required this.onTap});
 
@@ -1272,11 +1196,8 @@ class _TransportAction extends StatelessWidget {
   }
 }
 
-/// Pigulka predkosci z makiety: wysokosc 36, promien 18, tlo `surfaceContainerHigh`,
-/// ikona 18 i liczba 14/w500 ze znakiem mnozenia.
-///
-/// Sama liczba idzie przez [formatPlaybackRate], bo separator dziesietny zalezy od jezyka
-/// ("1,0" po polsku, "1.0" po angielsku), a znak mnozenia doklada ARB.
+/// Mockup speed pill: height 36, radius 18, background `surfaceContainerHigh`,
+/// 18 px icon and 14/w500 text with localized rate formatting.
 class _SpeedPill extends StatelessWidget {
   const _SpeedPill({required this.rate, required this.onTap});
 
@@ -1324,13 +1245,10 @@ class _SpeedPill extends StatelessWidget {
   }
 }
 
-/// Uchwyt suwaka z makiety: pionowy pasek 4x14 o zaokraglonych rogach, zamiast domyslnego
-/// okraglego uchwytu Material.
+/// Custom slider thumb: 4x14 vertical bar with rounded corners.
 class _BarThumbShape extends SliderComponentShape {
   const _BarThumbShape(this.color);
 
-  /// Kolor wprost, a nie z `sliderTheme.thumbColor` — to pole jest nullowalne, a uchwyt nie ma
-  /// sensownej wartosci awaryjnej poza rola schematu, ktora i tak podaje wolajacy.
   final Color color;
 
   static const _size = Size(4, 14);
@@ -1363,13 +1281,11 @@ class _BarThumbShape extends SliderComponentShape {
   }
 }
 
-/// Minimalne okno recznego dodania tagu. Makieta nie rysuje formularza — kafelek "+ tag" jest
-/// jedynym sladem tej sciezki — wiec okno trzyma sie tego, co ekran juz ma: MD3 AlertDialog
-/// z jednym polem i para akcji, jak przy kasowaniu nagrania.
+/// Dialog for manual tag entry with duplicate prevention against existing tags.
 class _AddTagDialog extends StatefulWidget {
   const _AddTagDialog({required this.existing});
 
-  /// Tagi juz przypiete do nagrania. Sluza wylacznie do blokady duplikatu.
+  /// Tags currently assigned to the recording.
   final List<String> existing;
 
   @override
@@ -1387,8 +1303,7 @@ class _AddTagDialogState extends State<_AddTagDialog> {
 
   String get _name => normalizeTagName(_controller.text);
 
-  /// Porownanie idzie po znormalizowanych nazwach, wiec "Spotkanie" nie przejdzie obok
-  /// istniejacego "spotkanie" — do bazy i tak trafilaby ta sama nazwa.
+  /// Duplicate check compares normalized names.
   bool get _duplicate =>
       _name.isNotEmpty && widget.existing.map(normalizeTagName).contains(_name);
 

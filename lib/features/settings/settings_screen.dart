@@ -8,8 +8,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Jedna karta w siatce wyboru motywu. Makieta pokazuje szesc kart w ukladzie 2x3 i nie
-/// rozdziela trybu od palety — kazda karta to gotowa para (tryb, paleta), stad oba pola.
+/// Single theme choice card in the grid. The mockup displays six cards in a 2x3 layout
+/// and couples mode with palette — each card represents a (mode, palette) pair.
 @immutable
 class _ThemeChoice {
   const _ThemeChoice({
@@ -23,18 +23,18 @@ class _ThemeChoice {
   final ThemeMode mode;
   final AppPalette palette;
 
-  /// Karta „Systemowy" zamiast kropek podgladu ma ikone — paleta zalezy wtedy od systemu,
-  /// wiec nie da sie pokazac jednej trojki kolorow.
+  /// "System" card displays an icon instead of preview dots — palette depends on the system setting,
+  /// so a fixed color triplet cannot be shown.
   final IconData? icon;
 
-  /// Jasnosc, w ktorej pokazujemy podglad palety na karcie.
+  /// Brightness used for rendering the palette preview on the card.
   Brightness get previewBrightness =>
       mode == ThemeMode.light ? Brightness.light : Brightness.dark;
 }
 
-/// Dracula, Nord i Gruvbox to nazwy wlasne palet — zostaja takie same w kazdym jezyku i nie
-/// maja po co siedziec w ARB. Tlumaczy sie tylko trzy pozostale etykiety, wiec lista powstaje
-/// przy budowaniu ekranu, zamiast byc stala.
+/// Dracula, Nord, and Gruvbox are proper names — they remain identical across languages and do not
+/// need ARB entries. Only the other three labels are localized, so the list is built
+/// at build time rather than declared as a constant.
 List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
       _ThemeChoice(
           label: l10n.settingsThemeLight, mode: ThemeMode.light, palette: AppPalette.md3),
@@ -227,9 +227,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       );
 
-  /// Grupa segmentów wyboru providera w stylu MD3 Expressive: connected button group
-  /// o wysokości 56 dp, 2 dp przerwy, zewnętrzne promienie 28 dp, wewnętrzne 8 dp,
-  /// a zaznaczony segment ma pełne zaokrąglenie 28 dp na wszystkich rogach i flex 1.35.
+  /// Provider segment button group in MD3 Expressive connected style:
+  /// height 56 dp, 2 dp gap, outer radii 28 dp, inner radii 8 dp,
+  /// with selected segment receiving full 28 dp rounding on all corners.
   Widget _providerConnectedButtonGroup(ColorScheme colors, AppLocalizations l10n) {
     final segments = [
       (preset: ProviderPreset.groq, label: 'Groq'),
@@ -391,8 +391,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color,
-              // Kropka powierzchni jasnej palety jest prawie biala — bez obwodki znikneloby
-              // ja na jasnej karcie. Makieta rysuje ja tylko tam.
+              // Surface dot on light palette is near-white — without an outline it would blend
+              // into the light card background. The mockup renders an outline only there.
               border: index == swatch.length - 1 &&
                       choice.previewBrightness == Brightness.light
                   ? Border.all(color: colors.outlineVariant)
@@ -421,8 +421,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
 
-  /// Naglowek sekcji. Wersaliki przychodza z ARB, a nie z `toUpperCase()` — o tym, gdzie
-  /// kapitaliki pasuja, decyduje jezyk, nie kod.
+  /// Section header. Small-caps casing comes from ARB rather than `toUpperCase()` —
+  /// typography casing rules are language-dependent.
   Widget _sectionLabel(String text, ColorScheme colors) => Padding(
         padding: const EdgeInsets.only(left: 4),
         child: Text(
@@ -436,8 +436,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
 
-  /// Wartosci techniczne (URL, nazwy modeli) design sklada krojem Roboto Mono. Rodzina idzie ze
-  /// stalej [monoFontFamily], bo font jest bundlowany pod ta jedna nazwa.
+  /// Technical values (URL, model names) are rendered in Roboto Mono. Font family comes from
+  /// [monoFontFamily] constant matching the bundled asset.
   TextStyle _monoValueStyle(ColorScheme colors) => TextStyle(
         fontSize: 15,
         fontFamily: monoFontFamily,

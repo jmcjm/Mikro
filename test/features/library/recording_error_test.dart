@@ -5,24 +5,24 @@ import 'package:mikro/features/library/recording_error.dart';
 import '../../support/l10n_harness.dart';
 
 void main() {
-  test('kind i detail rowne null -> komunikat zastepczy', () {
-    // Wiersz bez rodzaju i bez szczegolu nie niesie o awarii zupelnie nic. Jedyna galaz,
-    // w ktorej UI nie ma z czego zlozyc zdania, wiec musi miec swoje.
+  test('kind and detail equal null -> fallback message', () {
+    // Row without kind and detail carries no failure info. The only branch
+    // where UI has nothing to compose a sentence from, so it must use its own.
     expect(recordingErrorText(plL10n), plL10n.errorUnknown);
   });
 
-  test('wiersz sprzed przebudowy: sam detail wraca bez zmian', () {
-    // errorKind NULL i gotowe zdanie w errorMessage — tak zapisywaly bledy wersje sprzed
-    // rozdzielenia rodzaju od tekstu.
+  test('pre-redesign row: detail alone returns unchanged', () {
+    // errorKind NULL and complete sentence in errorMessage — this is how versions before
+    // separating kind from text stored errors.
     expect(
       recordingErrorText(plL10n, detail: 'Nagranie przekracza limit 25 MB.'),
       'Nagranie przekracza limit 25 MB.',
     );
   });
 
-  test('ksztalty odpowiedzi lamiace kontrakt maja wlasne zdania, bez wklejanego detalu', () {
-    // Regres, przed ktorym stoi ten test: detal tych rodzajow to angielska notka debugowa,
-    // ktora nie ma prawa wyladowac w srodku zdania dla uzytkownika.
+  test('contract-breaking response shapes have dedicated messages without pasted detail', () {
+    // Regression this test guards against: detail of these kinds is an English debug note,
+    // which must not land in the middle of user-facing sentence.
     for (final kind in [
       ApiErrorKind.badFormat,
       ApiErrorKind.noContent,
@@ -35,7 +35,7 @@ void main() {
     }
   });
 
-  test('kod HTTP dalej wchodzi do zdania', () {
+  test('HTTP status code is still included in message', () {
     expect(recordingErrorText(plL10n, kind: ApiErrorKind.badResponse.name, detail: 'HTTP 404'),
         contains('HTTP 404'));
   });

@@ -19,8 +19,8 @@ class LibraryScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
-    // Ten sam prog, co przy nawigacji bocznej — patrz [wideLayoutBreakpoint]. Mierzymy okno,
-    // a nie miejsce zostawione przez rail, zeby oba przelaczenia zaszly w tej samej chwili.
+    // Same breakpoint as side navigation rail — see [wideLayoutBreakpoint]. We measure window size,
+    // rather than space remaining after rail, so both switches occur simultaneously.
     final twoPane = MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint;
     if (!twoPane) {
       return Scaffold(
@@ -32,7 +32,7 @@ class LibraryScreen extends ConsumerWidget {
         bottom: false,
         child: Row(
           children: [
-            // Makieta desktopowa: lista 400 px, oddzielona od panelu wlosowa linia.
+            // Desktop mockup: list 400 px, separated from detail panel by hairline border.
             Container(
               width: 400,
               decoration: BoxDecoration(
@@ -48,21 +48,21 @@ class LibraryScreen extends ConsumerWidget {
   }
 }
 
-/// Prawa kolumna szerokiego ukladu.
+/// Right column of the wide layout.
 class _DetailPane extends ConsumerWidget {
   const _DetailPane();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedRecordingProvider);
-    // Makieta nie rysuje panelu bez wyboru, wiec nie wymyslamy tu tresci — zostaje samo tlo
-    // powierzchni, na ktorym za chwile stanie wybrane nagranie.
+    // The mockup does not render content for an unselected state — renders plain surface background
+    // until a recording is selected.
     if (selected == null) {
       return ColoredBox(color: Theme.of(context).colorScheme.surface);
     }
     return RecordingDetailView(
-      // Klucz po id jest tu istotny: bez niego przelaczenie nagrania trafialoby w ten sam
-      // State, czyli w odtwarzacz z zaladowanym poprzednim plikiem i jego pozycja.
+      // Key by id is essential: without it switching recordings would reuse the same
+      // State, retaining previous player state and position.
       key: ValueKey(selected),
       recordingId: selected,
       chrome: DetailChrome.panel,
@@ -70,12 +70,12 @@ class _DetailPane extends ConsumerWidget {
   }
 }
 
-/// Lista nagran: naglowek, wyszukiwanie, filtr tagow i karty. Na waskim ekranie zajmuje cala
-/// szerokosc, na szerokim stoi w lewej kolumnie obok panelu szczegolow.
+/// Recording list: header, search, tag filter, and cards. Occupies full width on narrow screens,
+/// sits in left column next to detail panel on wide screens.
 class _LibraryList extends ConsumerWidget {
   const _LibraryList({required this.twoPane});
 
-  /// Rozstrzyga, co robi stukniecie w karte: wypelnienie panelu obok czy nowa trasa.
+  /// Determines tap behavior: populate adjacent detail panel vs push route.
   final bool twoPane;
 
   @override
@@ -85,13 +85,13 @@ class _LibraryList extends ConsumerWidget {
     final stream = ref.watch(recordingsStreamProvider);
     final items = ref.watch(filteredRecordingsProvider);
     final tagFilter = ref.watch(tagFilterProvider);
-    // Pusta lista znaczy co innego przy aktywnym filtrze (brak trafien), a co innego bez
-    // niego (pusta biblioteka) — komunikat musi te dwa przypadki rozrozniac.
+    // An empty list means different things with an active filter (no matching results)
+    // vs without filters (empty library) — the UI distinguishes both cases.
     final filtering =
         ref.watch(searchQueryProvider).trim().isNotEmpty || tagFilter != null;
 
-    // Pasek filtrow pokazuje tagi z CALEJ biblioteki, nie z listy po filtrowaniu. Inaczej
-    // wybranie tagu skasowaloby wszystkie pozostale chipy i nie bylo jak przelaczyc filtru.
+    // Filter bar displays tags from the ENTIRE library, not filtered items.
+    // Otherwise selecting a tag would eliminate all other chips, preventing switching filters.
     final allTags = <String>{
       for (final item in stream.value ?? const <RecordingWithTags>[]) ...item.tags,
     }.toList()
@@ -118,9 +118,8 @@ class _LibraryList extends ConsumerWidget {
               ),
               const SizedBox(height: 14),
               const _SearchField(),
-              // Rzad zostaje takze wtedy, gdy w bibliotece nie ma juz zadnego tagu, ale
-              // filtr wciaz jest ustawiony — inaczej wraz z ostatnim chipem znika jedyny
-              // sposob, zeby ten filtr zdjac, i lista zostaje pusta na dobre.
+              // Row remains visible even if no tags exist in the library while a filter is set —
+              // otherwise removing the last chip would eliminate the only way to clear the filter.
               if (allTags.isNotEmpty || tagFilter != null) ...[
                 const SizedBox(height: 14),
                 _TagFilterBar(tags: allTags, selected: tagFilter),
@@ -130,8 +129,8 @@ class _LibraryList extends ConsumerWidget {
         ),
         Expanded(
           child: switch (stream) {
-            // Blad strumienia musi byc widoczny. Bez tej galezi awaria bazy wygladalaby
-            // jak pusta biblioteka, bo filteredRecordingsProvider zwraca wtedy pusta liste.
+            // Stream error must be displayed. Without this branch, database errors would appear
+            // as an empty library because filteredRecordingsProvider yields an empty list on error.
             AsyncValue(hasError: true, :final error) =>
               _DatabaseErrorState(message: l10n.libraryDatabaseError('$error')),
             AsyncValue(isLoading: true) =>
@@ -165,7 +164,7 @@ class _LibraryList extends ConsumerWidget {
   }
 }
 
-/// Pasek wyszukiwania: wysokosc 56, promien 28, wypelnienie `surfaceContainer`.
+/// Search bar: height 56, radius 28, filled with `surfaceContainer`.
 class _SearchField extends ConsumerWidget {
   const _SearchField();
 
@@ -182,8 +181,8 @@ class _SearchField extends ConsumerWidget {
         hintStyle: TextStyle(fontSize: 16, color: scheme.onSurfaceVariant),
         prefixIcon: Icon(Symbols.search_rounded,
             fill: 1, size: 24, color: scheme.onSurfaceVariant),
-        // Wysokosc 56 wychodzi z pionowego paddingu, a nie ze sztywnego SizedBox — pole musi
-        // dalej rosnac, gdy uzytkownik ma powiekszona czcionke systemowa.
+        // Height 56 is achieved via vertical padding rather than a fixed SizedBox —
+        // allowing text field to expand when system accessibility text scaling is active.
         contentPadding: const EdgeInsets.symmetric(vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(28),
@@ -194,7 +193,7 @@ class _SearchField extends ConsumerWidget {
   }
 }
 
-/// Przewijany poziomo rzad chipow filtru: "Wszystkie" plus tagi z biblioteki.
+/// Horizontally scrolling filter chip row: "All" plus tags from the library.
 class _TagFilterBar extends ConsumerWidget {
   const _TagFilterBar({required this.tags, required this.selected});
 
@@ -239,8 +238,8 @@ class _FilterChip extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     return Material(
       color: selected ? scheme.secondaryContainer : Colors.transparent,
-      // Chip niewybrany rysuje obrys, wybrany — samo wypelnienie. Material nie przyjmuje
-      // `shape` i `borderRadius` naraz, wiec promien niesie tu ksztalt.
+      // Unselected chip renders border outline, selected renders filled background.
+      // Material does not accept `shape` and `borderRadius` together, so radius is set on the border shape.
       shape: RoundedRectangleBorder(
         side: selected ? BorderSide.none : BorderSide(color: scheme.outline),
         borderRadius: BorderRadius.circular(8),
@@ -287,8 +286,7 @@ class RecordingCard extends ConsumerWidget {
   final RecordingWithTags item;
   final VoidCallback onTap;
 
-  /// Karta pokazywana wlasnie w panelu obok. Na waskim ekranie zawsze `false` — tam nie ma
-  /// panelu, wiec nie ma tez czego zaznaczac.
+  /// Currently selected card in the adjacent panel. Always `false` on narrow screens.
   final bool selected;
 
   @override
@@ -297,10 +295,10 @@ class RecordingCard extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     final r = item.recording;
     final failed = r.status == RecordingStatus.error;
-    // Karta bledu stoi na `errorContainer`, wiec cala jej typografia schodzi na
-    // `onErrorContainer` — inaczej podpisy zniknelyby na czerwonym tle. Wybrana karta idzie
-    // na `secondaryContainer` z makiety, ale blad ma pierwszenstwo: czerwone tlo niesie
-    // informacje, ktorej zaznaczenie nie moze przykryc.
+    // Error card uses `errorContainer`, so its text switches to
+    // `onErrorContainer` — ensuring contrast on red background. Selected card uses
+    // `secondaryContainer` per mockup, but errors take precedence: red background conveys
+    // essential failure status that selection must not obscure.
     final muted = failed
         ? scheme.onErrorContainer
         : selected
@@ -311,12 +309,9 @@ class RecordingCard extends ConsumerWidget {
         : selected
             ? scheme.onSecondaryContainer
             : scheme.onSurface;
-    // Tresc karty to tytul, a gdy go nie ma — transkrypt. Nagrania sprzed schematu v4 i te,
-    // przy ktorych model nie oddal tytulu, wygladaja wiec dokladnie jak dotad. Karta bledu
-    // pokazuje komunikat nawet wtedy, gdy tytul juz jest: czerwone tlo niesie informacje,
-    // ktorej nazwa nagrania nie moze przykryc. Dopoki nagranie sie przetwarza, nie ma czego
-    // pokazac — status niesie odznaka i pasek postepu, wiec powtarzanie go w tresci
-    // dublowaloby to samo slowo dwa razy na tej samej karcie.
+    // Card body displays title, or falls back to transcript if absent. Recordings prior to schema v4
+    // or those without generated titles preserve original appearance. Error cards display the error message
+    // even when a title exists. In-progress recordings rely on the status badge and progress bar.
     final body = failed
         ? recordingErrorText(l10n, kind: r.errorKind, detail: r.errorMessage)
         : r.title ?? r.transcript;
@@ -327,8 +322,8 @@ class RecordingCard extends ConsumerWidget {
           : selected
               ? scheme.secondaryContainer
               : scheme.surfaceContainerLow,
-      // Wybranej karcie bledu makieta nie opisuje. Zamiast gasic czerwien dokladamy obwodke,
-      // zeby zaznaczenie bylo widoczne takze tam — patrz raport.
+      // Selected error card is not explicitly drawn in mockup. We add a border outline to ensure
+      // selection is visible even on error cards.
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
         side: selected && failed
@@ -345,8 +340,7 @@ class RecordingCard extends ConsumerWidget {
             children: [
               Row(
                 children: [
-                  // Data ustepuje odznace, a nie odwrotnie: przy powiekszonej czcionce
-                  // systemowej to ona ma sie skrocic, bo status jest wazniejszy.
+                  // Date yields to status badge when space is constrained under large accessibility fonts.
                   Expanded(
                     child: Text(
                       formatDateTime(r.createdAt),
@@ -433,8 +427,7 @@ class RecordingCard extends ConsumerWidget {
   }
 }
 
-/// Pusty stan biblioteki. Bez trafien filtru komunikat jest inny niz przy pustej bazie —
-/// makieta opisuje tylko ten drugi przypadek, wiec pierwszy zostaje przy tekscie z T12.
+/// Empty library state. The message differs when search/filter returns no results vs empty database.
 class _EmptyState extends ConsumerWidget {
   const _EmptyState({required this.filtering});
 
@@ -500,8 +493,8 @@ class _EmptyState extends ConsumerWidget {
   }
 }
 
-/// Wezwanie do dzialania z makiety "Stany puste i bledy": promien 24, wypelnienie
-/// `primaryContainer`, mikrofon 20 px przed etykieta.
+/// Call to action from "Empty states and errors" mockup: radius 24, filled with
+/// `primaryContainer`, 20 px mic icon leading label.
 class _RecordCta extends StatelessWidget {
   const _RecordCta({required this.onTap});
 
@@ -517,8 +510,7 @@ class _RecordCta extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(24),
         child: Container(
-          // Makieta podaje 48 px sztywno, ale przy powiekszonej czcionce systemowej etykieta
-          // musi miec jak urosnac — stad minimum zamiast stalej wysokosci.
+          // Minimum height rather than fixed 48 px allows text scaling on large accessibility fonts.
           constraints: const BoxConstraints(minHeight: 48),
           padding: const EdgeInsets.symmetric(horizontal: 24),
           child: Row(
@@ -544,7 +536,7 @@ class _RecordCta extends StatelessWidget {
   }
 }
 
-/// Awaria strumienia bazy — banner bledu z makiety "Stany puste i bledy".
+/// Database stream error banner from "Empty states and errors" mockup.
 class _DatabaseErrorState extends StatelessWidget {
   const _DatabaseErrorState({required this.message});
 

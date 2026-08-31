@@ -21,8 +21,8 @@ class FakeConnectivityService implements ConnectivityService {
 }
 
 void main() {
-  test('online liczy sie, gdy jest cokolwiek poza none', () {
-    // Urzadzenie potrafi raportowac kilka interfejsow naraz, np. wifi razem z VPN.
+  test('online is true when there is anything other than none', () {
+    // Device can report multiple interfaces at once, e.g. wifi along with VPN.
     expect(PluginConnectivityService.debugIsOnline([ConnectivityResult.none]), isFalse);
     expect(PluginConnectivityService.debugIsOnline([]), isFalse);
     expect(PluginConnectivityService.debugIsOnline([ConnectivityResult.wifi]), isTrue);
@@ -36,7 +36,7 @@ void main() {
         isTrue);
   });
 
-  test('queueLengthProvider liczy niedokonczone i wstrzymane brakiem sieci', () async {
+  test('queueLengthProvider counts unfinished and stalled on network', () async {
     final db = AppDatabase.forTesting(NativeDatabase.memory());
     addTearDown(db.close);
     final container = ProviderContainer(overrides: [databaseProvider.overrideWithValue(db)]);
@@ -56,10 +56,10 @@ void main() {
     final length = await container.read(queueLengthProvider.future);
 
     expect(length, 2,
-        reason: 'jedno czeka w kolejce, jedno wisi na sieci; auth i done sie nie licza');
+        reason: 'one waiting in queue, one stalled on network; auth and done do not count');
   });
 
-  test('fake serwisu da sie podstawic pod provider', () async {
+  test('fake service can be provided via provider', () async {
     final fake = FakeConnectivityService();
     addTearDown(fake.controller.close);
     final container = ProviderContainer(

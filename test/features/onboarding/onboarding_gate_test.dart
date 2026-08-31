@@ -44,33 +44,33 @@ Future<ProviderContainer> pumpGate(WidgetTester tester, Map<String, Object> stor
 }
 
 void main() {
-  testWidgets('pierwsze uruchomienie ląduje w onboardingu', (tester) async {
+  testWidgets('first launch lands in onboarding', (tester) async {
     await pumpGate(tester, {});
 
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.text('powloka'), findsNothing);
   });
 
-  testWidgets('kolejne uruchomienie idzie prosto do powloki', (tester) async {
+  testWidgets('subsequent launch goes straight to shell', (tester) async {
     await pumpGate(tester, {onboardingCompletedKey: true});
 
     expect(find.text('powloka'), findsOneWidget);
     expect(find.byType(OnboardingScreen), findsNothing);
   });
 
-  // --- Straznik regresji (runda fix 1) ---
-  // Pozostale testy chodza przez stala onboardingCompletedKey, wiec podmiana jej WARTOSCI
-  // (przy tej samej nazwie) zostawilaby je zielone, a kazdy istniejacy uzytkownik dostalby
-  // onboarding od nowa po aktualizacji. Ten test czyta format z dysku, nie symbol z kodu.
-  testWidgets('STRAZNIK: surowy klucz onboarding_completed pomija onboarding', (tester) async {
+  // --- Regression guard (fix round 1) ---
+  // Other tests use the onboardingCompletedKey constant, so changing its VALUE
+  // (while keeping the constant name) would keep them green, but every existing user would get
+  // onboarding again after update. This test reads the on-disk format, not code symbol.
+  testWidgets('GUARD: raw key onboarding_completed skips onboarding', (tester) async {
     await pumpGate(tester, {'onboarding_completed': true});
 
     expect(find.text('powloka'), findsOneWidget,
-        reason: 'literal klucza to format danych na dysku — przezywa aktualizacje aplikacji');
+        reason: 'key literal is on-disk data format — survives app updates');
     expect(find.byType(OnboardingScreen), findsNothing);
   });
 
-  testWidgets('zakonczenie onboardingu przelacza gate bez restartu', (tester) async {
+  testWidgets('completing onboarding switches gate without restart', (tester) async {
     final container = await pumpGate(tester, {});
 
     await container.read(onboardingCompletedProvider.notifier).complete();

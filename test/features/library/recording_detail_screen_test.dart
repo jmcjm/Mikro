@@ -21,10 +21,10 @@ import 'package:mikro/l10n/app_localizations_en.dart';
 
 import '../../support/l10n_harness.dart';
 
-/// Globalna warstwa audioplayers bez kanalu platformowego. Liczy sie tu przede wszystkim to,
-/// ze to INNA instancja niz poprzednio: `ensureInitialized` porownuje ja z zapamietana i po
-/// zmianie przechodzi inicjacje jeszcze raz, w strefie biezacego testu. Przy okazji `init`
-/// wraca od razu, bez rundy po kanale.
+/// Global audioplayers layer without platform channel. The key aspect is that this is
+/// a DIFFERENT instance than before: `ensureInitialized` compares it with stored instance and upon
+/// change re-runs initialization in the current test zone. Additionally `init`
+/// returns immediately, without a platform channel round trip.
 class _FakeGlobalPlatform extends GlobalAudioplayersPlatformInterface {
   @override
   Future<void> init() async {}
@@ -42,8 +42,8 @@ class _FakeGlobalPlatform extends GlobalAudioplayersPlatformInterface {
   Stream<GlobalAudioEvent> getGlobalEventStream() => const Stream.empty();
 }
 
-/// Blad z przewidywalnym toString: banner sklada komunikat wprost z niego, wiec test moze
-/// porownac cale zdanie zamiast szukac fragmentu.
+/// Error with predictable toString: banner constructs message directly from it, so the test can
+/// match the whole string instead of searching for a fragment.
 class _FakeDbError {
   @override
   String toString() => 'baza padla';
@@ -52,21 +52,21 @@ class _FakeDbError {
 void main() {
   late AppDatabase db;
 
-  /// Dziennik wywolan kanalu odtwarzacza, w kolejnosci, w jakiej ekran je wyslal. Testy
-  /// przewijania i predkosci patrza wlasnie tu: to jedyne miejsce, w ktorym widac, ILE RAZY
-  /// karta naprawde ruszyla odtwarzacz.
+  /// Log of player channel calls in the order the screen sent them. Seek and speed
+  /// tests check here: this is the only place showing HOW MANY TIMES
+  /// the card actually moved the player.
   final playerCalls = <MethodCall>[];
 
   setUp(() {
     playerCalls.clear();
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    // Globalna inicjacja audioplayers przebiega RAZ na proces, a Completer, na ktory czeka
-    // kazdy rozkaz dla odtwarzacza, zostaje w strefie tego testu, ktory ja odpalil. W kazdym
-    // nastepnym tescie ten future jest wprawdzie spelniony, ale jego kontynuacje ida do
-    // kolejki martwej strefy — nikt ich nie przekreca, wiec seek czy setPlaybackRate nigdy
-    // nie dochodzi do kanalu. Swiezy globalny interfejs platformy wymusza inicjacje od nowa,
-    // juz w strefie biezacego testu. Bez tego kazdy test rozkazow dla odtwarzacza musialby
-    // byc pierwszy w pliku.
+    // Global initialization of audioplayers runs ONCE per process, and the Completer awaited
+    // by every player command stays in the zone of whichever test ran it first. In every
+    // subsequent test that future is completed, but its continuations go to
+    // the dead zone queue — nobody drives them, so seek or setPlaybackRate never
+    // reaches the channel. A fresh global platform interface forces re-initialization,
+    // in the current test zone. Without this, every player command test would have
+    // to be first in the file.
     GlobalAudioplayersPlatformInterface.instance = _FakeGlobalPlatform();
   });
   tearDown(() => db.close());
@@ -79,19 +79,19 @@ void main() {
         waveform: waveform,
       );
 
-  /// audioplayers nie ma implementacji w srodowisku testowym: konstruktor AudioPlayer wola
-  /// `init` na kanale globalnym i podpina sie pod jego strumien zdarzen. Bez zaslepki te
-  /// wywolania wracaja jako MissingPluginException — czasem juz po zakonczeniu testu, co robi
-  /// z tego migoczaca awarie zaleznie od obciazenia maszyny.
+  /// audioplayers has no implementation in the test environment: AudioPlayer constructor calls
+  /// `init` on the global channel and subscribes to its event stream. Without stubbing these
+  /// calls return as MissingPluginException — sometimes after the test ends, creating
+  /// flaky failures depending on machine load.
   ///
-  /// Zaslepka zapisuje wywolania do [playerCalls] i UDAJE potwierdzenie przewijania. To drugie
-  /// nie jest ozdobnikiem: `AudioPlayer.seek` czeka na zdarzenie `audio.onSeekComplete` z
-  /// kanalu zdarzen odtwarzacza i bez niego wisi az do wlasnego limitu czasu, zostawiajac
-  /// w tescie tykajacy timer. Kanal zdarzen ma w nazwie identyfikator odtwarzacza, wiec
-  /// zaslepiamy go dopiero wtedy, gdy ten identyfikator przyjdzie w wywolaniu `create`.
-  /// [confirmSeek] rozstrzyga, czy udawana warstwa natywna potwierdza przewijanie. Ustawione
-  /// na `false` odwzorowuje platforme, ktora seek przyjmuje i milczy — jedyna sciezka, na
-  /// ktorej wychodzi, czy karta nie zostawia fantomowej pozycji.
+  /// The stub records calls to [playerCalls] and FAILS or EMULATES seek confirmation. The latter
+  /// is crucial: `AudioPlayer.seek` waits for `audio.onSeekComplete` event from
+  /// the player event channel and without it hangs until its timeout, leaving
+  /// a ticking timer in the test. The event channel includes the player ID in its name, so
+  /// we stub it once that ID arrives in the `create` call.
+  /// [confirmSeek] controls whether the emulated native layer confirms seeks. Setting to
+  /// `false` mimics a platform that accepts seek silently — the only path testing
+  /// if the card avoids phantom position.
   void stubAudioPlayers(WidgetTester tester, {bool confirmSeek = true}) {
     final messenger = tester.binding.defaultBinaryMessenger;
     MockStreamHandlerEventSink? playerEvents;
@@ -101,8 +101,8 @@ void main() {
       messenger.setMockStreamHandler(
         channel,
         MockStreamHandler.inline(onListen: (_, sink) {
-          // Cialo blokowe, a nie strzalka: `inline` koduje zwrocona wartosc jako odpowiedz
-          // kanalu, a sink nie ma jak przez niego przejsc.
+          // Block body, not arrow: `inline` encodes return value as channel response,
+          // and sink cannot pass through it.
           playerEvents = sink;
         }),
       );
@@ -118,8 +118,8 @@ void main() {
           case 'create':
             stubPlayerEvents(args!['playerId']! as String);
           case 'setSourceUrl':
-            // Gotowosc zrodla melduje osobne zdarzenie; `setSource` czeka na nie i bez niego
-            // wisi az do wlasnego limitu.
+            // Source readiness is reported by a separate event; `setSource` waits for it and without it
+            // hangs until its own timeout.
             playerEvents?.success(
                 <String, dynamic>{'event': 'audio.onPrepared', 'value': true});
           case 'seek':
@@ -151,19 +151,19 @@ void main() {
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
       ),
     ));
-    // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
+    // First frame is still drift stream loading state, second frame carries data.
     await tester.pump();
     await tester.pump();
   }
 
-  /// Patrz komentarz przy tej samej pomocniczej w library_screen_test.dart — odmontowanie
-  /// pozwala driftowi odpalic timer wypisania sie ze strumienia, zanim test sie zamknie.
+  /// See comment on identical helper in library_screen_test.dart — unmounting
+  /// allows drift to fire the timer unregistering from the stream before test teardown.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   }
 
-  testWidgets('gotowe nagranie: naglowek, karta transkrypcji i podpis modelu',
+  testWidgets('done recording: header, transcript card and model caption',
       (tester) async {
     await insert('a');
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-large-v3-turbo');
@@ -183,7 +183,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('naglowek pelnego ekranu niesie tytul nagrania', (tester) async {
+  testWidgets('full screen header carries recording title', (tester) async {
     await insert('a');
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
     await db.setTitle('a', 'Standup i przesuniecie release');
@@ -193,12 +193,12 @@ void main() {
 
     expect(find.text('Standup i przesuniecie release'), findsOneWidget);
     expect(find.text(plL10n.detailTitle), findsNothing,
-        reason: 'nazwa rodzajowa ustepuje tytulowi, gdy nagranie go ma');
+        reason: 'generic title gives way to title when recording has one');
 
     await unmount(tester);
   });
 
-  testWidgets('naglowek bez tytulu zostaje przy nazwie rodzajowej', (tester) async {
+  testWidgets('header without title keeps generic title', (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.done);
 
@@ -209,22 +209,22 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('bez transkryptu ekran pokazuje postep i etykiete statusu', (tester) async {
+  testWidgets('without transcript screen shows progress and status label', (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.transcribing);
 
     await pumpDetail(tester, 'a');
 
-    expect(find.text(plL10n.statusTranscribing), findsNWidgets(2)); // odznaka i podpis pod spinnerem
+    expect(find.text(plL10n.statusTranscribing), findsNWidgets(2)); // badge and caption under spinner
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    // Bez transkryptu nie ma czego udostepniac ani kopiowac.
+    // Without transcript there is nothing to share or copy.
     expect(find.byIcon(Symbols.share_rounded), findsNothing);
     expect(find.byIcon(Symbols.content_copy_rounded), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('blad przetwarzania: komunikat i ponowienie', (tester) async {
+  testWidgets('processing error: message and retry', (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.error, errorMessage: 'Limit 25 MB');
 
@@ -237,7 +237,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('usuniete nagranie znika z ekranu z komunikatem', (tester) async {
+  testWidgets('deleted recording disappears from screen with message', (tester) async {
     await pumpDetail(tester, 'nie-ma-takiego');
 
     expect(find.text(plL10n.detailRecordingDeleted), findsOneWidget);
@@ -245,8 +245,8 @@ void main() {
     await unmount(tester);
   });
 
-  /// Podmienia caly strumien nagran, zeby dalo sie postawic ekran w stanie, ktorego drift
-  /// w tescie nie wyprodukuje: awaria bazy albo strumien, ktory jeszcze nic nie oddal.
+  /// Overrides the entire recordings stream to place the screen in a state drift
+  /// cannot produce in test: database failure or a stream that has emitted nothing yet.
   Future<void> pumpWithStream(
       WidgetTester tester, Stream<List<RecordingWithTags>> stream) async {
     stubAudioPlayers(tester);
@@ -264,22 +264,22 @@ void main() {
     await tester.pump();
   }
 
-  testWidgets('awaria bazy melduje sie bledem, a nie komunikatem o skasowaniu',
+  testWidgets('database failure reports error rather than deletion message',
       (tester) async {
     await pumpWithStream(
         tester, Stream<List<RecordingWithTags>>.error(_FakeDbError()));
 
     expect(find.text(plL10n.libraryDatabaseError('baza padla')), findsOneWidget);
     expect(find.text(plL10n.detailRecordingDeleted), findsNothing,
-        reason: 'padnieta baza to nie to samo, co nagranie usuniete przez uzytkownika — '
-            'komunikat o skasowaniu kazalby szukac wpisu, ktory wciaz tam jest');
+        reason: 'database failure is not the same as user-deleted recording — '
+            'deletion message would prompt looking for an entry that is still there');
 
     await unmount(tester);
   });
 
-  testWidgets('strumien bez pierwszej wartosci pokazuje postep, nie komunikat o skasowaniu',
+  testWidgets('stream without initial value shows progress, not deletion message',
       (tester) async {
-    // Strumien, ktory nigdy nic nie oddaje: ekran zostaje w stanie ladowania.
+    // Stream that never emits: screen remains in loading state.
     final pending = StreamController<List<RecordingWithTags>>();
     addTearDown(pending.close);
 
@@ -287,15 +287,15 @@ void main() {
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.text(plL10n.detailRecordingDeleted), findsNothing,
-        reason: 'zanim strumien cokolwiek odda, o istnieniu nagrania nic nie wiadomo');
+        reason: 'before stream emits anything, recording existence is unknown');
 
     await unmount(tester);
   });
 
-  testWidgets('STRAZNIK: bez natywnego arkusza udostepnianie kopiuje do schowka',
+  testWidgets('GUARD: without native share sheet sharing copies to clipboard',
       (tester) async {
-    // Testy chodza na Linuksie, gdzie share_plus skladalby `mailto:` i oddawal go
-    // url_launcherowi. Ekran musi wtedy wejsc w zamiennik: schowek plus snackbar.
+    // Tests run on Linux where share_plus would construct `mailto:` and hand it to
+    // url_launcher. The screen must fall back to: clipboard plus snackbar.
     final copied = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -324,7 +324,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('kopiowanie z karty transkrypcji zachowuje komunikat z T12', (tester) async {
+  testWidgets('copying from transcript card preserves message from T12', (tester) async {
     final copied = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
       SystemChannels.platform,
@@ -353,10 +353,10 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('STRAZNIK: szczegoly z tagami i dlugim transkryptem w oknie makiety',
+  testWidgets('GUARD: details with tags and long transcript in mockup window',
       (tester) async {
-    // Patrz blizniaczy test w library_screen_test.dart — okno 412x892 zamiast domyslnego
-    // 800x600 lamie uklad tak, jak zrobi to telefon.
+    // See twin test in library_screen_test.dart — 412x892 window instead of default
+    // 800x600 wraps layout like a phone.
     tester.view.physicalSize = const Size(412, 892);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -380,10 +380,10 @@ void main() {
   });
 
 
-  // --- reczna edycja tagow: kafelek "+ tag" i kasowanie chipa ---
+  // --- manual tag editing: "+ tag" chip and chip deletion ---
 
-  /// Nagranie gotowe do ogladania. Transkrypt jest tu istotny: bez niego karta transkrypcji
-  /// krecilaby spinner bez konca, a wtedy zadne `pumpAndSettle` juz nie wroci.
+  /// Recording ready for viewing. Transcript is essential: without it the transcript card
+  /// would spin indefinitely, and `pumpAndSettle` would never return.
   Future<void> insertReady(String id, {List<String> tags = const []}) async {
     await insert(id);
     await db.setTranscript(id, 'Notatka ze standupu', 'whisper-1');
@@ -391,18 +391,18 @@ void main() {
     if (tags.isNotEmpty) await db.setTags(id, tags);
   }
 
-  /// Otwiera okno dodawania tagu. Pompujemy jawnie zamiast `pumpAndSettle`, zeby test nie
-  /// zalezal od tego, czy w drzewie akurat nie ma jakiegos zywego tickera.
+  /// Opens add tag dialog. We pump explicitly instead of `pumpAndSettle` so the test does not
+  /// depend on whether any active ticker is in the tree.
   Future<void> openAddTagDialog(WidgetTester tester) async {
     await tester.tap(find.byType(AddTagChip));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
   }
 
-  /// Zapis tagu idzie prawdziwym I/O bazy, ktore w strefie fake-async testu nie dostaje
-  /// obrotu petli zdarzen samo z siebie. Drift wykonuje operacje po kolei, wiec odczyt
-  /// wpuszczony do tej samej kolejki wraca dopiero PO zapisie — synchronizacja przez
-  /// kolejnosc, nie przez odmierzanie czasu. Patrz ten sam zabieg w library_two_pane_test.
+  /// Tag write goes through real database I/O, which in test fake-async zone does not receive
+  /// an event loop turn automatically. Drift executes operations sequentially, so a read
+  /// queued behind it returns only AFTER write finishes — synchronization via
+  /// ordering, not timeouts. See same technique in library_two_pane_test.
   Future<void> settleDb(WidgetTester tester, {required bool Function() until}) async {
     for (var i = 0; i < 20 && !until(); i++) {
       await db.getRecording('a');
@@ -410,10 +410,10 @@ void main() {
     }
   }
 
-  /// Tagi nagrania odczytane zapytaniem JEDNORAZOWYM. `watchAllWithTags().first` w tescie
-  /// widgetowym wiesza sie na amen: emisja strumienia drifta potrzebuje obrotu petli zdarzen,
-  /// ktorego czekanie na `first` nigdy nie odda, bo w strefie fake-async czas plynie tylko
-  /// przy pompowaniu klatek.
+  /// Recording tags read via ONE-OFF query. `watchAllWithTags().first` in a widget test
+  /// hangs indefinitely: drift stream emission requires an event loop turn
+  /// that waiting for `first` will never yield, because in fake-async zone time only advances
+  /// during frame pumping.
   Future<List<String>> tagsOf(String id) async {
     final rows = await db.customSelect(
       'SELECT t.name AS name FROM tags t JOIN recording_tags rt ON rt.tag_id = t.id '
@@ -423,7 +423,7 @@ void main() {
     return [for (final row in rows) row.data['name'] as String];
   }
 
-  testWidgets('rzad tagow ma kafelek "+ tag", ktory dopisuje tag do nagrania',
+  testWidgets('tag row has "+ tag" chip that appends tag to recording',
       (tester) async {
     await insertReady('a', tags: ['spotkanie']);
 
@@ -441,21 +441,21 @@ void main() {
     await settleDb(tester, until: () => find.text('release').evaluate().isNotEmpty);
 
     expect(await tagsOf('a'), ['release', 'spotkanie'],
-        reason: 'nazwa idzie do bazy przycieta i mala litera, jak tagi z modelu');
+        reason: 'name is saved trimmed and lowercased, like model tags');
     expect(find.text('release'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('kafelek "+ tag" jest dostepny takze przy nagraniu bez tagow', (tester) async {
-    // Bez tego pierwszego tagu recznie nie da sie dodac w ogole.
+  testWidgets('"+ tag" chip is available also on recording without tags', (tester) async {
+    // Without this the first tag cannot be added manually at all.
     await insertReady('a');
 
     await pumpDetail(tester, 'a');
 
     expect(find.byType(AddTagChip), findsOneWidget);
     expect(tester.getSize(find.byType(AddTagChip)).height, 32,
-        reason: 'makieta daje kafelkowi te sama wysokosc, co chipowi tagu');
+        reason: 'mockup gives chip the same height as tag chip');
     expect(
       find.descendant(of: find.byType(AddTagChip), matching: find.byIcon(Symbols.add_rounded)),
       findsOneWidget,
@@ -464,7 +464,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('okno dodawania: pusty wpis nie pozwala zatwierdzic', (tester) async {
+  testWidgets('add dialog: empty entry disables confirm button', (tester) async {
     await insertReady('a');
 
     await pumpDetail(tester, 'a');
@@ -473,11 +473,11 @@ void main() {
     FilledButton confirm() =>
         tester.widget<FilledButton>(find.widgetWithText(FilledButton, plL10n.detailAddTagConfirm));
 
-    expect(confirm().onPressed, isNull, reason: 'puste pole nie ma czego zapisac');
+    expect(confirm().onPressed, isNull, reason: 'empty field has nothing to save');
 
     await tester.enterText(find.byType(TextField), '   ');
     await tester.pump();
-    expect(confirm().onPressed, isNull, reason: 'same biale znaki to dalej pusty tag');
+    expect(confirm().onPressed, isNull, reason: 'whitespace only is still an empty tag');
 
     await tester.enterText(find.byType(TextField), 'release');
     await tester.pump();
@@ -486,7 +486,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('okno dodawania: duplikat w ramach nagrania jest blokowany bez wzgledu na wielkosc liter',
+  testWidgets('add dialog: duplicate within recording is blocked case-insensitively',
       (tester) async {
     await insertReady('a', tags: ['spotkanie']);
 
@@ -508,14 +508,14 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('chip tagu w szczegolach kasuje tag od razu, bez okna potwierdzenia',
+  testWidgets('tag chip in details deletes tag immediately without confirmation dialog',
       (tester) async {
     await insertReady('a', tags: ['spotkanie', 'release']);
 
     await pumpDetail(tester, 'a');
 
     expect(find.byIcon(Symbols.close_rounded), findsNWidgets(2),
-        reason: 'kazdy chip w szczegolach ma wlasny krzyzyk');
+        reason: 'every chip in details has its own close icon');
 
     await tester.tap(find.descendant(
       of: find.widgetWithText(TagChip, 'spotkanie'),
@@ -525,28 +525,28 @@ void main() {
     await settleDb(tester, until: () => find.text('spotkanie').evaluate().isEmpty);
 
     expect(find.byType(AlertDialog), findsNothing,
-        reason: 'niska stawka, odwracalne przez "+ tag"');
+        reason: 'low stakes, reversible via "+ tag"');
     expect(await tagsOf('a'), ['release']);
     expect(find.text('spotkanie'), findsNothing);
 
     await unmount(tester);
   });
 
-  // --- przebieg na karcie odtwarzacza (D2f) ---
+  // --- waveform on player card (D2f) ---
 
-  /// Slupek to jedyny DecoratedBox wewnatrz [WaveformBars], wiec liczy sie i mierzy
-  /// bezposrednio po nim.
+  /// Bar is the only DecoratedBox inside [WaveformBars], so it is counted and measured
+  /// directly through it.
   Finder bars() => find.descendant(
         of: find.byType(WaveformBars),
         matching: find.byType(DecoratedBox),
       );
 
-  testWidgets('karta odtwarzacza rysuje slupki zapisanego przebiegu', (tester) async {
+  testWidgets('player card renders bars of saved waveform', (tester) async {
     tester.view.physicalSize = const Size(412, 892);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    // Pierwsze trzy slupki maja znane wysokosci, reszta wypelnia pasek do liczby z makiety.
+    // First three bars have known heights, rest fill the bar to mockup count.
     final levels = <double>[1.0, 0.5, 0.25, ...List.filled(kWaveformBuckets - 4, 0.4), 0.0];
     await insert('a', waveform: encodeWaveform(levels));
     await db.updateStatus('a', RecordingStatus.done);
@@ -555,13 +555,13 @@ void main() {
 
     expect(find.byType(WaveformBars), findsOneWidget);
     expect(tester.getSize(find.byType(WaveformBars)).height, 64,
-        reason: 'pelna amplituda to caly pasek, a ten ma w karcie telefonu 64 px');
+        reason: 'full amplitude is the entire bar, and on phone card it is 64 px');
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).levels.length, kWaveformBuckets);
 
     await unmount(tester);
   });
 
-  testWidgets('nagranie bez zapisanego przebiegu nie dostaje wymyslonych slupkow',
+  testWidgets('recording without saved waveform does not get invented bars',
       (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.done);
@@ -569,15 +569,15 @@ void main() {
     await pumpDetail(tester, 'a');
 
     expect(find.byType(WaveformBars), findsNothing,
-        reason: 'nagrania sprzed migracji nie maja obwiedni i nie wolno jej zmyslac');
-    // Karta ma dzialac dalej: transport i czasy zostaja na miejscu.
+        reason: 'pre-migration recordings have no envelope and it must not be fabricated');
+    // Card must continue to function: transport and timestamps stay in place.
     expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget);
     expect(find.text('3:27'), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('uszkodzony zapis przebiegu nie wywraca ekranu', (tester) async {
+  testWidgets('corrupted waveform data does not crash screen', (tester) async {
     await insert('a', waveform: 'to-nie-jest-json');
     await db.updateStatus('a', RecordingStatus.done);
 
@@ -589,7 +589,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('naglowek ma wysokosc z makiety', (tester) async {
+  testWidgets('header has mockup height', (tester) async {
     await insert('a');
 
     await pumpDetail(tester, 'a');
@@ -599,11 +599,11 @@ void main() {
     await unmount(tester);
   });
 
-  // --- przebieg jako powierzchnia przewijania, skoki o 10 s i predkosc (D2g) ---
+  // --- waveform as seek surface, 10 s skips, and speed (D2g) ---
 
-  /// Pozycje przewiniec w kolejnosci, w jakiej ekran wyslal je do odtwarzacza. Zaslepka kanalu
-  /// to jedyne miejsce, w ktorym widac, ILE RAZY karta go ruszyla — a o to chodzi w calej
-  /// dyscyplinie jednego seeku na gest.
+  /// Seek positions in the order the screen sent them to the player. Channel stub
+  /// is the only place revealing HOW MANY TIMES the card moved it — which is the whole point
+  /// of the one-seek-per-gesture discipline.
   List<int> seeks() => [
         for (final call in playerCalls)
           if (call.method == 'seek') (call.arguments as Map)['position'] as int,
@@ -615,41 +615,41 @@ void main() {
             (call.arguments as Map)['playbackRate'] as double,
       ];
 
-  /// Rozkaz dla odtwarzacza idzie kanalem platformowym tam i z powrotem, a przewijanie przed
-  /// pierwszym odtworzeniem to dwie takie rundy plus zdarzenie gotowosci zrodla. Kilka klatek
-  /// daje im wszystkim dojsc; `pumpAndSettle` odpada, bo w drzewie moze stac zywy ticker.
+  /// Player command travels through platform channel round trip, and seeking before
+  /// first playback requires two such rounds plus source readiness event. A few frames
+  /// allow them all to settle; `pumpAndSettle` is avoided because of potential active tickers in tree.
   Future<void> settlePlayer(WidgetTester tester) async {
     for (var i = 0; i < 6; i++) {
       await tester.pump();
     }
   }
 
-  /// Nazwy wywolan kanalu w kolejnosci, w jakiej ekran je wyslal.
+  /// Platform channel method names in the order screen sent them.
   List<String> methods() => [for (final call in playerCalls) call.method];
 
-  /// Nagranie z pelnym przebiegiem. Wszystkie slupki tej samej wysokosci, bo te testy patrza
-  /// na podzial zagrane/niezagrane i na gesty, a nie na ksztalt obwiedni.
+  /// Recording with full waveform. All bars equal height because these tests verify
+  /// played/unplayed split and gestures rather than envelope shape.
   Future<void> insertWithWave(String id) async {
     await insert(id, waveform: encodeWaveform(List.filled(kWaveformBuckets, 0.5)));
     await db.setTranscript(id, 'Notatka ze standupu', 'whisper-1');
     await db.updateStatus(id, RecordingStatus.done);
   }
 
-  testWidgets('stukniecie w przebieg przewija dokladnie raz', (tester) async {
+  testWidgets('tapping waveform seeks exactly once', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
-    expect(seeks().length, 1, reason: 'stukniecie to jeden seek, nie seria');
+    expect(seeks().length, 1, reason: 'tap is a single seek, not a series');
     expect(seeks().single, closeTo(207000 / 2, 300),
-        reason: 'srodek paska to polowa nagrania');
+        reason: 'center of bar is middle of recording');
 
     await unmount(tester);
   });
 
-  testWidgets('przeciaganie po przebiegu przewija raz, na koncu gestu', (tester) async {
+  testWidgets('dragging across waveform seeks once at end of gesture', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -658,26 +658,26 @@ void main() {
     await settlePlayer(tester);
 
     expect(seeks().length, 1,
-        reason: 'przeciaganie prowadzi sam kursor; odtwarzacz rusza sie raz, na koncu gestu');
+        reason: 'drag tracks cursor only; player moves once at end of gesture');
     expect(seeks().single, closeTo((bar.width / 2 + 60) / bar.width * 207000, 300),
-        reason: 'seek idzie tam, gdzie palec skonczyl, a nie tam, gdzie zaczal');
+        reason: 'seek targets where finger ended, not where it began');
 
     await unmount(tester);
   });
 
-  testWidgets('przebieg zastepuje suwak pozycji', (tester) async {
+  testWidgets('waveform replaces position slider', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
 
     expect(find.byType(WaveformSeekBar), findsOneWidget);
     expect(find.byType(Slider), findsNothing,
-        reason: 'po redesignie przewija sie po slupkach, osobnego toru z uchwytem juz nie ma');
+        reason: 'redesign seeks along bars, separate slider track is removed');
 
     await unmount(tester);
   });
 
-  testWidgets('nagranie bez przebiegu zostaje przy dotychczasowym suwaku', (tester) async {
+  testWidgets('recording without waveform keeps legacy slider', (tester) async {
     await insert('a');
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
     await db.updateStatus('a', RecordingStatus.done);
@@ -686,34 +686,34 @@ void main() {
 
     expect(find.byType(WaveformSeekBar), findsNothing);
     expect(find.byType(Slider), findsOneWidget,
-        reason: 'obwiedni nie wolno zmyslac, a przewijac trzeba dac sie tak samo');
+        reason: 'envelope must not be fabricated, and seeking must remain possible');
 
     await tester.drag(find.byType(Slider), const Offset(100, 0));
     await settlePlayer(tester);
 
-    expect(seeks().length, 1, reason: 'suwak tez przewija raz, na koncu gestu');
+    expect(seeks().length, 1, reason: 'slider also seeks once at end of gesture');
 
     await unmount(tester);
   });
 
-  testWidgets('slupki dziela sie na zagrane i niezagrane wedlug pozycji', (tester) async {
+  testWidgets('bars divide into played and unplayed by position', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
 
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).progress, 0.0,
-        reason: 'przed przewinieciem postep to 0.0');
+        reason: 'before seeking progress is 0.0');
 
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).progress, closeTo(0.5, 0.05),
-        reason: 'polowa nagrania ustawia postep na okolo 0.5');
+        reason: 'middle of recording sets progress to around 0.5');
 
     await unmount(tester);
   });
 
-  testWidgets('przebieg wskazuje postep przez podzial slupkow na zagrane i niezagrane', (tester) async {
+  testWidgets('waveform indicates progress by dividing bars into played and unplayed', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -724,12 +724,12 @@ void main() {
     await settlePlayer(tester);
 
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).played, greaterThan(0),
-        reason: 'po stuknieciu w srodek odpowiednia czesc slupkow jest zagrana');
+        reason: 'after tapping center the corresponding portion of bars is played');
 
     await unmount(tester);
   });
 
-  testWidgets('czasy ida za przewinieciem', (tester) async {
+  testWidgets('timestamps follow seeking', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -738,13 +738,13 @@ void main() {
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
-    expect(find.text('1:43'), findsOneWidget, reason: 'polowa z 3:27');
-    expect(find.text('3:27'), findsOneWidget, reason: 'dlugosc nagrania sie nie rusza');
+    expect(find.text('1:43'), findsOneWidget, reason: 'half of 3:27');
+    expect(find.text('3:27'), findsOneWidget, reason: 'recording duration does not change');
 
     await unmount(tester);
   });
 
-  testWidgets('skoki o 10 s trzymaja sie granic nagrania i dzialaja bez odtwarzania',
+  testWidgets('10 s skips respect recording bounds and work without playing',
       (tester) async {
     await insertWithWave('a');
 
@@ -758,18 +758,18 @@ void main() {
 
     await tapAction(plL10n.detailForwardTooltip);
     expect(seeks(), [10000],
-        reason: 'nic nie gra, a skok i tak przestawia miejsce startu');
+        reason: 'nothing playing, but skip still shifts start position');
 
     await tapAction(plL10n.detailRewindTooltip);
     expect(seeks(), [10000, 0]);
 
     await tapAction(plL10n.detailRewindTooltip);
-    expect(seeks(), [10000, 0, 0], reason: 'przed zerem nie ma dokad cofac');
+    expect(seeks(), [10000, 0, 0], reason: 'cannot rewind before zero');
 
     await unmount(tester);
   });
 
-  testWidgets('pigulka predkosci cykluje etykiete i melduje sie odtwarzaczowi', (tester) async {
+  testWidgets('speed pill cycles label and reports to player', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -789,30 +789,30 @@ void main() {
     expect(find.text(plL10n.detailSpeedLabel('2,0')), findsOneWidget);
     await tapPill();
     expect(find.text(plL10n.detailSpeedLabel('1,0')), findsOneWidget,
-        reason: 'po ostatnim kroku cykl wraca na poczatek');
+        reason: 'after last step cycle returns to start');
 
     expect(rates(), [1.25, 1.5, 2.0, 1.0],
-        reason: 'kazde stukniecie melduje predkosc odtwarzaczowi, bez pomijania krokow');
+        reason: 'each tap reports speed to player without skipping steps');
 
     await unmount(tester);
   });
 
-  testWidgets('etykieta predkosci idzie za jezykiem interfejsu', (tester) async {
+  testWidgets('speed label follows UI language', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a', locale: const Locale('en'));
 
     expect(find.text(AppLocalizationsEn().detailSpeedLabel('1.0')), findsOneWidget,
-        reason: 'po angielsku separatorem dziesietnym jest kropka, nie przecinek');
+        reason: 'in English decimal separator is a dot, not a comma');
 
     await unmount(tester);
   });
 
-  // --- panel szerokiego ukladu ---
+  // --- wide layout panel ---
 
-  /// Panel w szerokosci, jaka dostaje przy samym progu ukladu szerokiego: okno 840 px minus
-  /// 80 px railu i 400 px listy zostawia mu 360 px. Wiersz transportu ma sie w tym zmiescic —
-  /// przepelniony Row melduje blad i test pada.
+  /// Panel at width it receives right at the wide layout threshold: 840 px window minus
+  /// 80 px rail and 400 px list leaves 360 px for it. Transport row must fit in that —
+  /// overflowing Row reports error and test fails.
   Future<void> pumpPanel(WidgetTester tester, String id) async {
     tester.view.physicalSize = const Size(360, 800);
     tester.view.devicePixelRatio = 1;
@@ -830,14 +830,14 @@ void main() {
     await settlePlayer(tester);
   }
 
-  testWidgets('panel: nizszy pas, wiersz transportu i pigulka mieszcza sie przy progu',
+  testWidgets('panel: shorter bar, transport row and pill fit at threshold',
       (tester) async {
     await insertWithWave('a');
 
     await pumpPanel(tester, 'a');
 
     expect(tester.getSize(find.byType(WaveformBars)).height, 52,
-        reason: 'makieta desktopowa ma pas 52 px, nizszy niz 64 px karty telefonu');
+        reason: 'desktop mockup has 52 px bar, shorter than 64 px of phone card');
     expect(find.byTooltip(plL10n.detailRewindTooltip), findsOneWidget);
     expect(find.byTooltip(plL10n.detailForwardTooltip), findsOneWidget);
     expect(find.text(plL10n.detailSpeedLabel('1,0')), findsOneWidget);
@@ -845,7 +845,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('panel: przewijanie, skoki i predkosc dzialaja jak na telefonie', (tester) async {
+  testWidgets('panel: seeking, skips and speed work as on phone', (tester) async {
     await insertWithWave('a');
 
     await pumpPanel(tester, 'a');
@@ -858,20 +858,20 @@ void main() {
     await tester.tap(find.byTooltip(plL10n.detailForwardTooltip));
     await settlePlayer(tester);
     expect(seeks().last, closeTo(207000 / 2 + 10000, 300),
-        reason: 'skok liczy sie od pozycji, na ktorej stoi kursor');
+        reason: 'skip is relative to current cursor position');
 
     await tester.tap(find.byTooltip(plL10n.detailSpeedTooltip));
     await settlePlayer(tester);
     expect(rates(), [1.25]);
     expect(find.text(plL10n.detailSpeedLabel('1,25')), findsOneWidget,
-        reason: 'jedna predkosc na ekran, ta sama pigulka co na telefonie');
+        reason: 'one speed per screen, same pill as on phone');
 
     await unmount(tester);
   });
 
-  // --- leniwe wczytanie zrodla przy przewijaniu (runda fix 1) ---
+  // --- lazy source loading on seek (fix round 1) ---
 
-  testWidgets('przewijanie przed odtwarzaniem wczytuje zrodlo i nie wlacza odtwarzania',
+  testWidgets('seeking before playback loads source and does not start playback',
       (tester) async {
     await insertWithWave('a');
 
@@ -880,21 +880,21 @@ void main() {
     await settlePlayer(tester);
 
     expect(methods(), contains('setSourceUrl'),
-        reason: 'bez wczytanego zrodla natywna warstwa nie ma czego przewijac — seek '
-            'przechodzi bez skutku i bez potwierdzenia');
+        reason: 'without loaded source native layer has nothing to seek — seek '
+            'passes with no effect and no confirmation');
     expect(methods().indexOf('setSourceUrl'), lessThan(methods().indexOf('seek')),
-        reason: 'najpierw zrodlo, potem przewiniecie');
+        reason: 'source first, seek second');
     expect(methods(), isNot(contains('resume')),
-        reason: 'gest przewijania nie wlacza odtwarzania — pauza zostaje pauza');
+        reason: 'seek gesture does not start playback — pause remains pause');
     expect(seeks().length, 1);
-    expect(find.text('1:43'), findsOneWidget, reason: 'pozycja jest prawdziwa, nie fantomowa');
+    expect(find.text('1:43'), findsOneWidget, reason: 'position is real, not phantom');
     expect(find.byIcon(Symbols.play_arrow_rounded), findsOneWidget,
-        reason: 'przycisk nadal zaprasza do odtwarzania');
+        reason: 'button still invites playback');
 
     await unmount(tester);
   });
 
-  testWidgets('skok o 10 s przed odtwarzaniem tez wczytuje zrodlo', (tester) async {
+  testWidgets('10 s skip before playback also loads source', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -908,7 +908,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('odtwarzanie po przewinieciu wznawia, zamiast wczytywac zrodlo od nowa',
+  testWidgets('playback after seeking resumes instead of reloading source from scratch',
       (tester) async {
     await insertWithWave('a');
 
@@ -919,19 +919,19 @@ void main() {
     await settlePlayer(tester);
 
     expect(methods().where((m) => m == 'setSourceUrl').length, 1,
-        reason: 'drugie wczytanie zrodla skasowaloby wlasnie wybrana pozycje');
+        reason: 'second source load would wipe newly selected position');
     expect(methods(), contains('resume'));
     expect(methods().lastIndexOf('resume'), greaterThan(methods().indexOf('seek')),
-        reason: 'najpierw uzytkownik wybral miejsce, potem wcisnal play');
+        reason: 'user first chose position, then pressed play');
 
     await unmount(tester);
   });
 
-  testWidgets('brak potwierdzenia przewijania nie zostawia fantomowej pozycji',
+  testWidgets('missing seek confirmation does not leave phantom position',
       (tester) async {
-    // Limit audioplayers ustawiony DLUZEJ niz limit karty i tak, zeby nie zostawil po tescie
-    // tykajacego timera. Chodzi o to, ktory z nich zdejmuje fantom: ma to zrobic karta,
-    // a nie wtyczka po swoich 30 sekundach.
+    // audioplayers timeout set LONGER than card timeout to avoid leaving a ticking
+    // timer after the test. The point is which one clears the phantom: card must do it,
+    // not the plugin after its 30 seconds.
     final plugin = AudioPlayer.seekingTimeout;
     AudioPlayer.seekingTimeout = const Duration(seconds: 5);
     addTearDown(() => AudioPlayer.seekingTimeout = plugin);
@@ -942,86 +942,84 @@ void main() {
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
-    expect(seeks().length, 1, reason: 'przewiniecie zostalo wyslane');
+    expect(seeks().length, 1, reason: 'seek was sent');
     expect(find.text('1:43'), findsOneWidget,
-        reason: 'poki proba trwa, kursor stoi tam, gdzie uzytkownik go postawil');
+        reason: 'while attempt is pending cursor stays where user put it');
 
-    await tester.pump(const Duration(seconds: 3)); // ponad limit karty, ponizej limitu wtyczki
+    await tester.pump(const Duration(seconds: 3)); // past card timeout, below plugin timeout
 
     expect(find.text('0:00'), findsOneWidget,
-        reason: 'niepotwierdzone przewijanie wraca do prawdziwej pozycji, i to od razu — '
-            'a nie po pol minuty czekania wtyczki');
+        reason: 'unconfirmed seek returns to real position immediately — '
+            'rather than waiting half a minute for plugin timeout');
     expect(find.text('1:43'), findsNothing);
 
-    // Domkniecie limitu wtyczki, zeby nie zostal na koniec testu jako tykajacy timer.
+    // Drain plugin timeout so it does not remain at test end as a ticking timer.
     await tester.pump(const Duration(seconds: 3));
 
     await unmount(tester);
   });
 
-  // --- plynna animacja przebiegu (zlecenie usera) ---
+  // --- smooth waveform animation (user request) ---
 
-  /// Wciska przycisk transportu i daje rozkazom dojsc do zaslepki. Odtwarzanie zaczyna sie
-  /// dopiero po wczytaniu zrodla, wiec samo `pump()` by nie wystarczylo.
+  /// Presses transport button and allows commands to reach stub. Playback begins
+  /// only after source is loaded, so `pump()` alone would not suffice.
   Future<void> tapTransport(WidgetTester tester, IconData icon) async {
     await tester.tap(find.byIcon(icon));
     await settlePlayer(tester);
   }
 
-  /// Lewa krawedz kursora pozycji. Patrz test „kursor stoi na pozycji" — kursor jest ostatnim
-  /// DecoratedBoksem powierzchni przewijania.
-  /// Liczba zagranych słupków na pasku przebiegu.
+  /// Number of played bars on waveform.
   int playedCount(WidgetTester tester) =>
       tester.widget<WaveformBars>(find.byType(WaveformBars)).played;
 
-  testWidgets('w spoczynku nic sie nie animuje', (tester) async {
+  testWidgets('idle state does not animate', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
 
-    // Aktywny Ticker trzyma zarejestrowany transient callback na kazda klatke. Licznik
-    // z bindinga jest wiec bezposrednim pomiarem „czy cos sie animuje".
+    // Active Ticker holds a registered transient callback for every frame. Counter
+    // from binding is thus a direct measure of "is anything animating".
     expect(tester.binding.transientCallbackCount, 0,
-        reason: 'nagranie, ktore nie gra, nie ma czego interpolowac — ticker na wyrost kazalby '
-            'przeliczac karte 60 razy na sekunde przez cale zycie ekranu');
+        reason: 'recording that is not playing has nothing to interpolate — redundant ticker would force '
+            'recalculating card 60 times per second throughout screen lifecycle');
 
     await unmount(tester);
   });
 
-  testWidgets('ticker rusza z odtwarzaniem i milknie po pauzie', (tester) async {
+  testWidgets('ticker starts with playback and stops after pause', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
     await tapTransport(tester, Symbols.play_arrow_rounded);
-    // Sekunda na zgasniecie rozbryzgu z dotkniecia przycisku: to tez jest animacja i tez
-    // liczy sie do licznika, a pytanie brzmi o ticker, nie o Material.
+    // One second for button tap splash to fade: splash is also an animation and
+    // counts toward counter; the assertion targets ticker, not Material.
     await tester.pump(const Duration(seconds: 1));
 
     expect(tester.binding.transientCallbackCount, greaterThan(0),
-        reason: 'w trakcie odtwarzania cos ma sie animowac; ze jest to NASZ ticker, a nie sam '
-            'licznik pozycji audioplayers, dowodzi test ruchu kursora nizej');
+        reason: 'something should animate during playback; that this is OUR ticker rather than '
+            'audioplayers position counter alone is proven by cursor movement test below');
 
     await tapTransport(tester, Symbols.pause_rounded);
     await tester.pump(const Duration(seconds: 1));
 
     expect(tester.binding.transientCallbackCount, 0,
-        reason: 'pauza zatrzymuje ticker, a nie tylko zamraza obrazek');
+        reason: 'pause stops ticker rather than merely freezing frame');
 
     await unmount(tester);
   });
 
-  testWidgets('kursor sunie miedzy zdarzeniami pozycji i staje na pauzie', (tester) async {
+  testWidgets('cursor glides between position events and stops on pause', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
-    // Zaslepka NIE wysyla ani jednego zdarzenia pozycji, wiec wszystko, co widac ponizej,
-    // jest interpolacja — dokladnie to, co ma dawac animacja.
+    // Stub sends NO position events, so everything seen below
+    // is interpolation — exactly what animation is meant to provide.
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('0:03'), findsOneWidget);
     final after3s = playedCount(tester);
-    expect(after3s, greaterThan(0), reason: 'postep przesuwa sie po przebiegu');
+    expect(after3s, greaterThan(0), reason: 'progress advances along waveform');
 
     await tester.pump(const Duration(seconds: 3));
     expect(find.text('0:06'), findsOneWidget);
@@ -1032,14 +1030,14 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('0:06'), findsOneWidget,
-        reason: 'po pauzie postep stoi, i to tam, gdzie go zostawiono — nie cofa sie do '
-            'ostatniego zdarzenia pozycji');
+        reason: 'after pause progress stops where it was left — does not rewind to '
+            'last position event');
     expect(playedCount(tester), frozen);
 
     await unmount(tester);
   });
 
-  testWidgets('predkosc z pigulki rozciaga interpolacje', (tester) async {
+  testWidgets('speed from pill scales interpolation', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
@@ -1053,21 +1051,21 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.text('0:02'), findsOneWidget,
-        reason: 'przy 2,0x sekunda zegara to dwie sekundy nagrania');
+        reason: 'at 2.0x one clock second equals two recording seconds');
 
     await tapTransport(tester, Symbols.pause_rounded);
 
     await unmount(tester);
   });
 
-  testWidgets('przeciaganie ma pierwszenstwo nad interpolacja', (tester) async {
+  testWidgets('dragging takes precedence over interpolation', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
     await tapTransport(tester, Symbols.play_arrow_rounded);
     await tester.pump(const Duration(seconds: 1));
 
-    // Palec zatrzymany w polowie paska: ticker dalej chodzi, ale postep ma stac pod palcem.
+    // Finger held in middle of bar: ticker keeps running, but progress stays under finger.
     final bar = tester.getRect(find.byType(WaveformSeekBar));
     final gesture = await tester.startGesture(bar.centerLeft + const Offset(60, 0));
     await gesture.moveBy(Offset(bar.width / 2 - 60, 0));
@@ -1076,7 +1074,7 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     expect(playedCount(tester), underFinger,
-        reason: 'w trakcie gestu interpolacja nie walczy z palcem');
+        reason: 'during gesture interpolation does not fight finger');
 
     await gesture.up();
     await settlePlayer(tester);
@@ -1086,10 +1084,10 @@ void main() {
     await unmount(tester);
   });
 
-  // --- oddech slupkow w trakcie odtwarzania (runda fix 2) ---
+  // --- bar breathing during playback (fix round 2) ---
 
-  /// Nagranie o OPADAJACEJ obwiedni: cztery pierwsze slupki 1,0 / 0,75 / 0,5 / 0,25, reszta
-  /// posrodku. Rowna obwiednia nie pokazalaby, czy animacja zachowuje ksztalt, czy go zamazuje.
+  /// Recording with DESCENDING envelope: first four bars 1.0 / 0.75 / 0.5 / 0.25, rest
+  /// in middle. Uniform envelope would not show whether animation preserves shape or blurs it.
   Future<void> insertVariedWave(String id) async {
     final levels = <double>[1.0, 0.75, 0.5, 0.25, ...List.filled(kWaveformBuckets - 4, 0.5)];
     await insert(id, waveform: encodeWaveform(levels));
@@ -1097,12 +1095,12 @@ void main() {
     await db.updateStatus(id, RecordingStatus.done);
   }
 
-  testWidgets('slupki oddychaja w trakcie odtwarzania', (tester) async {
+  testWidgets('bars breathe during playback', (tester) async {
     await insertVariedWave('a');
 
     await pumpDetail(tester, 'a');
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull,
-        reason: 'przed odtwarzaniem beat jest null');
+        reason: 'before playback beat is null');
 
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
@@ -1114,14 +1112,14 @@ void main() {
     }
 
     expect(samples.toSet().length, greaterThan(6),
-        reason: 'beat ma sie zmieniac miedzy klatkami');
+        reason: 'beat must change between frames');
 
     await tapTransport(tester, Symbols.pause_rounded);
 
     await unmount(tester);
   });
 
-  testWidgets('STRAZNIK: w kazdej klatce ksztalt obwiedni jest zachowany', (tester) async {
+  testWidgets('GUARD: envelope shape is preserved in every frame', (tester) async {
     await insertVariedWave('a');
 
     await pumpDetail(tester, 'a');
@@ -1146,7 +1144,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('pauza odstawia slupki na prawdziwe wysokosci', (tester) async {
+  testWidgets('pause restores bars to true heights', (tester) async {
     await insertVariedWave('a');
 
     await pumpDetail(tester, 'a');
@@ -1158,16 +1156,16 @@ void main() {
     await tapTransport(tester, Symbols.pause_rounded);
 
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull,
-        reason: 'po pauzie obwiednia jest zwyklym wykresem i ma stac');
+        reason: 'after pause envelope is static graph and must stand still');
 
     await unmount(tester);
   });
 
-  testWidgets('panel: slupki oddychaja tak samo jak na telefonie', (tester) async {
+  testWidgets('panel: bars breathe same as on phone', (tester) async {
     await insertVariedWave('a');
 
     await pumpPanel(tester, 'a');
-    expect(tester.getSize(find.byType(WaveformBars)).height, 52, reason: 'panel ma nizszy pas');
+    expect(tester.getSize(find.byType(WaveformBars)).height, 52, reason: 'panel has shorter bar');
 
     await tapTransport(tester, Symbols.play_arrow_rounded);
     final samples = <Duration>[];

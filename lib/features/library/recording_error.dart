@@ -2,16 +2,12 @@ import '../../core/api/api_errors.dart';
 import '../../core/pipeline/processing_pipeline.dart';
 import '../../l10n/app_localizations.dart';
 
-/// Sklada zdanie o awarii nagrania z tego, co lezy w bazie: rodzaju bledu i technicznego
-/// szczegolu. Baza celowo nie trzyma gotowego komunikatu — nagranie moze wywalic sie przy
-/// polskim interfejsie, a byc ogladane przy angielskim, wiec tekst powstaje przy rysowaniu,
-/// a nie przy zapisie.
+/// Assembles a localized error description from persisted database fields: error kind and technical detail.
+/// The database deliberately does not store pre-formatted strings — a recording might fail under
+/// one locale and be viewed under another, so localized text is generated dynamically during rendering.
 ///
-/// [kind] to `Recordings.errorKind`, czyli nazwa wartosci [ApiErrorKind] albo jedna ze stalych
-/// `errorKind*` z pipeline'u. [detail] to `Recordings.errorMessage`: kod HTTP, opis wyjatku —
-/// nigdy tekst dla uzytkownika, wiec wchodzi do zdania tylko tam, gdzie jest liczba albo
-/// wyjatek bez znanego ksztaltu. Rodzaje opisujace konkretne zlamanie kontraktu maja wlasne
-/// pelne zdania: angielska notka debugowa w srodku polskiego zdania to nie jest komunikat.
+/// [kind] corresponds to `Recordings.errorKind`, i.e. a name from [ApiErrorKind] or a pipeline
+/// `errorKind*` constant. [detail] is `Recordings.errorMessage`: HTTP code or exception message.
 String recordingErrorText(AppLocalizations l10n, {String? kind, String? detail}) {
   final apiKind = ApiErrorKind.values.asNameMap()[kind];
   if (apiKind != null) {
@@ -31,7 +27,7 @@ String recordingErrorText(AppLocalizations l10n, {String? kind, String? detail})
   if (kind == errorKindNoConfig) return l10n.pipelineErrorNoConfig;
   if (kind == errorKindSizeLimit) return l10n.pipelineErrorSizeLimit;
   if (kind == errorKindUnknown && detail != null) return l10n.pipelineErrorUnexpected(detail);
-  // Wiersze sprzed tej wersji maja errorKind NULL i cale zdanie w errorMessage. Pokazujemy je
-  // takim, jakie jest: zamrozony jezyk to mniejsza strata niz zgubiony powod awarii.
+  // Rows created prior to this schema have NULL errorKind and the full sentence in errorMessage.
+  // We display it as-is: a frozen language message is preferable to losing the error cause entirely.
   return detail ?? l10n.errorUnknown;
 }

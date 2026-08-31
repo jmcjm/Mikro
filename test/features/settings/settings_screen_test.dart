@@ -18,8 +18,8 @@ class FakeKeyStore implements KeyStore {
   Future<void> write(String v) async => value = v;
 }
 
-/// Rozmiar ramki telefonu z makiety. Domyslna powierzchnia testowa (800x600) jest nizsza niz
-/// projektowany ekran, wiec sekcja motywu wypadala poza widok i stuk w karte nie trafial.
+/// Phone frame dimensions from mockup. Default test surface (800x600) is shorter than
+/// designed screen, so theme section fell below viewport and tapping card missed.
 const _designFrame = Size(412, 892);
 
 Future<SharedPreferences> pumpSettings(WidgetTester tester) async {
@@ -39,17 +39,17 @@ Future<SharedPreferences> pumpSettings(WidgetTester tester) async {
 }
 
 void main() {
-  // Ekran jest w calosci ukladem, wiec analyze go nie sprawdzi — dopiero zbudowanie drzewa
-  // wylapie przepelnienie wiersza albo bledne ograniczenia. Kazdy z tych testow buduje ekran.
-  testWidgets('sekcja motywu ma szesc kart z makiety', (tester) async {
+  // Screen is entirely layout, so analyze won't catch layout issues — only building tree
+  // catches Row overflows or invalid constraints. Each test builds the screen.
+  testWidgets('theme section has six cards from mockup', (tester) async {
     await pumpSettings(tester);
 
     for (final label in ['Jasny', 'Ciemny', 'Dracula', 'Nord', 'Gruvbox', 'Systemowy']) {
-      expect(find.text(label), findsOneWidget, reason: 'brak karty $label');
+      expect(find.text(label), findsOneWidget, reason: 'missing card $label');
     }
   });
 
-  testWidgets('wybor karty zapisuje tryb i palete do preferencji', (tester) async {
+  testWidgets('selecting card saves mode and palette to preferences', (tester) async {
     final prefs = await pumpSettings(tester);
 
     await tester.ensureVisible(find.text('Dracula'));
@@ -58,7 +58,7 @@ void main() {
     expect(prefs.getString('theme_palette'), 'dracula');
     expect(prefs.getString('theme_mode'), 'dark');
 
-    // Powrot na baseline musi cofnac obie wartosci, nie tylko palete.
+    // Returning to baseline must reset both values, not just palette.
     await tester.ensureVisible(find.text(plL10n.settingsThemeSystem));
     await tester.tap(find.text(plL10n.settingsThemeSystem));
     await tester.pumpAndSettle();
@@ -66,7 +66,7 @@ void main() {
     expect(prefs.getString('theme_mode'), 'system');
   });
 
-  testWidgets('sekcja providera pokazuje pola i preset Groq', (tester) async {
+  testWidgets('provider section shows fields and Groq preset', (tester) async {
     await pumpSettings(tester);
 
     expect(find.text('Groq'), findsOneWidget);
@@ -76,15 +76,15 @@ void main() {
     expect(find.text(plL10n.settingsApiKey), findsOneWidget);
     expect(find.text(plL10n.settingsSttModel), findsOneWidget);
     expect(find.text(plL10n.settingsTagModel), findsOneWidget);
-    // Brak zapisanej konfiguracji -> ekran startuje na presecie Groq.
+    // Missing stored configuration -> screen starts on Groq preset.
     expect(find.text('https://api.groq.com/openai/v1'), findsOneWidget);
   });
 
-  testWidgets('klucz API jest domyslnie zamaskowany i da sie go odslonic', (tester) async {
+  testWidgets('API key is masked by default and can be revealed', (tester) async {
     await pumpSettings(tester);
 
     EditableText keyField() => tester.widget<EditableText>(
-          find.byType(EditableText).at(1), // 0 to Base URL, 1 to Klucz API
+          find.byType(EditableText).at(1), // 0 is Base URL, 1 is API Key
         );
 
     expect(keyField().obscureText, isTrue);

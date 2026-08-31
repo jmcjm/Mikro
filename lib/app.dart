@@ -17,8 +17,8 @@ class MikroApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Obie wersje motywu budujemy zawsze — MaterialApp sam wybiera po themeMode, dzieki czemu
-    // przelaczenie systemu na ciemny nie wymaga przebudowy drzewa providerow.
+    // Both theme versions are always built — MaterialApp selects based on themeMode,
+    // so switching system theme to dark does not require rebuilding the provider tree.
     final palette = ref.watch(themePaletteProvider);
     return MaterialApp(
       title: 'Mikro',
@@ -36,7 +36,7 @@ class MikroApp extends ConsumerWidget {
         if (locale?.languageCode == 'pl') return const Locale('pl');
         return const Locale('en');
       },
-      // Pierwsze uruchomienie idzie przez onboarding, kolejne prosto do powloki.
+      // First launch goes through onboarding, subsequent launches go straight to the shell.
       home: const OnboardingGate(child: HomeShell()),
     );
   }
@@ -52,15 +52,15 @@ class HomeShell extends ConsumerWidget {
         ref.read(homeTabProvider.notifier).select(destination);
     final l10n = AppLocalizations.of(context);
 
-    // IndexedStack buduje wszystkie zakladki i trzyma ich stan, wiec przelaczenie nie gubi
-    // ani pozycji listy, ani wpisanej frazy szukania.
+    // IndexedStack builds all tabs and retains their state, so switching tabs does not
+    // lose the list scroll position or the entered search query.
     final body = IndexedStack(
       index: index,
       children: const [RecorderScreen(), LibraryScreen(), SettingsScreen()],
     );
 
-    // Szerokosc bierzemy z MediaQuery, a nie z LayoutBuildera: rail i dolny pasek zajmuja
-    // czesc okna, wiec mierzenie juz po ich odjeciu potrafiloby oscylowac wokol progu.
+    // Width is obtained from MediaQuery rather than LayoutBuilder: rail and bottom bar
+    // take part of the window, so measuring after subtracting them could oscillate around the breakpoint.
     if (MediaQuery.sizeOf(context).width >= wideLayoutBreakpoint) {
       return Scaffold(
         body: Row(
@@ -79,8 +79,8 @@ class HomeShell extends ConsumerWidget {
   }
 }
 
-/// Dolny pasek z makiety telefonowej: wysokosc 80, tlo `surfaceContainer`, wskaznik 64x32
-/// na `secondaryContainer`, etykieta wybranej destynacji pogrubiona do 700.
+/// Phone layout bottom navigation bar: height 80, background `surfaceContainer`, indicator 64x32
+/// on `secondaryContainer`, selected destination label bolded to 700.
 class _HomeNavigationBar extends StatelessWidget {
   const _HomeNavigationBar({required this.index, required this.onSelected, required this.l10n});
 
@@ -98,8 +98,8 @@ class _HomeNavigationBar extends StatelessWidget {
       onDestinationSelected: onSelected,
       height: 80,
       backgroundColor: scheme.surfaceContainer,
-      // Makieta rysuje pasek plaski. Domyslna elewacja 3 dolozylaby przyciemnienie tinta,
-      // przez ktore tlo przestaloby sie zgadzac z tokenem.
+      // The design mockup renders a flat bar. The default elevation of 3 would add tint darkening,
+      // which would cause the background to no longer match the token.
       elevation: 0,
       indicatorColor: scheme.secondaryContainer,
       indicatorShape: const RoundedRectangleBorder(
@@ -130,12 +130,12 @@ class _HomeNavigationBar extends StatelessWidget {
   }
 }
 
-/// Rail z makiety tabletowej: szerokosc 96, tlo `surfaceContainer`, wskaznik 56x32.
+/// Tablet layout rail: width 96, background `surfaceContainer`, indicator 56x32.
 ///
-/// Makieta stawia nad destynacjami kwadrat z mikrofonem, a pod nimi przycisk z paleta i nie
-/// opisuje ich akcji. Ikona bez akcji jest gorsza niz jej brak, wiec obie prowadza tam, gdzie
-/// nalezy dana sprawa: mikrofon na ekran Nagrywaj, paleta do Ustawien, gdzie stoi wybor
-/// motywu. Decyzja odnotowana w raporcie.
+/// The design mockup places a square with a microphone icon above the destinations and a palette button below them without
+/// specifying their actions. An icon without an action is worse than no icon, so both lead to where
+/// the corresponding feature belongs: microphone to the Record screen, palette to Settings where theme
+/// selection resides. Decision documented in report.
 class _HomeRail extends StatelessWidget {
   const _HomeRail({required this.index, required this.onSelected, required this.l10n});
 
@@ -181,8 +181,8 @@ class _HomeRail extends StatelessWidget {
           onTap: () => onSelected(HomeTab.recorder),
         ),
       ),
-      // `margin-top:auto` z makiety: przycisk siedzi przy dolnej krawedzi railu niezaleznie
-      // od tego, ile miejsca zostalo nad nim.
+      // `margin-top:auto` from mockup: button stays at the bottom edge of the rail regardless
+      // of how much space remains above it.
       trailing: Expanded(
         child: Align(
           alignment: Alignment.bottomCenter,
@@ -210,7 +210,7 @@ class _HomeRail extends StatelessWidget {
   }
 }
 
-/// Kwadratowy przycisk railu: 56x56, promien 16, ikona wysrodkowana.
+/// Square rail button: 56x56, radius 16, centered icon.
 class _RailButton extends StatelessWidget {
   const _RailButton({
     required this.icon,

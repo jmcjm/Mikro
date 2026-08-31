@@ -17,8 +17,8 @@ import 'package:mikro/features/library/selected_recording.dart';
 
 import '../../support/l10n_harness.dart';
 
-/// Liczy trasy dolozone PO starcie aplikacji. Trasa startowa przychodzi z `previousRoute`
-/// rownym null i nie jest tu zadnym otwarciem szczegolow.
+/// Counts routes pushed AFTER app launch. Initial route comes with `previousRoute` equal
+/// to null and is not a detail screen opening.
 class RouteCounter extends NavigatorObserver {
   int pushes = 0;
 
@@ -37,9 +37,9 @@ void main() {
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    // Kasowanie nagrania usuwa KATALOG NADRZEDNY pliku audio. Przy sciezce w rodzaju
-    // /tmp/a.m4a skasowaloby to cale /tmp, wiec kazde nagranie dostaje wlasny katalog
-    // w swiezym tymczasowym korzeniu.
+    // Deleting a recording deletes the PARENT DIRECTORY of the audio file. With a path like
+    // /tmp/a.m4a this would delete all of /tmp, so each recording gets its own directory
+    // in a fresh temporary root.
     audioRoot = Directory.systemTemp.createTempSync('mikro-two-pane');
   });
   tearDown(() {
@@ -61,8 +61,8 @@ void main() {
     await db.updateStatus(id, RecordingStatus.done);
   }
 
-  /// Patrz recording_detail_screen_test.dart: bez zaslepki konstruktor AudioPlayer wola
-  /// kanaly platformowe, ktorych w tescie nie ma.
+  /// See recording_detail_screen_test.dart: without stubbing, the AudioPlayer constructor calls
+  /// platform channels that do not exist in test.
   void stubAudioPlayers(WidgetTester tester) {
     final messenger = tester.binding.defaultBinaryMessenger;
     for (final name in const ['xyz.luan/audioplayers', 'xyz.luan/audioplayers.global']) {
@@ -93,7 +93,7 @@ void main() {
         navigatorObservers: [routes],
       ),
     ));
-    // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
+    // First frame is still drift stream loading state, second frame carries data.
     await tester.pump();
     await tester.pump();
   }
@@ -103,13 +103,13 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   }
 
-  // UWAGA NA KOLEJNOSC: ten test musi zostac PIERWSZY w pliku i to nie jest kaprys.
-  // audioplayers trzyma completer globalnej inicjalizacji w zmiennej na poziomie biblioteki
-  // i tworzy go raz — w strefie fake-async tego testu, ktory pierwszy powola AudioPlayer.
-  // Kazdy pozniejszy test dostaje future domkniety w strefie, ktorej nikt juz nie pompuje,
-  // wiec `AudioPlayer.stop()` wisi tam w nieskonczonosc. Testy, ktore tylko RYSUJA panel,
-  // niczego na odtwarzaczu nie awaituja i pulapki nie widza; ten jeden — widzi.
-  testWidgets('kasowanie z panelu zostawia pusty panel i nie zdejmuje trasy',
+  // ORDER MATTERS: this test MUST remain FIRST in the file and this is not arbitrary.
+  // audioplayers stores the global initialization completer in a library-level variable
+  // and creates it once — in the fake-async zone of whichever test creates AudioPlayer first.
+  // Every subsequent test receives a future completed in a zone that is no longer pumped,
+  // so `AudioPlayer.stop()` hangs there indefinitely. Tests that only RENDER the panel
+  // do not await anything on the player and do not hit this trap; this single test does.
+  testWidgets('deleting from panel leaves empty panel and does not pop route',
       (tester) async {
     await insert('a');
     await pumpLibrary(tester, size: const Size(1280, 800));
@@ -120,58 +120,57 @@ void main() {
     await tester.tap(find.byIcon(Symbols.delete_rounded));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FilledButton, plL10n.detailDelete));
-    // `testWidgets` biegnie w strefie fake-async, w ktorej prawdziwe I/O bazy nie dostaje
-    // obrotu petli zdarzen — samo pompowanie klatek nigdy by sie tego nie doczekalo, choc
-    // wyglada na to, ze powinno. Drift wykonuje operacje po kolei, a kasowanie weszlo do
-    // kolejki przed tym odczytem: kiedy ten await wraca, usuniecie na pewno sie skonczylo.
-    // Synchronizacja przez kolejnosc, nie przez odmierzanie czasu; petla, bo lancuch ma
-    // kilka takich krokow, a limit jest twardy, zeby brak reakcji konczyl sie asercja
-    // ponizej, a nie zawieszeniem testu.
+    // `testWidgets` runs in a fake-async zone where real database I/O does not receive
+    // an event loop turn — frame pumping alone would never complete it, although
+    // it looks like it should. Drift executes operations sequentially, and delete was queued
+    // before this read: when this await returns, deletion is guaranteed to have finished.
+    // Synchronization via ordering, not timeouts; loop because the chain has
+    // several such steps, with a hard limit so lack of reaction triggers the assertion
+    // below rather than hanging the test.
     for (var i = 0; i < 20 && container.read(selectedRecordingProvider) != null; i++) {
       await db.getRecording('a');
       await tester.pump();
     }
     expect(container.read(selectedRecordingProvider), isNull,
-        reason: 'po skasowaniu panel wraca do stanu pustego. Jesli to padlo zaraz po dodaniu '
-            'nowego testu WYZEJ w tym pliku — patrz komentarz nad tym testem: kasowanie '
-            'awaituje AudioPlayer.stop(), ktory dziala tylko w tescie powolujacym odtwarzacz '
-            'jako pierwszy.');
+        reason: 'after deletion panel returns to empty state. If this failed right after adding '
+            'a new test HIGHER in this file — see comment above this test: deletion '
+            'awaits AudioPlayer.stop(), which only works in the test instantiating the player first.');
     expect(find.byType(RecordingDetailView), findsNothing);
     expect(await db.getRecording('a'), isNull);
     expect(Directory('${audioRoot.path}/a').existsSync(), isFalse,
-        reason: 'katalog nagrania idzie za wpisem w bazie; guard przed rekursywnym kasowaniem '
-            'ma odsiewac obce sciezki, a nie blokowac wlasciwa');
-    // Lista zostaje na miejscu i pokazuje juz stan pusty biblioteki.
+        reason: 'recording directory follows database entry; guard against recursive deletion '
+            'must filter foreign paths, not block the intended one');
+    // List remains in place and now shows the empty library state.
     expect(find.text(plL10n.libraryEmptyNoRecordings), findsOneWidget);
 
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: stukniecie w karte wypelnia panel obok, bez nowej trasy',
+  testWidgets('wide screen: tapping card fills side panel without new route',
       (tester) async {
     await insert('a');
     await pumpLibrary(tester, size: const Size(1280, 800));
 
     expect(find.byType(RecordingDetailView), findsNothing,
-        reason: 'bez wyboru panel stoi pusty');
+        reason: 'without selection panel remains empty');
 
     await tester.tap(find.text('Transkrypt nagrania a'));
     await tester.pump();
     await tester.pump();
 
-    expect(routes.pushes, 0, reason: 'panel nie jest osobna trasa, wiec nie ma czego pushowac');
+    expect(routes.pushes, 0, reason: 'panel is not a separate route, so nothing to push');
     expect(find.byType(RecordingDetailView), findsOneWidget);
     expect(container.read(selectedRecordingProvider), 'a');
 
-    // Naglowek listy zostaje widoczny obok panelu — to jest sedno ukladu dwupanelowego.
+    // List header remains visible next to panel — that is the essence of two-pane layout.
     expect(find.text(plL10n.libraryTitle), findsOneWidget);
     expect(tester.getTopLeft(find.byType(RecordingDetailView)).dx, 400,
-        reason: 'makieta daje liscie 400 px, panel zaczyna sie tuz za nia');
+        reason: 'mockup gives list 400 px, panel starts right after it');
 
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: panel niesie naglowek z makiety, bez paska aplikacji',
+  testWidgets('wide screen: panel carries header from mockup without app bar',
       (tester) async {
     await insert('a');
     await pumpLibrary(tester, size: const Size(1280, 800));
@@ -179,11 +178,11 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byType(AppBar), findsNothing, reason: 'panel nie ma wlasnego paska aplikacji');
+    expect(find.byType(AppBar), findsNothing, reason: 'panel does not have its own app bar');
     expect(find.text('2026-08-29 09:15 · 3:27 · ${plL10n.statusDone}'), findsOneWidget,
-        reason: 'makieta sklada date, dlugosc i status w jedna linie techniczna');
-    // Data nie moze pojawic sie w panelu drugi raz, na karcie odtwarzacza. Na liscie obok
-    // zostaje — tam jest jedynym opisem nagrania.
+        reason: 'mockup combines date, duration and status into a single technical line');
+    // Date must not appear in the panel a second time on the player card. It remains on the list
+    // beside it — there it is the sole description of the recording.
     expect(
       find.descendant(
         of: find.byType(RecordingDetailView),
@@ -197,7 +196,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: wybor innego nagrania przestawia panel', (tester) async {
+  testWidgets('wide screen: selecting another recording updates panel', (tester) async {
     await insert('a');
     await insert('b');
     await pumpLibrary(tester, size: const Size(1280, 800));
@@ -217,7 +216,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('waski ekran: stukniecie w karte otwiera osobna trase, jak dotad',
+  testWidgets('narrow screen: tapping card opens separate route as before',
       (tester) async {
     await insert('a');
     await pumpLibrary(tester, size: const Size(412, 892));
@@ -225,23 +224,23 @@ void main() {
     await tester.tap(find.text('Transkrypt nagrania a'));
     await tester.pumpAndSettle();
 
-    expect(routes.pushes, 1, reason: 'bez panelu szczegoly musza isc na pelny ekran');
+    expect(routes.pushes, 1, reason: 'without panel, details must go full screen');
     expect(find.byType(RecordingDetailScreen), findsOneWidget);
-    expect(find.byType(AppBar), findsOneWidget, reason: 'pelny ekran ma pasek z powrotem');
+    expect(find.byType(AppBar), findsOneWidget, reason: 'full screen has app bar with back button');
     expect(container.read(selectedRecordingProvider), isNull,
-        reason: 'waski uklad nie tyka providera wyboru');
+        reason: 'narrow layout does not touch selection provider');
 
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: naglowek panelu niesie tytul nagrania', (tester) async {
+  testWidgets('wide screen: panel header carries recording title', (tester) async {
     await insert('a', title: 'Standup i przesuniecie release');
     await pumpLibrary(tester, size: const Size(1280, 800));
     await tester.tap(find.text('Standup i przesuniecie release'));
     await tester.pump();
     await tester.pump();
 
-    // Karta w liscie i naglowek panelu pokazuja ten sam tytul — stad dwa trafienia.
+    // Card in list and panel header show the same title — hence two matches.
     expect(find.text('Standup i przesuniecie release'), findsNWidgets(2));
     expect(
       find.descendant(
@@ -249,14 +248,14 @@ void main() {
         matching: find.text('Standup i przesuniecie release'),
       ),
       findsOneWidget,
-      reason: 'makieta desktopowa stawia tytul w naglowku panelu',
+      reason: 'desktop mockup places title in panel header',
     );
     expect(find.text(plL10n.detailTitle), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: panel bez tytulu zostaje przy nazwie rodzajowej',
+  testWidgets('wide screen: panel without title keeps generic title',
       (tester) async {
     await insert('a');
     await pumpLibrary(tester, size: const Size(1280, 800));
@@ -275,7 +274,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('szeroki ekran: panel tez ma kafelek "+ tag" i krzyzyki na chipach',
+  testWidgets('wide screen: panel also has "+ tag" chip and close icons on chips',
       (tester) async {
     await insert('a');
     await db.setTags('a', ['spotkanie']);
@@ -290,20 +289,20 @@ void main() {
         matching: find.byType(AddTagChip),
       ),
       findsOneWidget,
-      reason: 'reczna edycja tagow dziala w obu kontekstach szczegolow',
+      reason: 'manual tag editing works in both detail contexts',
     );
     expect(find.byIcon(Symbols.close_rounded), findsOneWidget,
-        reason: 'krzyzyk tylko na chipie w panelu, nie na chipie karty w liscie');
+        reason: 'close icon only on chip in panel, not on card chip in list');
 
     await unmount(tester);
   });
 
-  testWidgets('STRAZNIK: skasowanie ostatniego wystapienia tagu przy aktywnym filtrze',
+  testWidgets('GUARD: deleting last occurrence of tag with active filter',
       (tester) async {
-    // Chip filtru zyje ze strumienia biblioteki, wiec zniknieciu tagu z ostatniego nagrania
-    // musi towarzyszyc zniknieciecie chipa. Sam filtr zostaje ustawiony, wiec lista pokazuje
-    // stan pusty wyszukiwania — a rzad chipow zostaje przy samym "Wszystkie", zeby bylo
-    // czym ten juz nieistniejacy filtr zdjac.
+    // Filter chip is driven by library stream, so removal of tag from last recording
+    // must be accompanied by filter chip disappearance. The filter itself remains active, so the list shows
+    // empty search state — and chip row retains only "All", so that
+    // this non-existent filter can be cleared.
     await insert('a');
     await db.setTags('a', ['spotkanie']);
     await pumpLibrary(tester, size: const Size(1280, 800));
@@ -319,7 +318,7 @@ void main() {
         matching: find.text('Transkrypt nagrania a'),
       ),
       findsOneWidget,
-      reason: 'przy filtrze na tym tagu nagranie jest jeszcze na liscie',
+      reason: 'with filter on this tag the recording is still in the list',
     );
 
     await tester.tap(find.descendant(
@@ -327,8 +326,8 @@ void main() {
       matching: find.byIcon(Symbols.close_rounded),
     ));
     await tester.pump();
-    // Patrz komentarz przy tescie kasowania: prawdziwe I/O bazy w strefie fake-async
-    // dochodzi przez kolejnosc operacji drifta, nie przez odmierzanie czasu.
+    // See comment on delete test: real database I/O in fake-async zone
+    // executes via drift operation ordering, not timeouts.
     for (var i = 0; i < 20 && find.text(plL10n.libraryEmptyNoResults).evaluate().isEmpty; i++) {
       await db.getRecording('a');
       await tester.pump();
@@ -336,12 +335,12 @@ void main() {
 
     expect(find.text(plL10n.libraryEmptyNoResults), findsOneWidget);
     expect(find.text(plL10n.libraryEmptyNoRecordings), findsNothing,
-        reason: 'biblioteka nie jest pusta, pusty jest wynik filtrowania');
-    expect(find.text('spotkanie'), findsNothing, reason: 'chip filtru znika razem z tagiem');
+        reason: 'library is not empty, filter result is empty');
+    expect(find.text('spotkanie'), findsNothing, reason: 'filter chip disappears with tag');
     expect(find.text(plL10n.libraryFilterAll), findsOneWidget,
-        reason: 'bez tego chipa nie da sie zdjac filtru, ktory juz nic nie zaznacza');
+        reason: 'without this chip one cannot clear a filter that no longer matches anything');
     expect(find.byType(RecordingDetailView), findsOneWidget,
-        reason: 'panel zyje dalej, nagranie nie zniknelo');
+        reason: 'panel remains alive, recording did not disappear');
 
     await unmount(tester);
   });

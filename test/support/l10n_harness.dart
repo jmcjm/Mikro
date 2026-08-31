@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:mikro/l10n/app_localizations.dart';
 import 'package:mikro/l10n/app_localizations_pl.dart';
 
-/// Polskie teksty prosto z ARB. Testy porownuja z nimi zamiast z wklejonymi literalami:
-/// poprawka copy w ARB nie ma zrywac testu, ktory sprawdza podpiecie klucza, a nie jego tresc.
+/// Polish strings directly from ARB. Tests compare against them instead of hardcoded literals:
+/// copy edits in ARB should not break tests checking key wiring rather than content.
 final AppLocalizations plL10n = AppLocalizationsPl();
 
-/// MaterialApp z delegatami l10n, przypiety na polski.
+/// MaterialApp with l10n delegates pinned to Polish.
 ///
-/// Delegaty sa obowiazkowe: bez nich `AppLocalizations.of()` rzuca przy pierwszym widgecie
-/// z tekstem. Locale pinujemy, bo domyslnym locale testu jest en_US — bez tego kazdy test
-/// sprawdzalby tlumaczenie zamiast jezyka zrodlowego.
+/// Delegates are required: without them `AppLocalizations.of()` throws on first text widget.
+/// We pin the locale because the default test locale is en_US — without this each test
+/// would check the translation instead of source language.
 Widget localizedApp(
   Widget home, {
   ThemeData? theme,

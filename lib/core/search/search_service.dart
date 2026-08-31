@@ -4,12 +4,12 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import '../db/database.dart';
 
-/// Zwijanie polskich znakow diakrytycznych do golego ASCII. fuzzywuzzy porownuje znaki
-/// jeden do jednego, wiec dla algorytmu 's' i 's z kreska' to dwie zupelnie rozne litery:
-/// zapytanie "sledz" o tekst "sledz z kreskami" dostawalo 22 punkty zamiast 100. User pisze
-/// w polu wyszukiwania bez ogonkow (i transkrypt bywa bez nich), wiec obie strony sprowadzamy
-/// do wspolnego mianownika. Wielkie litery zdejmuje wczesniej `toLowerCase`, wiec mapa
-/// obsluguje tylko male.
+/// Folding Polish diacritical characters to plain ASCII. fuzzywuzzy compares characters
+/// strictly 1:1, so the algorithm treats 's' and 'ś' as two completely different letters:
+/// query "sledz" against text "śledź" received 22 points instead of 100. Users often type
+/// in the search field without diacritics (and transcripts may omit them), so we normalize both sides
+/// to a common representation. Uppercase letters are stripped beforehand by `toLowerCase`,
+/// so the map only handles lowercase.
 const _diacriticFolding = {
   'ą': 'a',
   'ć': 'c',
@@ -22,8 +22,8 @@ const _diacriticFolding = {
   'ż': 'z',
 };
 
-/// Wszystko, co nie jest litera ani cyfra, rozdziela tokeny. Klasy unikodowe zamiast [a-z0-9],
-/// zeby tekst w obcym alfabecie nie rozpadl sie na pojedyncze znaki.
+/// Anything that is not a letter or a digit separates tokens. Unicode character classes instead of [a-z0-9]
+/// prevent non-Latin alphabets from breaking into individual characters.
 final _tokenSeparator = RegExp(r'[^\p{L}\p{N}]+', unicode: true);
 
 String _normalize(String text) {
@@ -37,17 +37,17 @@ String _normalize(String text) {
 List<String> _tokenize(String normalized) =>
     normalized.split(_tokenSeparator).where((token) => token.isNotEmpty).toList();
 
-/// Najlepsze dopasowanie pojedynczego tokenu zapytania do ktoregokolwiek tokenu tekstu.
+/// Best match of a single query token against any text token.
 int _bestTokenMatch(String queryToken, List<String> textTokens) {
   var best = 0;
   for (final textToken in textTokens) {
-    // Prefiks to trafienie pelne: user pisze w trakcie i po kazdej literze lista ma sie
-    // zawezac, a nie gasnac. Zapytanie "mowis" o tekst "mowisz" dostaje 100 zamiast 91,
-    // a dwuznakowe "sp" zamiast 3 punktow (czyli pustej listy przy kazdym progu).
+    // Prefix match is an exact hit: user types incrementally and the list should
+    // narrow down with each character rather than disappear. Query "mowis" against text "mowisz" gets 100 instead of 91,
+    // and two-character "sp" gets 100 instead of 3 points (which would empty the list under any threshold).
     if (textToken.startsWith(queryToken)) return 100;
-    // Podobienstwo nie przekroczy 2*min(dlugosci)/suma dlugosci, bo tyle najwyzej moze byc
-    // wspolnych znakow. Gdy ten sufit lezy pod progiem, liczenie odleglosci edycyjnej jest
-    // strata czasu — a przy dlugim transkrypcie odpada tak wiekszosc porownan.
+    // Similarity cannot exceed 2 * min(lengths) / sum of lengths, as that represents the theoretical maximum
+    // of shared characters. When this ceiling falls below the current best score or threshold, computing edit distance
+    // is a waste of time — on long transcripts this prunes the vast majority of comparisons.
     final ceiling = 200 * min(queryToken.length, textToken.length) ~/
         (queryToken.length + textToken.length);
     if (ceiling <= best || ceiling < SearchService.threshold) continue;
@@ -58,10 +58,10 @@ int _bestTokenMatch(String queryToken, List<String> textTokens) {
 }
 
 class SearchService {
-  /// Prog dobrany pomiarami na fuzzywuzzy 1.2.0 (patrz testy-straznicy): najgorsza zmierzona
-  /// literowka jednoznakowa w slowie 5-literowym ("maslu" wobec "maslo") daje 80, a pary
-  /// osobnych slow, ktore nie moga sie dopasowac, siegaja 60 ("mleko"/"maslo") i 56
-  /// ("spotkanie"/"sniadanie"). 75 lezy miedzy tymi grupami z zapasem po obu stronach.
+  /// Threshold calibrated by benchmark measurements on fuzzywuzzy 1.2.0 (see test guards):
+  /// worst single-character typo in a 5-letter word yields 80, whereas pairs
+  /// of distinct words that must not match peak around 60 and 56.
+  /// 75 sits comfortably between these distributions with safety margins on both sides.
   static const threshold = 75;
 
   List<RecordingWithTags> search(List<RecordingWithTags> all, {String query = '', String? tag}) {
@@ -84,21 +84,18 @@ class SearchService {
       ].where((field) => field.isNotEmpty).toList();
       if (fields.isEmpty) continue;
 
-      // Dwie strategie, bo lapia rozne rzeczy. tokenSetRatio na calym polu radzi sobie z
-      // zapytaniem szerszym niz tekst (czesc slow zapytania w ogole nie wystepuje), ale
-      // literowke w pojedynczym slowie gubi doszczetnie: przeciecie tokenow jest wtedy puste
-      // i porownywany jest krotki string z posortowanym CALYM transkryptem — zmierzone 10
-      // punktow dla "spotaknie" wobec transkryptu ze slowem "spotkanie". Druga strategia
-      // patrzy token po tokenie, wiec dlugosc tekstu jej nie rozciencza.
+      // Two strategies because they capture different scenarios. tokenSetRatio on the whole field handles
+      // queries broader than the text (some query words absent), but completely misses single-word typos:
+      // token intersection becomes empty and compares a short string against the entire sorted transcript.
+      // The second strategy evaluates token by token, preventing long transcript text from diluting the score.
       var score = 0;
       for (final field in fields) {
         score = max(score, tokenSetRatio(normalizedQuery, field));
       }
 
-      // Tokeny wszystkich pol w jednym worku: zapytanie "zakupy mleko" ma trafiac, gdy
-      // "zakupy" jest tagiem, a "mleko" siedzi w transkrypcie. Agregacja przez minimum, bo
-      // kazde slowo zapytania ma byc spelnione — srednia przepuszczalaby "mleko rower" na
-      // samym "mleko".
+      // Combine tokens of all fields into a single pool: e.g. query "groceries milk" should match when
+      // "groceries" is a tag and "milk" appears in the transcript. Aggregation by minimum ensures
+      // all query words must match — an average would let "milk bicycle" pass on "milk" alone.
       final textTokens = fields.expand(_tokenize).toList();
       var weakestToken = 100;
       for (final queryToken in queryTokens) {
@@ -109,8 +106,8 @@ class SearchService {
 
       if (score >= threshold) scored.add((index, item, score));
     }
-    // Remisy sa czeste (prefiks daje 100 kazdemu trafieniu), a `List.sort` w Darcie nie jest
-    // stabilny — bez jawnego rozstrzygania kolejnosc wejscia (najnowsze pierwsze) tasowalaby sie.
+    // Ties are common (prefix match gives 100 to every hit), and Dart's `List.sort` is not
+    // stable — without explicit tie-breaking, insertion order (newest first) would shuffle.
     scored.sort((a, b) {
       final byScore = b.$3.compareTo(a.$3);
       return byScore != 0 ? byScore : a.$1.compareTo(b.$1);

@@ -10,10 +10,10 @@ import '../settings/settings_repository.dart';
 
 const maxUploadBytes = 25 * 1024 * 1024;
 
-/// Rodzaje bledow zapisywane w kolumnie `errorKind` poza domena [ApiErrorKind]. Kolumna niesie
-/// rodzaj, a nie gotowe zdanie: komunikat sklada dopiero UI w jezyku, ktory obowiazuje przy
-/// ogladaniu, a nie w tym, ktory obowiazywal przy awarii. Wartosci sa czescia formatu bazy,
-/// wiec nie zmieniaja sie razem z tekstami.
+/// Error kinds stored in the `errorKind` column outside the [ApiErrorKind] domain. The column holds
+/// error kinds rather than ready-made sentences: the message is assembled by the UI in the user's
+/// active language at view time, not the locale present at failure time. Values are part of the
+/// database schema format and do not change with UI copy.
 const errorKindNoConfig = 'noConfig';
 const errorKindSizeLimit = 'sizeLimit';
 const errorKindUnknown = 'unknown';
@@ -36,35 +36,35 @@ class ProcessingPipeline {
 
   StreamSubscription<bool>? _connectivitySub;
 
-  /// Ostatni znany stan lacznosci; `null` znaczy "jeszcze nie ustalony". Rozroznienie jest
-  /// istotne: sesja, ktora startuje juz z siecia, nie zobaczy zadnego zbocza offline -> online,
-  /// wiec zastane bledy sieciowe musi wznowic rekoncyliacja startowa z [watchConnectivity].
+  /// Last known connectivity state; `null` means "not yet resolved". The distinction is
+  /// important: a session starting already online will not observe an offline -> online edge,
+  /// so existing network errors must be resumed via initial reconciliation in [watchConnectivity].
   bool? _wasOnline;
 
-  /// Straznik przed nakladaniem sie wznowien, gdy siec mruga.
+  /// Guard against overlapping resumes when network connectivity fluctuates.
   bool _resuming = false;
 
   Future<void> get idle => _queue;
 
   void enqueue(String recordingId) {
     if (!_inFlight.add(recordingId)) return;
-    // catchError trzyma kolejke przy zyciu nawet wtedy, gdy _process rzuci mimo wszystko
-    // (np. gdyby zawiodl sam updateStatus w bloku catch). Bez tego jedna odrzucona przyszlosc
-    // propaguje sie na kazde kolejne ogniwo i pipeline jest martwy do konca zycia procesu.
+    // catchError keeps the queue alive even if _process throws unexpectedly
+    // (e.g., if updateStatus itself failed in a catch block). Without this, a single rejected future
+    // would propagate to every subsequent chained item, permanently stalling the pipeline.
     _queue = _queue
         .then((_) => _process(recordingId).whenComplete(() => _inFlight.remove(recordingId)))
         .catchError((Object _) {});
   }
 
-  /// Wlacza reagowanie na lacznosc: nasluchuje zmian ORAZ uzgadnia stan zastany przy starcie.
-  /// Jedyne wejscie uzywane w produkcji — obie sciezki koncza w tej samej [_resumeAll].
+  /// Enables connectivity responsiveness: listens for changes AND reconciles the initial startup state.
+  /// The single entry point used in production — both paths converge in [_resumeAll].
   ///
-  /// Kolejnosc jest celowa: najpierw subskrypcja, dopiero potem odczyt, wiec zmiana lacznosci
-  /// w trakcie odczytu nie ginie. Odczyt nie nadpisuje stanu, ktory zdazyl podac strumien
-  /// (`??=`) — strumien jest swiezszy niz zapytanie wystartowane wczesniej.
+  /// The order is intentional: subscribe first, then query initial state, ensuring connectivity transitions
+  /// during the query are not missed. The query does not overwrite a state already reported by the stream
+  /// (`??=`) — the stream event is fresher than a previously initiated query.
   ///
-  /// Podwojne wznowienie przy szybkim zbociu tuz po starcie odpada samo: [_resumeAll] pilnuje
-  /// flagi [_resuming], a [enqueue] deduplikuje po `id`.
+  /// Duplicate resumption from a rapid edge right after startup is prevented automatically: [_resumeAll] checks
+  /// the [_resuming] flag, and [enqueue] deduplicates by `id`.
   Future<void> watchConnectivity({
     required Stream<bool> onlineChanges,
     required Future<bool> Function() isOnline,
@@ -74,23 +74,22 @@ class ProcessingPipeline {
     try {
       online = await isOnline();
     } catch (_) {
-      // Odczyt stanu lacznosci potrafi rzucic (brak uprawnien, kaprys platformy). Rekoncyliacja
-      // startowa jest best-effort: nasluch zbocza juz dziala i wznowi, gdy siec wroci.
+      // Reading connectivity state can throw (lack of permissions, platform quirks). Initial
+      // reconciliation is best-effort: edge listener is already active and will resume once network returns.
       return;
     }
     _wasOnline ??= online;
     if (online) await _resumeAll();
   }
 
-  /// Podpina sam nasluch. Wznowienie odpala sie na ZBOCZU offline -> online, nie przy kazdej
-  /// emisji, wiec utrzymujace sie "online" nic nie robi. Ponowne wywolanie zamyka poprzednia
-  /// subskrypcje, zeby jeden pipeline nie sluchal dwoch zrodel naraz.
+  /// Attaches the connectivity listener. Resumption triggers on an offline -> online EDGE, not on every
+  /// emission, so continuous "online" events perform no action. Re-invoking cancels any prior
+  /// subscription to ensure a single pipeline does not listen to multiple sources simultaneously.
   ///
-  /// Przed zapetleniem przy mrugajacej sieci chronia trzy rzeczy naraz i zadna nie wymaga
-  /// zegara: wykrywanie zbocza (samo "online" nie wystarczy), flaga [_resuming] (kolejne
-  /// zbocze w trakcie trwajacego wznowienia jest pomijane) oraz istniejacy dedup po `id`
-  /// w [enqueue]. Dzieki temu zachowanie jest deterministyczne i testowalne bez czekania
-  /// na uplyw czasu.
+  /// Flapping network loops are prevented by three concurrent mechanisms without relying on timers:
+  /// edge detection (plain "online" is insufficient), the [_resuming] flag (subsequent edges
+  /// during an ongoing resume are skipped), and existing `id` deduplication in [enqueue].
+  /// This keeps behavior deterministic and testable without waiting on real-time delays.
   void _bindConnectivity(Stream<bool> onlineChanges) {
     _connectivitySub?.cancel();
     _connectivitySub = onlineChanges.listen(_handleConnectivity);
@@ -103,19 +102,18 @@ class ProcessingPipeline {
     await _resumeAll();
   }
 
-  /// Jedyna sciezka wznawiania — wchodzi tu zarowno rekoncyliacja startowa, jak i zbocze
-  /// powrotu sieci.
+  /// Single resume execution path — entered by both initial startup reconciliation and online transition edges.
   Future<void> _resumeAll() async {
     if (_resuming) return;
     _resuming = true;
     try {
-      // Najpierw nagrania, ktore utknely konkretnie na sieci, potem cala zalegla kolejka.
+      // First process recordings that stalled specifically due to network issues, then the rest of the pending queue.
       for (final recording in await db.networkFailedRecordings()) {
         enqueue(recording.id);
       }
       await resumePending();
     } catch (_) {
-      // Wznawianie jest best-effort, tak samo jak przy starcie aplikacji.
+      // Resumption is best-effort, consistent with application startup.
     } finally {
       _resuming = false;
     }
@@ -134,9 +132,9 @@ class ProcessingPipeline {
   }
 
   Future<void> _process(String id) async {
-    // Odczyt nagrania i konfiguracji tez musi byc w try: settings.load() siega po klucz do
-    // magazynu systemowego (libsecret / Keystore), ktory potrafi rzucic. Poza try taki wyjatek
-    // uciekal z _process, zostawial nagranie w stanie recorded bez komunikatu i zatruwal kolejke.
+    // Loading recording and config must also be wrapped in try: settings.load() reads secrets
+    // from system storage (libsecret / Keystore), which can throw. Outside try, such exceptions
+    // would escape _process, leave the recording stuck in recorded state without an error message, and poison the queue.
     try {
       final recording = await db.getRecording(id);
       if (recording == null || recording.status == RecordingStatus.done) return;
@@ -159,14 +157,14 @@ class ProcessingPipeline {
         await db.setTranscript(id, transcript, config.sttModel);
       }
       await db.updateStatus(id, RecordingStatus.tagging);
-      // Tytul i tagi powstaja w jednym wywolaniu modelu, wiec i zapisuja sie razem — dopiero
-      // po nich nagranie przechodzi na `done`.
+      // Title and tags are generated in a single model call and saved together — only after
+      // both succeed does the recording advance to `done`.
       final meta = await taggingApi.generateMeta(transcript: transcript, config: config);
       await db.setTitle(id, meta.title);
       await db.setTags(id, meta.tags);
       await db.updateStatus(id, RecordingStatus.done);
     } on MikroApiException catch (e) {
-      // Rodzaj bledu decyduje, czy warto ponowic po powrocie sieci — patrz networkFailedRecordings.
+      // Error kind determines whether retry is worthwhile upon network reconnection — see networkFailedRecordings.
       await db.updateStatus(id, RecordingStatus.error,
           errorMessage: e.message, errorKind: e.kind.name);
     } catch (e) {

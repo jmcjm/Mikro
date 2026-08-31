@@ -14,11 +14,11 @@ String formatDateTime(DateTime dt) {
   return '${l.year}-${two(l.month)}-${two(l.day)} ${two(l.hour)}:${two(l.minute)}';
 }
 
-/// Liczba w pigulce predkosci ("1,0" po polsku, "1.0" po angielsku). Separator dziesietny idzie
-/// z [locale] przez intl, bo w polskim ekranie kropka byla by kalka.
+/// Number for the playback speed pill ("1,0" in Polish, "1.0" in English). Decimal separator
+/// comes from [locale] via intl, ensuring culturally correct formatting per language.
 ///
-/// Jedna cyfra po separatorze to minimum, zeby "1,0" nie schudlo do "1" i pigulka nie skakala
-/// na szerokosci; dwie to maksimum, ktore mieszcza kroki cyklu (1,25).
+/// One decimal digit is the minimum so "1.0" does not collapse to "1" and cause the pill width
+/// to jitter; two digits is the maximum required to display cycle steps like 1.25.
 String formatPlaybackRate(double rate, {required String locale}) {
   final format = NumberFormat.decimalPattern(locale)
     ..minimumFractionDigits = 1

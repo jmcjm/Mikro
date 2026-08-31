@@ -1,34 +1,34 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// Prog, powyzej ktorego aplikacja przechodzi na uklad szeroki: nawigacja idzie z dolu na bok,
-/// a biblioteka rozklada sie na liste i panel szczegolow. Makieta pokazuje ten wariant na
-/// ekranie 1280 px i nie podaje wlasnego progu ani media query, wiec zostaje standard MD3 dla
-/// klasy "medium" — 840 dp. Jedna stala, bo oba przelaczenia musza nastapic w tym samym
-/// momencie: rail bez panelu (albo odwrotnie) to uklad, ktorego makieta nie przewiduje.
+/// Breakpoint above which the app switches to the wide layout: navigation moves from bottom to the side rail,
+/// and the library expands into a master-detail list and side panel. The design mockup presents this variant
+/// at 1280 px without defining a custom breakpoint or media query, so standard MD3 for
+/// the "medium" window class (840 dp) is used. A single constant ensures both switches happen at the
+/// exact same time: a rail without a side panel (or vice-versa) is an unsupported layout state.
 const wideLayoutBreakpoint = 840.0;
 
-/// Zakladki powloki. Nazwane stale zamiast golych liczb, bo do tej trojki siega teraz
-/// kilka miejsc poza sama powloka — pusty stan biblioteki, ikona historii na ekranie
-/// Nagrywaj, akcja snackbara i rail — a literal `1` rozsiany po ekranach nie mowilby nic.
+/// Shell navigation tabs. Named constants instead of magic numbers, as multiple places
+/// outside the shell reference these destinations — empty library state, history button on
+/// Record screen, snackbar action, and rail navigation.
 abstract final class HomeTab {
   static const recorder = 0;
   static const library = 1;
   static const settings = 2;
 
-  /// Liczba destynacji. Pilnuje, zeby [HomeTabController.select] nie przyjal indeksu,
-  /// ktorego IndexedStack nie ma czym obsluzyc.
+  /// Number of destinations. Enforces that [HomeTabController.select] does not accept an index
+  /// that IndexedStack cannot render.
   static const count = 3;
 }
 
-/// Aktywna zakladka powloki. Wyniesiona z lokalnego `setState` HomeShella, bo przelaczaja
-/// ja teraz takze ekrany w srodku IndexedStacka — przekazywanie callbacku przez cale drzewo
-/// byloby tu jedyna alternatywa.
+/// Active shell tab. Lifted from HomeShell's local `setState` because screens inside
+/// the IndexedStack also switch tabs — threading callbacks through the widget tree
+/// would otherwise be required.
 class HomeTabController extends Notifier<int> {
   @override
   int build() => HomeTab.recorder;
 
   void select(int index) {
-    assert(index >= 0 && index < HomeTab.count, 'nieznana zakladka: $index');
+    assert(index >= 0 && index < HomeTab.count, 'unknown tab index: $index');
     state = index;
   }
 }

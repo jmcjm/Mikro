@@ -1,83 +1,78 @@
-// Logika sterowania odtwarzaniem z karty szczegolow. Siedzi poza widgetem, bo daje sie
-// wtedy sprawdzic bez stawiania ekranu i bez natywnego odtwarzacza — a to wlasnie te
-// przeliczenia decyduja o tym, czy suwak, kursor i czasy mowia to samo.
+// Playback control logic for the details card. Resides outside widgets to allow
+// verification without mounting widgets or native audio player — ensuring
+// slider, cursor, and time counters remain perfectly synchronized.
 
-/// Predkosci odtwarzania w kolejnosci cyklu pigulki. Cztery kroki, bo dalej roznica przestaje
-/// byc slyszalna, a etykieta rosnie szybciej niz pozytek.
+/// Playback rates in cycle order. Four discrete steps because finer increments
+/// are barely noticeable and unnecessarily clutter the UI label.
 const List<double> kPlaybackRates = [1.0, 1.25, 1.5, 2.0];
 
-/// Skok przyciskow replay_10 i forward_10. Dziesiec sekund wprost z ikon makiety.
+/// Step duration for replay_10 and forward_10 skip buttons. Ten seconds directly from mockup icons.
 const Duration kSkipStep = Duration(seconds: 10);
 
-/// Nastepna predkosc w cyklu; po ostatniej wraca pierwsza.
+/// Next playback rate in the cycle; wraps to the first rate after the last.
 ///
-/// Wartosc spoza listy (nie da sie jej dzis ustawic z ekranu) laduje na jej poczatku —
-/// pigulka umie pokazac tylko te cztery i nie wolno jej zostawic z etykieta bez pokrycia.
+/// An unknown value falls back to the beginning of the list —
+/// the speed pill UI only renders these four discrete rates.
 double nextPlaybackRate(double current) {
   final index = kPlaybackRates.indexOf(current);
   if (index < 0) return kPlaybackRates.first;
   return kPlaybackRates[(index + 1) % kPlaybackRates.length];
 }
 
-/// Cel skoku o [step] od pozycji [from], przyciety do nagrania.
+/// Target skip position clamped to recording boundaries for [step] from [from].
 ///
-/// Przyciecie jest tu, a nie w odtwarzaczu, bo to samo miejsce liczy pozycje pokazywana na
-/// karcie: gdyby ekran wyslal seek poza koniec, natywna warstwa przyciela by go po cichu,
-/// a licznik pokazywalby przez chwile czas, ktorego w nagraniu nie ma.
+/// Boundary clamping is performed here rather than in the player because the same calculation feeds the UI:
+/// if the UI issued a seek past the end, the native layer would clamp it silently,
+/// causing a temporary display mismatch.
 ///
-/// Nagranie o nieznanej dlugosci ([total] zerowe) nie ma zakresu, w ktorym skok mialby sens:
-/// wynikiem jest poczatek.
+/// Zero total duration yields Duration.zero.
 Duration skipTarget(Duration from, Duration step, Duration total) {
   final totalMs = total.inMilliseconds;
   if (totalMs <= 0) return Duration.zero;
   return Duration(milliseconds: (from.inMilliseconds + step.inMilliseconds).clamp(0, totalMs));
 }
 
-/// Ile slupkow przebiegu stoi po lewej stronie kursora, czyli ile z nich jest juz zagranych.
+/// Number of waveform bars to the left of the cursor, representing played progress.
 ///
-/// Warunek jest ten sam, co w generatorze makiety (`i / count < played`), tylko trzymany na
-/// liczbach calkowitych: podzial nie ma prawa skakac przez blad zaokraglenia double, bo
-/// pilnuje go test na granicy slupka.
+/// Matches the mockup generator formula (`i / count < played`), computed using
+/// integer arithmetic to avoid double precision rounding jumps across bar boundaries.
 int playedBars({required int count, required Duration position, required Duration total}) {
   final totalMs = total.inMilliseconds;
   if (count <= 0 || totalMs <= 0) return 0;
   final positionMs = position.inMilliseconds.clamp(0, totalMs);
-  // Sufit z dzielenia calkowitego: tyle jest indeksow i, dla ktorych i/count < pozycja/calosc.
+  // Integer division ceiling: count of indices i where i/count < position/total.
   final played = (positionMs * count + totalMs - 1) ~/ totalMs;
   return played.clamp(0, count);
 }
 
-/// Pozycja w nagraniu pod punktem [dx] powierzchni przebiegu o szerokosci [width].
+/// Position in recording for touch coordinate [dx] on waveform surface of width [width].
 ///
-/// Dotkniecie poza paskiem (palec wyjezdzajacy w bok w trakcie przeciagania) laduje na jego
-/// krancu — nie ma powodu, zeby gest przerywal sie tylko dlatego, ze reka wyszla poza karte.
+/// Dragging past waveform boundaries clamps to the edges so drag gestures are not interrupted
+/// when the finger moves slightly outside the card.
 Duration positionAt({required double dx, required double width, required Duration total}) {
   if (width <= 0 || total <= Duration.zero) return Duration.zero;
   final fraction = (dx / width).clamp(0.0, 1.0);
   return Duration(milliseconds: (total.inMilliseconds * fraction).round());
 }
 
-/// Roznica, powyzej ktorej zdarzenie pozycji przestaje byc korekta, a staje sie skokiem.
-/// Polsekundy: zdarzenia przychodza co 200 ms - 1 s, wiec drobne rozjechanie sie miesci sie
-/// grubo ponizej, a prawdziwy skok (przewiniecie, koniec nagrania) grubo powyzej.
+/// Difference threshold above which a position update is considered a seek jump rather than minor drift.
+/// 500 ms: position events arrive every 200 ms - 1 s, so minor jitter stays well below,
+/// while explicit seeks and loop wraps stay well above.
 const Duration kPositionSnap = Duration(milliseconds: 500);
 
-/// Pozycja odtwarzania miedzy zdarzeniami: baza plus uplyw czasu przemnozony przez predkosc.
+/// Interpolated playback position between events: base timestamp plus elapsed time scaled by speed rate.
 ///
-/// Odtwarzacz melduje pozycje co 200 ms - 1 s. Kursor postawiony wprost na tych zdarzeniach
-/// skacze; ten sam kursor liczony z uplywu czasu miedzy nimi sunie. Predkosc wchodzi tu
-/// wprost, bo przy 2,0x sekunda zegara to dwie sekundy nagrania.
+/// Native players report position events every 200 ms - 1 s. A cursor bound strictly to events
+/// stutters; interpolating elapsed time between events provides smooth movement.
 ///
-/// [total] zerowe znaczy „dlugosc jeszcze nieznana" i zdejmuje gorna granice — przycinanie
-/// do zera zatrzymaloby kursor na starcie zamiast pozwolic mu isc.
+/// Zero [total] indicates unknown length and removes upper clamping.
 Duration interpolatePosition({
   required Duration base,
   required Duration elapsed,
   required double rate,
   required Duration total,
 }) {
-  // Mikrosekundy, bo klatka przy 60 Hz to 16,7 ms i zaokraglenie do milisekund na wejsciu
-  // gubiloby co szesnasta.
+  // Microseconds precision: a 60 Hz frame is ~16.7 ms, so rounding to milliseconds would drop frames.
   final ms = base.inMilliseconds + (elapsed.inMicroseconds * rate / 1000).round();
   final maxMs = total.inMilliseconds;
   if (ms < 0) return Duration.zero;
@@ -85,12 +80,11 @@ Duration interpolatePosition({
   return Duration(milliseconds: ms);
 }
 
-/// Nowa baza interpolacji po prawdziwym zdarzeniu pozycji.
+/// New interpolation baseline following a position event from player.
 ///
-/// Zdarzenie potrafi byc o wlos ZA tym, co karta juz pokazala — cofniecie kursora o kilkadziesiat
-/// milisekund widac jako drganie, wiec przy malych roznicach zostaje wartosc dalsza. Duza roznica
-/// to nie drganie, tylko prawdziwy skok (przewiniecie spoza karty, koniec nagrania) i tam kursor
-/// idzie za odtwarzaczem natychmiast.
+/// An incoming event can lag slightly behind currently rendered interpolation —
+/// rewinding the cursor by a few milliseconds causes visible jitter, so small negative deltas are ignored.
+/// Large deltas represent deliberate seeks or end-of-track events and are applied immediately.
 Duration reconcilePosition({
   required Duration shown,
   required Duration event,
@@ -101,35 +95,27 @@ Duration reconcilePosition({
   return delta.isNegative ? shown : event;
 }
 
-/// Okresy „oddechu" slupkow w sekundach. Wolniejsze niz skoki poziomu na ekranie nagrywania
-/// (tam ~1 s): tam slupki SA animacja, tu sa wykresem, ktory ma tylko zyc.
+/// Bar breathing cycle periods in seconds. Slower than recording screen level bars (~1 s):
+/// on the recording screen bars represent dynamic audio meter, here they represent a living waveform chart.
 const List<double> kBarDanceSeconds = [2.6, 2.2, 3.1, 2.4, 2.9, 2.3, 2.8, 2.5, 3.0];
 
-/// Ujemne opoznienia startu w sekundach. SIEDEM wartosci przy dziewieciu okresach: para
-/// (okres, opoznienie) powtarza sie dopiero co 63 slupki, czyli nigdy w pasie [kWaveformBuckets]
-/// slupkow. Przy rownej dlugosci obu list co dziewiaty slupek oddychalby identycznie i w pasie
-/// widac by bylo wzor; bez opoznien caly pas pulsowalby unisono jak jeden klocek.
+/// Negative start delays in seconds. SEVEN delay values paired with NINE periods:
+/// the (period, delay) combination repeats only every 63 bars, preventing repetitive patterns in [kWaveformBuckets] bars.
 const List<double> kBarDanceDelays = [-2.1, -0.5, -1.3, 0.0, -1.7, -0.9, -0.3];
 
-/// Glebokosc oddechu: slupek plywa miedzy `1 - kBarDanceDepth` a pelna wysokoscia z obwiedni.
+/// Breathing amplitude depth: bar oscillates between `1 - kBarDanceDepth` and peak waveform height.
 ///
-/// Waskie pasmo jest tu calym sednem. Przy szerokim (proba z zakresem 0,25-1,0 jak na ekranie
-/// nagrywania) pas przestawal byc wykresem i stawal sie ekwalizerem: slupek cichy w szczycie
-/// swojego cyklu bywal wyzszy od glosnego w dolku, czyli animacja ZAMAZYWALA to, co w nagraniu
-/// slychac. Przy 0,15 stosunek skrajnych mnoznikow to 1,18, wiec porzadek wysokosci zgadza sie
-/// z obwiednia wszedzie tam, gdzie slupki roznia sie o wiecej niz osiemnascie procent —
-/// a zatrzymana klatka animacji jest prawie nie do odroznienia od statycznego wykresu.
+/// A narrow modulation range is critical: a wide range would turn the static waveform into a fluctuating equalizer,
+/// obscuring actual acoustic loudness. At 0.15 depth, relative bar height ordering is preserved across
+/// differences greater than 18%, keeping the animated view faithful to the recorded audio envelope.
 const double kBarDanceDepth = 0.15;
 
-/// Wysokosc slupka przebiegu w trakcie odtwarzania, 0..1.
+/// Bar height during playback, normalized 0..1.
 ///
-/// Slupek oddycha WOKOL swojej prawdziwej wysokosci, w waskim pasmie pod nia — mnozenie przez
-/// [level] znaczy, ze animacja skaluje obwiednie, a nie zastepuje jej wlasnym ksztaltem.
+/// Bar modulates around its true recorded height — scaling by [level] preserves the actual waveform envelope.
 ///
-/// Ksztalt cyklu wprost z makiety (`@keyframes bar { 0%,100% { scaleY(.25) } 50% { scaleY(1) } }`):
-/// trojkat, a nie pila — na zawinieciu cyklu slupek nie spada skokiem. Argumentem jest
-/// MONOTONICZNY czas od startu odtwarzania, dokladnie jak w `phaseAt` z ekranu nagrywania:
-/// zegar, ktory nigdy nie wraca do zera, nie tnie zadnego okresu.
+/// Triangle wave shape based on design mockup keyframes (`@keyframes bar { 0%,100% { scaleY(.25) } 50% { scaleY(1) } }`).
+/// Driven by monotonic elapsed playback time without wrapping discontinuities.
 double dancingBarLevel({
   required double level,
   required double elapsedSeconds,

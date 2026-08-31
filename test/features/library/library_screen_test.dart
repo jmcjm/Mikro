@@ -38,20 +38,20 @@ void main() {
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
       ),
     ));
-    // Pierwsza klatka to jeszcze stan ladowania strumienia drift, druga niesie juz dane.
+    // First frame is still drift stream loading state, second frame carries data.
     await tester.pump();
     await tester.pump();
   }
 
-  /// Odmontowanie ekranu przed koncem testu. Subskrypcja strumienia drift wypisuje sie przez
-  /// zerowy Timer, ktory binding zglosilby jako "A Timer is still pending", gdyby powstal juz
-  /// po zamknieciu testu — patrz ten sam zabieg w test/widget_test.dart.
+  /// Unmount the screen before test ends. The drift stream subscription unregisters via
+  /// a zero-duration Timer, which the binding would report as "A Timer is still pending" if created
+  /// after test teardown — see identical approach in test/widget_test.dart.
   Future<void> unmount(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   }
 
-  testWidgets('pusta biblioteka pokazuje stan pusty z makiety', (tester) async {
+  testWidgets('empty library shows empty state from mockup', (tester) async {
     await pumpLibrary(tester);
 
     expect(find.text(plL10n.libraryEmptyNoRecordings), findsOneWidget);
@@ -61,7 +61,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('karta gotowego nagrania: data, odznaka, transkrypt, czas i model',
+  testWidgets('done recording card: date, badge, transcript, duration and model',
       (tester) async {
     await insert('a', durationMs: 207000);
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-large-v3-turbo');
@@ -78,7 +78,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('karta z tytulem pokazuje tytul zamiast pierwszej linii transkryptu',
+  testWidgets('card with title shows title instead of first line of transcript',
       (tester) async {
     await insert('a', durationMs: 207000);
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-large-v3-turbo');
@@ -89,13 +89,13 @@ void main() {
 
     expect(find.text('Standup i przesuniecie release'), findsOneWidget);
     expect(find.text('Notatka ze standupu'), findsNothing,
-        reason: 'tytul zastepuje transkrypt w tresci karty, a nie doklada sie do niego');
+        reason: 'title replaces transcript in card body rather than appending to it');
 
     await unmount(tester);
   });
 
-  testWidgets('karta bez tytulu wraca do transkryptu', (tester) async {
-    // Nagrania sprzed schematu v4 maja title NULL i musza wygladac dokladnie jak dotad.
+  testWidgets('card without title falls back to transcript', (tester) async {
+    // Pre-v4 schema recordings have NULL title and must render exactly as before.
     await insert('a', durationMs: 207000);
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
     await db.updateStatus('a', RecordingStatus.done);
@@ -107,9 +107,9 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('karta bledu pokazuje komunikat, nawet gdy nagranie ma juz tytul',
+  testWidgets('error card shows message even when recording already has a title',
       (tester) async {
-    // Czerwone tlo niesie informacje, ktorej tytul nie moze przykryc.
+    // Red background carries information that title must not obscure.
     await insert('a');
     await db.setTitle('a', 'Standup i przesuniecie release');
     await db.updateStatus('a', RecordingStatus.error, errorMessage: 'Limit 25 MB');
@@ -122,7 +122,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('nagranie w przetwarzaniu ma odznake statusu i pasek postepu',
+  testWidgets('in-flight recording has status badge and progress bar',
       (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.tagging);
@@ -135,7 +135,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('karta bledu pokazuje komunikat i przycisk ponowienia', (tester) async {
+  testWidgets('error card shows message and retry button', (tester) async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.error, errorMessage: 'Limit 25 MB');
 
@@ -148,7 +148,7 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('pasek filtru zawiera tagi z calej biblioteki i zawezza liste',
+  testWidgets('filter bar contains tags from entire library and narrows list',
       (tester) async {
     await insert('a', createdAt: DateTime(2026, 8, 29, 9, 15));
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
@@ -163,8 +163,8 @@ void main() {
     expect(find.text('Notatka ze standupu'), findsOneWidget);
     expect(find.text('Lista zakupow'), findsOneWidget);
 
-    // Chip tagu wystepuje dwa razy: w pasku filtru i na karcie nagrania. Filtr jest pierwszy
-    // w drzewie, bo pasek stoi nad lista.
+    // Tag chip appears twice: in filter bar and on recording card. Filter is first
+    // in tree because the bar sits above the list.
     await tester.tap(find.text('spotkanie').first);
     await tester.pump();
 
@@ -179,10 +179,10 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('tagi na karcie i w filtrze zostaja nawigacja: bez krzyzyka i bez "+ tag"',
+  testWidgets('tags on card and in filter remain navigation: no delete button and no "+ tag"',
       (tester) async {
-    // Kasowanie i dodawanie tagow zyje wylacznie w szczegolach. Na liscie tag jest
-    // przyciskiem filtru, wiec krzyzyk na chipie byloby latwo pomylic z odznaczeniem filtru.
+    // Deleting and adding tags lives exclusively in detail screen. On the list a tag is a
+    // filter button, so a close icon on the chip could easily be confused with clearing the filter.
     await insert('a');
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
     await db.setTags('a', ['spotkanie']);
@@ -190,14 +190,14 @@ void main() {
 
     await pumpLibrary(tester);
 
-    expect(find.text('spotkanie'), findsNWidgets(2), reason: 'chip filtru i chip na karcie');
+    expect(find.text('spotkanie'), findsNWidgets(2), reason: 'filter chip and card chip');
     expect(find.byIcon(Symbols.close_rounded), findsNothing);
     expect(find.byType(AddTagChip), findsNothing);
 
     await unmount(tester);
   });
 
-  testWidgets('brak trafien wyszukiwania zachowuje komunikat z T12', (tester) async {
+  testWidgets('no search matches preserves message from T12', (tester) async {
     await insert('a');
     await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
     await db.updateStatus('a', RecordingStatus.done);
@@ -212,11 +212,11 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('STRAZNIK: bogata lista miesci sie w oknie z makiety (412x892)',
+  testWidgets('GUARD: rich list fits in mockup window (412x892)',
       (tester) async {
-    // Domyslne okno testu ma 800x600, wiec szerokie karty nigdy nie zdaza sie zlamac.
-    // Makieta jest wezsza i wyzsza — a font testowy ma glify 1em, czyli teksty sa tu
-    // szersze niz w Roboto. Jesli uklad przezyje te kombinacje, na urzadzeniu tez przezyje.
+    // Default test window is 800x600, so wide cards would never wrap.
+    // Mockup is narrower and taller — and test font has 1em glyphs, making text
+    // wider than in Roboto. If layout survives this combination, it will survive on device as well.
     tester.view.physicalSize = const Size(412, 892);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -233,8 +233,8 @@ void main() {
 
     await pumpLibrary(tester);
 
-    // Brak wyjatku RenderFlex to sedno tego testu; asercje pilnuja, ze karty faktycznie
-    // sie zbudowaly, a nie ze test przeszedl na pustym ekranie.
+    // Absence of RenderFlex overflow exception is the core of this test; assertions verify
+    // that cards were actually built rather than test passing on an empty screen.
     expect(find.text(plL10n.statusDone), findsOneWidget);
     expect(find.widgetWithText(FilledButton, plL10n.libraryRetry), findsOneWidget);
 

@@ -26,7 +26,7 @@ void main() {
     audioPath = f.path;
   });
 
-  test('zwraca text z odpowiedzi', () async {
+  test('returns text from response', () async {
     adapter.onPost('https://api.test/v1/audio/transcriptions',
         (server) => server.reply(200, {'text': 'ala ma kota'}),
         data: Matchers.any);
@@ -45,7 +45,7 @@ void main() {
     );
   });
 
-  test('odpowiedz bez pola text -> noTranscript', () async {
+  test('response without text field -> noTranscript', () async {
     adapter.onPost('https://api.test/v1/audio/transcriptions',
         (server) => server.reply(200, {'nope': 1}),
         data: Matchers.any);
@@ -56,10 +56,10 @@ void main() {
     );
   });
 
-  test('cialo odpowiedzi nie bedace mapa -> badFormat, nie network', () async {
-    // Generyk post<Map<String, dynamic>> wymuszal rzutowanie; przy tablicy JSON dio lapalo
-    // _TypeError i pakowalo je w DioException bez odpowiedzi, wiec mapDioError klasyfikowalo
-    // to jako awarie sieci i uzytkownik dostawal "Brak polaczenia z siecia."
+  test('response body that is not a map -> badFormat, not network', () async {
+    // The post<Map<String, dynamic>> generic forced casting; with a JSON array dio caught
+    // _TypeError and wrapped it in a DioException without response, so mapDioError classified
+    // this as a network failure and the user received "No network connection."
     adapter.onPost('https://api.test/v1/audio/transcriptions',
         (server) => server.reply(200, [1, 2, 3]),
         data: Matchers.any);
@@ -70,10 +70,10 @@ void main() {
     );
   });
 
-  test('STRAZNIK: zadanie niesie klucz API, wybrany model i plik audio', () async {
-    // Mock dopasowuje `data: Matchers.any`, wiec sam w sobie nie sprawdza NICZEGO z zadania.
-    // Bez tego straznika klient moglby przestac wysylac naglowek Authorization, pole model
-    // albo caly plik audio i zestaw nadal swiecilby na zielono.
+  test('GUARD: request carries API key, selected model, and audio file', () async {
+    // The mock matches `data: Matchers.any`, so on its own it verifies NOTHING from the request.
+    // Without this guard the client could stop sending the Authorization header, model field,
+    // or the entire audio file and the test suite would still pass.
     RequestOptions? sentRequest;
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) {
@@ -87,15 +87,15 @@ void main() {
 
     await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: config);
 
-    expect(sentRequest, isNotNull, reason: 'interceptor musial zobaczyc zadanie');
+    expect(sentRequest, isNotNull, reason: 'interceptor must have seen the request');
     expect(sentRequest!.headers['Authorization'], 'Bearer k',
-        reason: 'klucz API musi jechac w naglowku Authorization');
+        reason: 'API key must be sent in the Authorization header');
 
     final form = sentRequest!.data as FormData;
     final formFields = {for (final f in form.fields) f.key: f.value};
     expect(formFields['model'], config.sttModel,
-        reason: 'multipart musi niesc wybrany model STT w polu model');
+        reason: 'multipart must carry the selected STT model in the model field');
     expect(form.files.map((f) => f.key), contains('file'),
-        reason: 'multipart musi niesc nagranie w polu file');
+        reason: 'multipart must carry the recording in the file field');
   });
 }

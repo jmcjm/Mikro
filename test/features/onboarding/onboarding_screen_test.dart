@@ -12,8 +12,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/l10n_harness.dart';
 
-/// Stoi za krokiem uprawnien: wtyczka nagrywania sama pokazuje systemowy dialog, wiec test
-/// podmienia tylko jej odpowiedz i liczy zapytania.
+/// Backs the permission step: recording plugin itself shows system dialog, so test
+/// only stubs its response and counts requests.
 class StubRecorder implements MikroRecorder {
   StubRecorder({required this.granted});
 
@@ -38,8 +38,8 @@ class StubRecorder implements MikroRecorder {
   Future<void> dispose() async {}
 }
 
-// Ekran ustawien czyta konfiguracje w initState — bez podmiany magazynu klucza test wpadlby
-// na kanal platformowy flutter_secure_storage.
+// Settings screen reads configuration in initState — without stubbing key store test would hit
+// flutter_secure_storage platform channel.
 class FakeKeyStore implements KeyStore {
   @override
   Future<String?> read() async => null;
@@ -47,16 +47,16 @@ class FakeKeyStore implements KeyStore {
   Future<void> write(String value) async {}
 }
 
-/// Krok powitalny animuje sie w kolko (blob z designu), wiec pumpAndSettle nigdy by nie wrocil.
-/// Wszedzie ponizej przewijamy czas jawnie.
+/// Welcome step animates in loop (blob from design), so pumpAndSettle would never return.
+/// We advance virtual time explicitly below.
 Future<void> settleFrames(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
 }
 
 Future<SharedPreferences> pumpOnboarding(WidgetTester tester, {StubRecorder? recorder}) async {
-  // Domyslne okno testowe (800x600) jest nizsze niz telefon, dla ktorego narysowano design,
-  // wiec kafelki lezalyby pod krawedzia. Testujemy na wymiarze z makiety.
+  // Default test window (800x600) is shorter than phone for which design was drawn,
+  // so cards would lie below the bottom edge. We test on mockup dimensions.
   tester.view.physicalSize = const Size(412, 892);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
@@ -81,14 +81,14 @@ Future<void> tapNext(WidgetTester tester, String label) async {
 }
 
 void main() {
-  testWidgets('pierwszy krok wita tekstem z designu', (tester) async {
+  testWidgets('first step greets with design headline', (tester) async {
     await pumpOnboarding(tester);
 
     expect(find.text(plL10n.onboardingWelcomeHeadline), findsOneWidget);
     expect(find.text(plL10n.onboardingNext), findsOneWidget);
   });
 
-  testWidgets('trzy kroki, a flage podnosi dopiero ostatni', (tester) async {
+  testWidgets('three steps, and flag is only set by the last one', (tester) async {
     final prefs = await pumpOnboarding(tester);
 
     await tapNext(tester, plL10n.onboardingNext);
@@ -100,18 +100,18 @@ void main() {
     expect(find.text(plL10n.onboardingProviderSubtitle), findsOneWidget);
     expect(find.text(plL10n.onboardingNext), findsNothing);
     expect(prefs.get(onboardingCompletedKey), isNull,
-        reason: 'przerwany onboarding ma sie powtorzyc po restarcie');
+        reason: 'interrupted onboarding must be repeated after restart');
 
     await tapNext(tester, plL10n.onboardingStart);
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
   });
 
-  testWidgets('Zezwol pyta wtyczke i potwierdza przyznana zgode', (tester) async {
+  testWidgets('Allow queries plugin and confirms granted permission', (tester) async {
     final recorder = StubRecorder(granted: true);
     await pumpOnboarding(tester, recorder: recorder);
     await tapNext(tester, plL10n.onboardingNext);
 
-    expect(recorder.asked, 0, reason: 'systemowy dialog dopiero po tapnieciu, nie na wejsciu');
+    expect(recorder.asked, 0, reason: 'system dialog only after tapping, not upon entry');
 
     await tester.tap(find.text(plL10n.onboardingMicAllow));
     await settleFrames(tester);
@@ -121,7 +121,7 @@ void main() {
     expect(find.text(plL10n.onboardingMicAllow), findsNothing);
   });
 
-  testWidgets('odmowa podpowiada ustawienia systemu i pozwala ponowic', (tester) async {
+  testWidgets('denial suggests system settings and allows retry', (tester) async {
     final recorder = StubRecorder(granted: false);
     await pumpOnboarding(tester, recorder: recorder);
     await tapNext(tester, plL10n.onboardingNext);
@@ -133,7 +133,7 @@ void main() {
     expect(find.text(plL10n.onboardingMicRetry), findsOneWidget);
   });
 
-  testWidgets('brak zgody nie blokuje przejscia dalej', (tester) async {
+  testWidgets('lack of permission does not block progressing further', (tester) async {
     final prefs = await pumpOnboarding(tester, recorder: StubRecorder(granted: false));
 
     await tapNext(tester, plL10n.onboardingNext);
@@ -143,7 +143,7 @@ void main() {
     expect(prefs.getBool(onboardingCompletedKey), isTrue);
   });
 
-  testWidgets('kafelek klucza konczy onboarding i otwiera Ustawienia', (tester) async {
+  testWidgets('API key card completes onboarding and opens Settings', (tester) async {
     final prefs = await pumpOnboarding(tester);
     await tapNext(tester, plL10n.onboardingNext);
     await tapNext(tester, plL10n.onboardingNext);
@@ -155,36 +155,36 @@ void main() {
     expect(find.byType(SettingsScreen), findsOneWidget);
   });
 
-  testWidgets('podwojny tap na kafelku klucza otwiera Ustawienia raz', (tester) async {
+  testWidgets('double tap on API key card opens Settings once', (tester) async {
     await pumpOnboarding(tester);
     await tapNext(tester, plL10n.onboardingNext);
     await tapNext(tester, plL10n.onboardingNext);
 
-    // Dwa tapniecia w jednej porcji zdarzen wolaja onTap synchronicznie, jeszcze zanim
-    // pierwsze wywolanie dojdzie do swojego awaita. Przez tester.tap tego nie odtworzymy:
-    // await miedzy nimi przepuszcza mikrozadania i drugie tapniecie nie ma juz w co trafic.
-    // Bez straznika re-entrancy oba wypchnelyby Ustawienia i user cofalby sie dwa razy.
+    // Two taps in a single event batch call onTap synchronously, before
+    // first invocation reaches its await. We cannot reproduce this via tester.tap:
+    // await between them yields to microtasks and second tap has nothing left to hit.
+    // Without re-entrancy guard both would push Settings and user would have to pop twice.
     final tile = tester.widget<OnboardingCard>(find.byType(OnboardingCard));
     tile.onTap!();
     tile.onTap!();
     await settleFrames(tester);
     expect(find.byType(SettingsScreen), findsOneWidget);
 
-    // Sama obecnosc ekranu ustawien niczego nie dowodzi: Overlay buduje tylko trasy nad
-    // ostatnia nieprzezroczysta, wiec druga kopia na stosie i tak byla niewidoczna.
-    // Liczymy trasy jedynym sposobem, ktory widzi user — cofnieciem.
+    // Merely checking SettingsScreen presence proves nothing: Overlay only builds routes above
+    // the latest opaque route, so second copy on stack was invisible anyway.
+    // We count routes the only user-observable way — via back navigation.
     tester.state<NavigatorState>(find.byType(Navigator).first).pop();
     await settleFrames(tester);
 
     expect(find.byType(SettingsScreen), findsNothing,
-        reason: 'jeden back ma wrocic do onboardingu, a nie do drugich Ustawien');
+        reason: 'a single back navigation must return to onboarding rather than a second Settings screen');
   });
 
-  // --- Straznik regresji (runda fix 1) ---
-  // Reszta testow czyta flage przez stala onboardingCompletedKey, wiec podmiana jej WARTOSCI
-  // (przy tej samej nazwie) przeszlaby caly suite na zielono, a onboarding wrocilby kazdemu
-  // istniejacemu uzytkownikowi po aktualizacji. Ten test pilnuje litery zapisu na dysku.
-  testWidgets('STRAZNIK: przejscie do konca zapisuje surowy klucz onboarding_completed',
+  // --- Regression guard (fix round 1) ---
+  // Other tests read the flag via onboardingCompletedKey constant, so changing its VALUE
+  // (while keeping the constant name) would keep whole suite green, and onboarding would return to every
+  // existing user after update. This test guards the exact on-disk literal.
+  testWidgets('GUARD: completing onboarding writes raw key onboarding_completed',
       (tester) async {
     final prefs = await pumpOnboarding(tester);
 
@@ -193,6 +193,6 @@ void main() {
     await tapNext(tester, plL10n.onboardingStart);
 
     expect(prefs.getBool('onboarding_completed'), isTrue,
-        reason: 'literal klucza to format danych na dysku — przezywa aktualizacje aplikacji');
+        reason: 'key literal is on-disk data format — survives app updates');
   });
 }

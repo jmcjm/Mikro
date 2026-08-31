@@ -17,14 +17,14 @@ void main() {
         audioPath: '/tmp/$id.m4a',
       );
 
-  test('insert ustawia status recorded', () async {
+  test('insert sets recorded status', () async {
     await insert('a');
     final r = await db.getRecording('a');
     expect(r!.status, RecordingStatus.recorded);
     expect(r.transcript, isNull);
   });
 
-  test('updateStatus z errorMessage i czyszczenie bledu', () async {
+  test('updateStatus with errorMessage and error clearing', () async {
     await insert('a');
     await db.updateStatus('a', RecordingStatus.error, errorMessage: 'pad');
     expect((await db.getRecording('a'))!.errorMessage, 'pad');
@@ -32,7 +32,7 @@ void main() {
     expect((await db.getRecording('a'))!.errorMessage, isNull);
   });
 
-  test('setTranscript zapisuje tekst i providera', () async {
+  test('setTranscript persists text and provider', () async {
     await insert('a');
     await db.setTranscript('a', 'ala ma kota', 'whisper-1');
     final r = await db.getRecording('a');
@@ -40,7 +40,7 @@ void main() {
     expect(r.providerUsed, 'whisper-1');
   });
 
-  test('setTags deduplikuje globalnie i linkuje', () async {
+  test('setTags deduplicates globally and links', () async {
     await insert('a');
     await insert('b');
     await db.setTags('a', ['praca', 'notatki']);
@@ -52,7 +52,7 @@ void main() {
     expect(tagsB, ['praca']);
   });
 
-  test('deleteRecording kasuje powiazania i osierocone tagi', () async {
+  test('deleteRecording deletes associations and orphan tags', () async {
     await insert('a');
     await insert('b');
     await db.setTags('a', ['tylko-a', 'wspolny']);
@@ -60,10 +60,10 @@ void main() {
     await db.deleteRecording('a');
     final all = await db.watchAllWithTags().first;
     expect(all.map((r) => r.recording.id), ['b']);
-    expect(all.first.tags, ['wspolny']); // 'tylko-a' sprzatniete
+    expect(all.first.tags, ['wspolny']); // 'tylko-a' cleaned up
   });
 
-  test('pendingRecordings zwraca stany niedokonczone', () async {
+  test('pendingRecordings returns unfinished states', () async {
     await insert('a');
     await insert('b');
     await insert('c');
@@ -74,60 +74,60 @@ void main() {
     expect(pending, isNot(contains('b')));
   });
 
-  test('watchAllWithTags sortuje malejaco po dacie', () async {
+  test('watchAllWithTags sorts descending by date', () async {
     await db.insertRecording(id: 'old', createdAt: DateTime.utc(2026, 1, 1), durationMs: 1, audioPath: '/x');
     await db.insertRecording(id: 'new', createdAt: DateTime.utc(2026, 8, 1), durationMs: 1, audioPath: '/y');
     final all = await db.watchAllWithTags().first;
     expect(all.map((r) => r.recording.id), ['new', 'old']);
   });
 
-  // --- Straznicy regresji (Task 3, uzupelnienie) ---
-  // Testy z planu weryfikuja kaskade i sprzatanie osieroconych wylacznie przez
-  // watchAllWithTags(), a ta kwerenda joinuje OD tabeli recordings — osierocone wiersze
-  // sa dla niej niewidoczne i przechodzi nawet przy calkowicie wylaczonych obu
-  // mechanizmach. Ponizsze testy siegaja po stan bazy bezposrednim SQL-em.
+  // --- Regression guards (Task 3, follow-up) ---
+  // Tests in the plan verify cascade and orphan cleanup only via
+  // watchAllWithTags(), and that query joins FROM the recordings table — orphan rows
+  // are invisible to it, so it passes even if both mechanisms are completely disabled.
+  // The tests below inspect the database state via direct SQL.
 
-  test('STRAZNIK: PRAGMA foreign_keys jest wlaczona', () async {
-    // SQLite ignoruje te pragme wykonana wewnatrz transakcji, wiec beforeOpen moze byc
-    // cichym no-opem. Bez tego 1 kaskada z KeyAction.cascade nigdy nie zadziala.
+  test('GUARD: PRAGMA foreign_keys is enabled', () async {
+    // SQLite ignores this pragma inside transactions, so beforeOpen can be a silent no-op.
+    // Without this, the 1 cascade with KeyAction.cascade would never trigger.
     final row = await db.customSelect('PRAGMA foreign_keys').getSingle();
-    expect(row.data.values.first, 1, reason: 'kaskady FK wymagaja PRAGMA foreign_keys = ON');
+    expect(row.data.values.first, 1, reason: 'FK cascades require PRAGMA foreign_keys = ON');
   });
 
-  test('STRAZNIK: deleteRecording nie zostawia sierot w recording_tags ani w tags', () async {
+  test('GUARD: deleteRecording does not leave orphans in recording_tags or tags', () async {
     await insert('a');
     await insert('b');
     await db.setTags('a', ['tylko-a', 'wspolny']);
     await db.setTags('b', ['wspolny']);
 
     final before = await db.customSelect('SELECT COUNT(*) c FROM recording_tags').getSingle();
-    expect(before.data['c'], 3, reason: 'scenariusz wyjsciowy: 2 powiazania dla a, 1 dla b');
+    expect(before.data['c'], 3, reason: 'initial scenario: 2 links for a, 1 for b');
 
     await db.deleteRecording('a');
 
     final linksForA = await db
         .customSelect("SELECT COUNT(*) c FROM recording_tags WHERE recording_id = 'a'")
         .getSingle();
-    expect(linksForA.data['c'], 0, reason: 'kaskada FK musi skasowac powiazania nagrania a');
+    expect(linksForA.data['c'], 0, reason: 'FK cascade must delete recording a links');
 
     final orphanLinks = await db.customSelect(
       'SELECT COUNT(*) c FROM recording_tags rt '
       'WHERE rt.recording_id NOT IN (SELECT id FROM recordings) '
       'OR rt.tag_id NOT IN (SELECT id FROM tags)',
     ).getSingle();
-    expect(orphanLinks.data['c'], 0, reason: 'zaden wiersz recording_tags nie moze wisiec w prozni');
+    expect(orphanLinks.data['c'], 0, reason: 'no recording_tags row may dangle');
 
     final tagNames = await db.customSelect('SELECT name FROM tags ORDER BY name').get();
     expect(
       tagNames.map((r) => r.data['name']).toList(),
       ['wspolny'],
-      reason: 'tag tylko-a stracil ostatnie powiazanie i musi zniknac z tabeli tags',
+      reason: 'tag tylko-a lost its last link and must be removed from tags table',
     );
   });
 
-  // --- schemat v2: errorKind (D2c) ---
+  // --- schema v2: errorKind (D2c) ---
 
-  test('swieza baza jest w wersji 4 i ma kolumny error_kind, waveform oraz title', () async {
+  test('fresh database is version 4 and has error_kind, waveform, and title columns', () async {
     await insert('a');
     final version = await db.customSelect('PRAGMA user_version').getSingle();
     expect(version.data.values.first, 4);
@@ -137,14 +137,13 @@ void main() {
         containsAll(['error_kind', 'waveform', 'title']));
   });
 
-  test('migracja z v1 doklada kolumny i nie gubi istniejacych nagran', () async {
-    // Ten test nie korzysta z bazy z setUp, a drift ostrzega, gdy dwie instancje AppDatabase
-    // zyja rownoczesnie. Zamykamy ja, zeby log testow zostal czysty — tearDown zniesie
-    // powtorne close().
+  test('migration from v1 adds columns and does not lose existing recordings', () async {
+    // This test does not use the database from setUp, and drift warns when two AppDatabase instances
+    // coexist. We close it so the test log stays clean — tearDown will tolerate the second close().
     await db.close();
 
-    // Baza zalozona recznie w ksztalcie v1 (bez error_kind, user_version = 1), zeby drift
-    // musial faktycznie przejsc sciezka onUpgrade zamiast tworzyc schemat od zera.
+    // Database initialized manually in v1 shape (without error_kind, user_version = 1), so that drift
+    // actually executes the onUpgrade path instead of creating the schema from scratch.
     final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
       rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
           '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
@@ -163,27 +162,26 @@ void main() {
 
     final migrated = await legacy.getRecording('stare');
 
-    expect(migrated, isNotNull, reason: 'migracja nie moze zgubic istniejacych nagran');
+    expect(migrated, isNotNull, reason: 'migration must not lose existing recordings');
     expect(migrated!.errorMessage, 'cos padlo');
     expect(migrated.errorKind, isNull,
-        reason: 'nie wiemy jakiego rodzaju byl stary blad, wiec zostaje nierozpoznany');
+        reason: 'we do not know what kind of error it was, so it remains unrecognized');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
     expect(version.data.values.first, 4,
-        reason: 'baza z v1 dochodzi jednym otwarciem do biezacego schematu');
+        reason: 'v1 database reaches current schema in a single open');
 
-    // Sam user_version niczego nie dowodzi: drift podbija go po wyjsciu z onUpgrade nawet
-    // wtedy, gdy zaden szczebel nie dolozyl swojej kolumny. Odczyt nagrania tez tego nie
-    // zlapie, bo wszystkie nowe kolumny sa nullowalne i brak kolumny wyglada jak NULL.
-    // Dlatego pytamy schemat wprost — to jedyna asercja, ktora pada, gdy ktorys szczebel
-    // migracji zniknie.
+    // user_version alone proves nothing: drift bumps it upon leaving onUpgrade even
+    // when no step added its column. Reading the recording will not catch this either,
+    // as all new columns are nullable and a missing column looks like NULL.
+    // Therefore we inspect the schema directly — this is the only assertion that fails if a migration step is missing.
     final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']),
         containsAll(['error_kind', 'waveform', 'title']),
-        reason: 'baza z v1 musi przejsc KAZDY szczebel migracji, nie tylko podbic wersje');
+        reason: 'v1 database must pass EVERY migration step, not just bump the version');
   });
 
-  test('updateStatus zapisuje errorKind i czysci go przy przejsciu na stan nie-bledowy',
+  test('updateStatus saves errorKind and clears it when transitioning to non-error state',
       () async {
     await insert('a');
 
@@ -193,18 +191,18 @@ void main() {
 
     await db.updateStatus('a', RecordingStatus.transcribing);
     expect((await db.getRecording('a'))!.errorKind, isNull,
-        reason: 'stary rodzaj bledu nie moze przezyc sytuacji, ktora go wywolala');
+        reason: 'previous error kind must not survive the condition that caused it');
   });
 
-  test('STRAZNIK: networkErrorKind zgadza sie z nazwa stalej enuma ApiErrorKind', () {
-    // Predykaty w bazie porownuja kolumne z tekstem, a pipeline zapisuje do niej
-    // `ApiErrorKind.network.name`. Nic w typach nie laczy tych dwoch stron: przemianowanie
-    // stalej enuma zostawiloby zapytania, ktore kompiluja sie i nie znajduja niczego.
+  test('GUARD: networkErrorKind matches ApiErrorKind enum constant name', () {
+    // Database predicates compare the column with text, and the pipeline writes
+    // ApiErrorKind.network.name to it. Nothing in types links these two sides: renaming
+    // the enum constant would leave queries that compile but match nothing.
     expect(AppDatabase.networkErrorKind, ApiErrorKind.network.name,
-        reason: 'zmiana nazwy w enumie musi pociagnac za soba stala uzywana w predykatach');
+        reason: 'renaming the enum must update the constant used in predicates');
   });
 
-  test('networkFailedRecordings zwraca tylko bledy sieciowe', () async {
+  test('networkFailedRecordings returns only network errors', () async {
     await insert('siec');
     await insert('auth');
     await insert('wkolejce');
@@ -214,10 +212,10 @@ void main() {
     final ids = (await db.networkFailedRecordings()).map((r) => r.id);
 
     expect(ids, ['siec'],
-        reason: 'blad autoryzacji ponowi sie tak samo, wiec nie wznawiamy go po powrocie sieci');
+        reason: 'auth error will fail the same way upon retry, so do not resume it when network returns');
   });
 
-  test('watchQueueLength liczy niedokonczone razem z bledami sieci', () async {
+  test('watchQueueLength counts unfinished items together with network errors', () async {
     await insert('wkolejce');
     await insert('siec');
     await insert('auth');
@@ -227,17 +225,17 @@ void main() {
     await db.updateStatus('gotowe', RecordingStatus.done);
 
     expect(await db.watchQueueLength().first, 2,
-        reason: 'jedno czeka w kolejce, jedno wisi na sieci; auth i done sie nie licza');
+        reason: 'one waiting in queue, one stalled on network; auth and done do not count');
   });
 
-  // --- schemat v3: waveform (D2f) ---
+  // --- schema v3: waveform (D2f) ---
 
-  test('migracja v2 -> v3 doklada waveform, stare nagrania maja NULL', () async {
-    // Jak przy tescie v1 -> v2: zamykamy baze z setUp, zeby dwie instancje nie zyly naraz.
+  test('migration v2 -> v3 adds waveform, old recordings have NULL', () async {
+    // As in v1 -> v2 test: close the setUp database so two instances do not coexist.
     await db.close();
 
-    // Baza w ksztalcie v2 (jest error_kind, nie ma waveform, user_version = 2), zeby drift
-    // musial przejsc sciezka onUpgrade zamiast zbudowac schemat od zera.
+    // Database in v2 shape (has error_kind, lacks waveform, user_version = 2), so drift
+    // must take the onUpgrade path instead of building the schema from scratch.
     final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
       rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
           '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
@@ -256,10 +254,10 @@ void main() {
 
     final migrated = await legacy.getRecording('stare');
 
-    expect(migrated, isNotNull, reason: 'migracja nie moze zgubic istniejacych nagran');
+    expect(migrated, isNotNull, reason: 'migration must not lose existing recordings');
     expect(migrated!.transcript, 'stara notatka');
     expect(migrated.waveform, isNull,
-        reason: 'nagran sprzed v3 nikt nie mierzyl, wiec nie ma czego narysowac');
+        reason: 'pre-v3 recordings were not measured, so there is nothing to draw');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
     expect(version.data.values.first, 4);
@@ -268,22 +266,22 @@ void main() {
     expect(columns.map((c) => c.data['name']), contains('waveform'));
   });
 
-  // --- reczna edycja tagow ("+ tag" i kasowanie chipa) ---
+  // --- manual tag editing ("+ tag" and chip deletion) ---
 
-  test('addTag normalizuje nazwe i nie duplikuje powiazania', () async {
+  test('addTag normalizes name and does not duplicate link', () async {
     await insert('a');
     await db.addTag('a', '  Spotkanie ');
     await db.addTag('a', 'SPOTKANIE');
 
     final all = await db.watchAllWithTags().first;
     expect(all.first.tags, ['spotkanie'],
-        reason: 'ta sama normalizacja co przy tagach z modelu: trim i male litery');
+        reason: 'same normalization as model tags: trim and lowercase');
 
     final links = await db.customSelect('SELECT COUNT(*) c FROM recording_tags').getSingle();
-    expect(links.data['c'], 1, reason: 'drugie dodanie tej samej nazwy to no-op');
+    expect(links.data['c'], 1, reason: 'second addition of the same name is a no-op');
   });
 
-  test('removeTag zdejmuje powiazanie i sprzata tag bez innych nagran', () async {
+  test('removeTag removes link and cleans up tag without other recordings', () async {
     await insert('a');
     await db.setTags('a', ['spotkanie', 'release']);
 
@@ -293,10 +291,10 @@ void main() {
     expect(all.first.tags, ['release']);
     final tagNames = await db.customSelect('SELECT name FROM tags').get();
     expect(tagNames.map((r) => r.data['name']), ['release'],
-        reason: 'tag bez ostatniego powiazania nie moze zostac w tabeli tags');
+        reason: 'tag without its last link must not remain in tags table');
   });
 
-  test('removeTag zostawia tag, ktory ma jeszcze inne nagranie', () async {
+  test('removeTag preserves tag that still has other recordings', () async {
     await insert('a');
     await insert('b');
     await db.setTags('a', ['wspolny']);
@@ -307,10 +305,10 @@ void main() {
     final all = await db.watchAllWithTags().first;
     expect(all.firstWhere((r) => r.recording.id == 'a').tags, isEmpty);
     expect(all.firstWhere((r) => r.recording.id == 'b').tags, ['wspolny'],
-        reason: 'kasowanie chipa dotyczy jednego nagrania, nie calej biblioteki');
+        reason: 'chip deletion applies to a single recording, not the entire library');
   });
 
-  test('removeTag nieznanej nazwy jest no-opem', () async {
+  test('removeTag for unknown name is a no-op', () async {
     await insert('a');
     await db.setTags('a', ['spotkanie']);
 
@@ -319,12 +317,11 @@ void main() {
     expect((await db.watchAllWithTags().first).first.tags, ['spotkanie']);
   });
 
-  test('STRAZNIK STRUMIENIA: watchAllWithTags oddaje nowy stan po addTag i removeTag',
+  test('STREAM GUARD: watchAllWithTags emits new state after addTag and removeTag',
       () async {
-    // Sprzatanie osieroconych tagow w deleteRecording idzie przez customStatement, ktorego
-    // drift nie umie powiazac z zadna tabela — taki zapis NIE unewaznia strumieni. Reczna
-    // edycja tagow musi wiec chodzic po typowanych zapytaniach, inaczej chipy filtrow
-    // w bibliotece zostalyby na starym stanie do nastepnego przeladowania.
+    // Orphan tag cleanup in deleteRecording uses customStatement, which drift cannot
+    // map to any table — such write does NOT invalidate streams. Manual tag editing must
+    // therefore use typed queries, otherwise filter chips in the library would remain stale until next reload.
     await insert('a');
     final emissions = <List<String>>[];
     final sub = db.watchAllWithTags().listen((rows) => emissions.add([...rows.first.tags]));
@@ -344,11 +341,11 @@ void main() {
     ]);
   });
 
-  // --- schemat v4: title (tytuly z AI) ---
+  // --- schema v4: title (AI titles) ---
 
-  test('migracja v3 -> v4 doklada title, stare nagrania maja NULL', () async {
-    // Jak przy poprzednich migracjach: zamykamy baze z setUp, zeby dwie instancje nie zyly
-    // naraz, i zakladamy baze recznie w ksztalcie v3, zeby drift musial przejsc onUpgrade.
+  test('migration v3 -> v4 adds title, old recordings have NULL', () async {
+    // As in previous migrations: close the database from setUp so two instances do not coexist,
+    // and set up database manually in v3 shape so drift must execute onUpgrade.
     await db.close();
 
     final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
@@ -370,12 +367,12 @@ void main() {
 
     final migrated = await legacy.getRecording('stare');
 
-    expect(migrated, isNotNull, reason: 'migracja nie moze zgubic istniejacych nagran');
+    expect(migrated, isNotNull, reason: 'migration must not lose existing recordings');
     expect(migrated!.transcript, 'stara notatka');
     expect(migrated.waveform, '[0.1,0.5]',
-        reason: 'dolozenie kolumny nie moze ruszyc danych z poprzednich schematow');
+        reason: 'adding a column must not modify data from previous schemas');
     expect(migrated.title, isNull,
-        reason: 'nagran sprzed v4 nikt nie tytulowal, a z transkryptu tytulu nie zgadniemy');
+        reason: 'pre-v4 recordings had no titles, and we cannot guess title from transcript');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
     expect(version.data.values.first, 4);
@@ -384,7 +381,7 @@ void main() {
     expect(columns.map((c) => c.data['name']), contains('title'));
   });
 
-  test('setTitle zapisuje tytul i pozwala go wyczyscic', () async {
+  test('setTitle saves title and allows clearing it', () async {
     await insert('a');
     expect((await db.getRecording('a'))!.title, isNull);
 
@@ -393,10 +390,10 @@ void main() {
 
     await db.setTitle('a', null);
     expect((await db.getRecording('a'))!.title, isNull,
-        reason: 'null musi trafic do bazy jako NULL, a nie zostac pominiety w UPDATE');
+        reason: 'null must be written to database as NULL, not skipped in UPDATE');
   });
 
-  test('insertRecording zapisuje przebieg, a bez niego zostawia NULL', () async {
+  test('insertRecording saves waveform, and leaves NULL without it', () async {
     await db.insertRecording(
       id: 'z-przebiegiem',
       createdAt: DateTime.utc(2026, 8, 29),

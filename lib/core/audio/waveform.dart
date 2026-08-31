@@ -1,20 +1,20 @@
 import 'dart:convert';
 
-/// Liczba slupkow przebiegu na karcie odtwarzacza. Wprost z makiety (Mikro-MD3.dc.html,
-/// generator listy `wave`): 44 slupki po 3 px odstepu w pasku o wysokosci 56 px.
+/// Number of waveform bars on the player card. Directly from the design mockup (Mikro-MD3.dc.html,
+/// `wave` list generator): 44 bars with 3 px spacing in a 56 px high container.
 const int kWaveformBuckets = 44;
 
-/// Redukuje strumien probek amplitudy (0..1, jedna co 200 ms) do stalej liczby kubelkow.
+/// Reduces an amplitude sample stream (0..1, one every 200 ms) into a fixed number of buckets.
 ///
-/// Kubelek dostaje SZCZYT swojego wycinka, bo rysujemy obwiednie amplitudy: slupek ma
-/// odpowiadac na pytanie "jak glosno bylo w tym fragmencie", a nie usredniac przerwy
-/// w mowie do plaskiej kreski. Granice licza sie na liczbach calkowitych
-/// (`i * n ~/ buckets`), wiec podzial jest deterministyczny takze wtedy, gdy liczba probek
-/// nie dzieli sie przez liczbe kubelkow: pierwsza i ostatnia probka zawsze wpadaja do
-/// skrajnych kubelkow.
+/// Each bucket takes the PEAK of its slice because we render an amplitude envelope: the bar
+/// should reflect peak loudness in that time slice rather than averaging speech pauses
+/// into a flat line. Boundaries are calculated using integer arithmetic
+/// (`i * n ~/ buckets`), making bucket partitioning deterministic even when sample count
+/// is not evenly divisible by bucket count: the first and last samples always map to
+/// the outer buckets.
 ///
-/// Nagranie krotsze niz [buckets] probek (ponizej ~9 s) rozciaga sie: kubelek bez wlasnego
-/// wycinka bierze najblizsza probke. Dziura znaczylaby cisze, ktorej nie bylo.
+/// Recordings shorter than [buckets] samples (under ~9 s) are stretched: a bucket without its own
+/// slice takes the nearest sample. A gap would falsely indicate silence.
 List<double> reduceToBuckets(List<double> samples, {int buckets = kWaveformBuckets}) {
   if (samples.isEmpty || buckets <= 0) return const [];
   final n = samples.length;
@@ -34,15 +34,15 @@ List<double> reduceToBuckets(List<double> samples, {int buckets = kWaveformBucke
   return out;
 }
 
-/// Serializacja do kolumny `waveform`: zwykla tablica JSON. Wartosci ida z dokladnoscia do
-/// trzech miejsc po przecinku — slupek ma 56 px wysokosci, wiec dalsze cyfry to tylko
-/// puchnaca baza (44 x 20 znakow zamiast 44 x 5).
+/// Serializes to the `waveform` database column: plain JSON array. Values are rounded to
+/// three decimal places — the bar is 56 px high, so additional precision would only
+/// bloat database storage (44 x 20 characters instead of 44 x 5).
 String encodeWaveform(List<double> buckets) =>
     jsonEncode([for (final b in buckets) (b.clamp(0.0, 1.0) * 1000).round() / 1000]);
 
-/// Odczyt kolumny `waveform`. Zwraca null dla braku danych ORAZ dla zapisu, ktorego nie da
-/// sie zinterpretowac — ekran ma wtedy pokazac stan pusty, a nie wywalic sie na nagraniu
-/// sprzed migracji albo na uszkodzonym wierszu.
+/// Deserializes the `waveform` column. Returns null for missing data AND for unparseable
+/// content — in which case the UI falls back to an empty state rather than crashing on
+/// pre-migration recordings or corrupted rows.
 List<double>? decodeWaveform(String? raw) {
   if (raw == null || raw.isEmpty) return null;
   final Object? data;

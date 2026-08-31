@@ -27,13 +27,13 @@ class FakeRecorder implements MikroRecorder {
   Future<void> stop() async {}
   @override
   Stream<double> amplitude() => const Stream.empty();
-  // Wymagane przez kontrakt MikroRecorder po rulingu dispose z Taska 8.
+  // Required by the MikroRecorder contract after the Task 8 dispose ruling.
   @override
   Future<void> dispose() async {}
 }
 
-// Ekran ustawien z Taska 13 czyta konfiguracje w initState, wiec bez podmiany
-// magazynu klucza test wpadlby na kanal platformowy flutter_secure_storage.
+// The settings screen from Task 13 reads configuration in initState, so without replacing
+// the key store, the test would hit the flutter_secure_storage platform channel.
 class FakeKeyStore implements KeyStore {
   @override
   Future<String?> read() async => null;
@@ -42,12 +42,12 @@ class FakeKeyStore implements KeyStore {
 }
 
 void main() {
-  testWidgets('apka sie buduje i ma trzy taby po polsku', (tester) async {
-    // localesTestValue, nie localeTestValue: WidgetsApp czyta liste `locales`, a nie
-    // pojedyncze `locale` — podmiana tego drugiego nie dociera do rezolucji.
+  testWidgets('app builds and has three tabs in Polish', (tester) async {
+    // localesTestValue, not localeTestValue: WidgetsApp reads the `locales` list, not
+    // a single `locale` — overriding the latter does not reach resolution.
     tester.platformDispatcher.localesTestValue = const [Locale('pl')];
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
-    // Flaga onboardingu podniesiona — ten test dotyczy powloki, nie pierwszego uruchomienia.
+    // Onboarding flag is set — this test concerns the shell, not the first launch.
     SharedPreferences.setMockInitialValues({onboardingCompletedKey: true});
     final prefs = await SharedPreferences.getInstance();
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -78,10 +78,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  // Rezolucja locale ma dwie galezie i tylko jedna z nich sprawdza sie sama przy okazji
-  // reszty testow. Ta druga — kazdy jezyk poza polskim schodzi na angielski, a nie na
-  // pierwszy z supportedLocales — nie ma innego strazniku niz ten test.
-  testWidgets('locale spoza pl schodzi na angielski, nie na jezyk zrodlowy', (tester) async {
+  // Locale resolution has two branches and only one of them is verified implicitly by
+  // the rest of the tests. The second one — every language other than Polish falls back to English, not
+  // the first in supportedLocales — has no other safeguard than this test.
+  testWidgets('non-pl locale falls back to English, not the source language', (tester) async {
     tester.platformDispatcher.localesTestValue = const [Locale('de', 'DE')];
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     SharedPreferences.setMockInitialValues({onboardingCompletedKey: true});
@@ -108,7 +108,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
-  testWidgets('pierwsze uruchomienie pokazuje onboarding zamiast powloki', (tester) async {
+  testWidgets('first launch shows onboarding instead of shell', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final db = AppDatabase.forTesting(NativeDatabase.memory());
@@ -128,7 +128,7 @@ void main() {
     expect(find.byType(OnboardingScreen), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
 
-    // Blob powitania animuje sie w kolko, wiec zdejmujemy drzewo, zeby ticker nie przezyl testu.
+    // The welcome blob animates continuously, so unmount the tree to ensure the ticker does not outlive the test.
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 1));
   });

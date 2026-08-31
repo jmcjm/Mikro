@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers.dart';
 
-/// Abstrakcja nad pluginem lacznosci. Dzieki niej pipeline i testy nie zaleza od
-/// `connectivity_plus` — w testach wystarczy zwykly `StreamController<bool>`.
+/// Abstraction over the connectivity plugin. Allows the pipeline and tests to decouple from
+/// `connectivity_plus` — tests only need a plain `StreamController<bool>`.
 abstract class ConnectivityService {
-  /// Emituje `true`, gdy urzadzenie ma jakiekolwiek polaczenie sieciowe.
+  /// Emits `true` when the device has any active network connection.
   Stream<bool> get onlineChanges;
 
   Future<bool> isOnline();
@@ -19,20 +19,20 @@ class PluginConnectivityService implements ConnectivityService {
 
   final Connectivity _connectivity;
 
-  /// Plugin zwraca liste interfejsow, bo urzadzenie moze miec kilka naraz (np. wifi + VPN).
-  /// Dla nas liczy sie tylko to, czy jest cokolwiek poza [ConnectivityResult.none].
+  /// The plugin returns a list of interfaces because a device can have multiple active simultaneously (e.g. WiFi + VPN).
+  /// We only care whether there is anything other than [ConnectivityResult.none].
   static bool _isOnline(List<ConnectivityResult> results) =>
       results.any((result) => result != ConnectivityResult.none);
 
-  /// Wystawione dla testow: sama regula "online" bez dotykania platformy.
+  /// Exposed for testing: pure "online" rule without touching platform channels.
   @visibleForTesting
   static bool debugIsOnline(List<ConnectivityResult> results) => _isOnline(results);
 
   @override
   Stream<bool> get onlineChanges =>
-      // distinct() tlumi powtorki w rodzaju wifi -> wifi+VPN, ktore dla nas sa tym samym
-      // stanem — pipeline i tak reaguje wylacznie na zbocze, ale mniej szumu w strumieniu
-      // to mniej niespodzianek dla przyszlego bannera.
+      // distinct() suppresses duplicate transitions such as WiFi -> WiFi+VPN, which represent the same
+      // online state — the pipeline only reacts to rising edges, but reducing stream noise
+      // avoids unexpected events for any future UI indicators.
       _connectivity.onConnectivityChanged.map(_isOnline).distinct();
 
   @override
@@ -42,7 +42,7 @@ class PluginConnectivityService implements ConnectivityService {
 final connectivityServiceProvider =
     Provider<ConnectivityService>((ref) => PluginConnectivityService());
 
-/// Ile nagran czeka na przetworzenie: niedokonczone plus wstrzymane brakiem sieci.
-/// Zasila przyszly banner informujacy o nagraniach czekajacych w kolejce offline.
+/// Number of recordings pending processing: in-flight plus paused due to offline status.
+/// Feeds the queue banner indicating recordings waiting in the offline queue.
 final queueLengthProvider =
     StreamProvider<int>((ref) => ref.watch(databaseProvider).watchQueueLength());

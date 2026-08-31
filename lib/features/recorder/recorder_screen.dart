@@ -13,10 +13,10 @@ import '../../l10n/app_localizations.dart';
 import '../shell/home_tab.dart';
 import 'recorder_controller.dart';
 
-/// Stała z makiety: parametry nagrania pokazywane pod licznikiem.
+/// Mockup constant: recording parameters shown under the timer.
 const _formatCaption = 'm4a · aacLc · 64 kbps · mono';
 
-/// Rozmiary przepisane 1:1 z designu (ekran "Nagrywaj 1a" MD3 Expressive).
+/// Dimensions taken directly from the MD3 Expressive "Record 1a" design mockup.
 const _pulseBoxSize = 280.0;
 const _readyBlobSize = 168.0;
 const _recordingBlobSize = 190.0;
@@ -24,19 +24,19 @@ const _barCount = 9;
 const _barWidth = 6.0;
 const _barsHeight = 56.0;
 
-/// Czasy animacji z sekcji styli designu:
-/// - Stop = 9-płatkowe cookie 190 dp, obrót 22 s/obrót (16°/s) i oddech ±4,5% (okres 2,8 s).
-/// - Pierścienie pulsu: 2,0 s (wewnętrzny) i 2,4 s (zewnętrzny).
+/// Animation timings from design style specifications:
+/// - Stop = 9-sided cookie 190 dp, rotation 22 s/turn (16°/s) and breathing pulse ±4.5% (2.8 s period).
+/// - Pulse rings: 2.0 s (inner) and 2.4 s (outer).
 const _spinSeconds = 22.0;
 const _cookiePulseSeconds = 2.8;
 const _ring1Seconds = 2.0;
 const _ring2Seconds = 2.4;
 
-/// `animation:bar <czas>s ... <opoznienie>s` dla dziewięciu słupków z makiety.
+/// `animation:bar <duration>s ... <delay>s` for the nine bars from the mockup.
 const _barSeconds = <double>[1.1, 0.9, 1.3, 1.0, 1.2, 0.95, 1.15, 1.05, 1.25];
 const _barDelays = <double>[-0.9, -0.2, -0.5, 0.0, -0.7, -0.35, -0.15, -0.6, -0.85];
 
-/// Faza cyklu w [0, 1) dla elementu o okresie [periodSeconds], przesunięta o [delaySeconds].
+/// Cycle phase in [0, 1) for an element with period [periodSeconds], offset by [delaySeconds].
 double phaseAt(double elapsedSeconds, double periodSeconds, [double delaySeconds = 0]) =>
     ((elapsedSeconds - delaySeconds) / periodSeconds) % 1.0;
 
@@ -54,11 +54,11 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
   late final Animation<double> _morphAnimation;
   Timer? _snackBarTimer;
 
-  /// Czas trwania przejścia koło ⇄ cookie 9 (650 ms).
+  /// Transition duration for circle ⇄ 9-sided cookie (650 ms).
   static const _morphDuration = Duration(milliseconds: 650);
 
-  /// Czas od startu bieżącego nagrania. ValueNotifier, a nie zwykłe pole z setState, bo dzięki
-  /// niemu co klatkę przebudowują się wyłącznie animowane poddrzewa, a nie cały ekran.
+  /// Elapsed time since recording start. ValueNotifier instead of a plain field with setState,
+  /// so only animated subtrees rebuild per frame rather than the entire screen.
   final ValueNotifier<double> _elapsedSeconds = ValueNotifier<double>(0);
 
   @override
@@ -94,8 +94,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
   void _onTick(Duration elapsed) =>
       _elapsedSeconds.value = elapsed.inMicroseconds / Duration.microsecondsPerSecond;
 
-  /// Włącza puls na czas nagrania i uruchamia morfing w przód.
-  /// Po zatrzymaniu nagrania morfing wraca w tył (cookie 9 -> koło) w 650 ms.
+  /// Enables pulse for recording duration and starts forward morphing.
+  /// When recording stops, morphing reverses (9-sided cookie -> circle) in 650 ms.
   void _syncTicker(bool isRecording) {
     if (isRecording) {
       if (!_ticker.isActive) _ticker.start();
@@ -105,7 +105,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
     }
   }
 
-  /// W trakcie nagrania lub podczas aktywnej animacji powrotnej odświeżamy widgety co klatkę.
+  /// During recording or active reverse animation, refresh widgets per frame.
   Widget _animated(bool animate, Widget Function() builder) =>
       (animate || _morphController.value > 0)
           ? AnimatedBuilder(
@@ -114,7 +114,7 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
             )
           : builder();
 
-  /// Oscylacja 0 -> 1 -> 0 o kształcie ease-in-out, jak `ease-in-out` w keyframe'ach CSS.
+  /// 0 -> 1 -> 0 ease-in-out oscillation, matching CSS keyframe `ease-in-out`.
   double _wave(double phase) => (1 - math.cos(2 * math.pi * phase)) / 2;
 
   double _phase(double seconds, [double delay = 0]) =>
@@ -247,8 +247,8 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
   }
 }
 
-/// Pigulka stanu nad licznikiem: czerwona kropka + "Nagrywanie" w trakcie, neutralna
-/// "Gotowy do nagrywania" w spoczynku.
+/// Status pill above the timer: red dot + "Recording" while active, neutral
+/// "Ready to record" in idle state.
 class _StatusPill extends StatelessWidget {
   const _StatusPill({required this.isRecording});
 
@@ -308,7 +308,7 @@ class _Timer extends StatelessWidget {
         height: 80 / 76,
         fontWeight: FontWeight.w700,
         letterSpacing: -2,
-        // Cyfry o stalej szerokosci, zeby licznik nie drgal przy kazdej sekundzie.
+        // Fixed-width tabular digits so the timer text does not jitter on every second change.
         fontFeatures: const [FontFeature.tabularFigures()],
         color: isRecording
             ? scheme.onSurface
@@ -318,18 +318,18 @@ class _Timer extends StatelessWidget {
   }
 }
 
-/// Przycisk nagrywania / zatrzymania w stylu MD3 Expressive.
+/// Record / stop button in MD3 Expressive styling.
 ///
-/// W spoczynku (Gotowy do nagrywania):
-/// - Koło 168 dp na `primary` z ikoną mikrofonu 64 dp na `onPrimary`,
-/// - Zewnętrzny cienki obrys (średnica 168 dp) z `outlineVariant`.
+/// In idle state (Ready to record):
+/// - 168 dp circle on `primary` with 64 dp mic icon on `onPrimary`,
+/// - Outer thin outline (168 dp diameter) using `outlineVariant`.
 ///
-/// W trakcie nagrywania:
-/// - Płynny morfing 0..460 ms (koło -> 9-płatkowe cookie 190 dp z `MaterialShapes.cookie9Sided`),
-/// - Dwa pierścienie pulsu (ring1: 2,0 s, ring2: 2,4 s) modulowane amplitudą,
-/// - Obrót cookie 22 s / obrót (16°/s) liniowo w kółko,
-/// - Oddech cookie ±4,5% w rytm amplitudy i cyklu 2,8 s (`animation: cookiepulse`),
-/// - W środku przycisk zatrzymania ze stop-square (58 dp, promień 16 dp) stabilny w centrum.
+/// During recording:
+/// - Smooth morphing 0..460 ms (circle -> 190 dp 9-sided cookie via `MaterialShapes.cookie9Sided`),
+/// - Two pulse rings (ring1: 2.0 s, ring2: 2.4 s) modulated by amplitude,
+/// - Linear continuous rotation of cookie at 22 s / revolution (16°/s),
+/// - Cookie breathing pulse ±4.5% matching amplitude and 2.8 s cycle (`animation: cookiepulse`),
+/// - Centered stop square button (58 dp, 16 dp corner radius) resting stably in the middle.
 class _PulseButton extends StatelessWidget {
   const _PulseButton({
     required this.isRecording,
@@ -351,8 +351,8 @@ class _PulseButton extends StatelessWidget {
   final double cookiePulse;
   final VoidCallback onTap;
 
-  /// Amplituda moduluje rozmach pulsu, ale go nie gasi — przy ciszy ruch jest ledwie widoczny,
-  /// przy głośnym dźwięku pełny.
+  /// Amplitude modulates pulse intensity without killing it completely — barely noticeable in silence,
+  /// full stroke during loud audio.
   double get _gain => 0.35 + 0.65 * amplitude.clamp(0.0, 1.0);
 
   @override
@@ -401,7 +401,7 @@ class _PulseButton extends StatelessWidget {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  // Tło kształtu morfujące z obrotem i oddechem
+                  // Morphing shape background with rotation and breathing pulse
                   Transform.scale(
                     scale: 1.0 + 0.045 * cookiePulse * _gain * morphProgress,
                     child: Transform.rotate(
@@ -415,7 +415,7 @@ class _PulseButton extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Stabilna ikona w centrum
+                  // Centered static icon
                   if (morphProgress < 0.5)
                     Opacity(
                       opacity: (1.0 - morphProgress * 2).clamp(0.0, 1.0),
@@ -454,7 +454,7 @@ class _PulseButton extends StatelessWidget {
   }
 }
 
-/// Rysuje kształt morfujący między kołem a 9-płatkowym cookie MD3 Expressive.
+/// Renders morphing shape between circle and MD3 Expressive 9-sided cookie.
 class _MorphShapePainter extends CustomPainter {
   _MorphShapePainter({required this.progress, required this.color});
 
@@ -513,10 +513,10 @@ class _Ring extends StatelessWidget {
   }
 }
 
-/// Dziewięć słupków poziomu dźwięku. W spoczynku są kropkami (6 dp), w trakcie nagrania
-/// każdy słupek zachowuje się jak niezależne pasmo częstotliwości audio:
-/// reaguje na poziom z mikrofonu oraz harmoniczne fale akustyczne, tworząc żywy,
-/// naturalny korektor graficzny (zamiast sztywnego, symetrycznego trójkąta).
+/// Nine audio level bars. In idle state they rest as dots (6 dp); during recording
+/// each bar acts as an independent frequency band:
+/// responding to microphone input level and harmonic acoustic waves, creating a lively,
+/// natural graphic equalizer (rather than a static, symmetric triangle).
 class _LevelBars extends StatelessWidget {
   const _LevelBars({
     required this.isRecording,
@@ -556,10 +556,10 @@ class _LevelBars extends StatelessWidget {
                         math.sin(2 *
                             math.pi *
                             (elapsedSeconds * _barFreqs[i] + _barPhases[i]));
-                // Spokojniejszy, stonowany zakres modulacji pasma (0.60..1.0)
+                // Subdued frequency band modulation range (0.60..1.0)
                 final dynamicBand = 0.60 + 0.40 * wave;
                 final dynamicGain = normAmp * dynamicBand * _baseSensitivity[i];
-                // Stonowana maksymalna wysokość: naturalny, łagodny ruch
+                // Calibrated maximum height: natural, smooth motion
                 height = (_barWidth + (_barsHeight - _barWidth) * dynamicGain * 0.75)
                     .clamp(_barWidth, _barsHeight);
               }
@@ -582,7 +582,7 @@ class _LevelBars extends StatelessWidget {
   }
 }
 
-/// Karta bledu z sekcji "Stany puste i bledy".
+/// Error card from the "Empty states and errors" section.
 class _ErrorCard extends StatelessWidget {
   const _ErrorCard({required this.error});
 
