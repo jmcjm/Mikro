@@ -803,23 +803,43 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Przycisk transportu z makiety: 64x64 na `primary`, promien 20, ikona 32.
+  /// Przycisk transportu z makiety: 68x68 na `primary`, przejście koło (34 dp) ⇄ squircle (18 dp)
+  /// w 320 ms (emphasized curve `(0.2, 0, 0, 1)`), ikona 34 dp.
   Widget _playButton(Recording r) {
     final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: scheme.primary,
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(20),
-        onTap: () => _toggle(r),
-        child: SizedBox(
-          width: 64,
-          height: 64,
-          child: Icon(
-            _playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
-            fill: 1,
-            size: 32,
-            color: scheme.onPrimary,
+    final borderRadius = BorderRadius.circular(_playing ? 18 : 34);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 320),
+      curve: const Cubic(0.2, 0.0, 0.0, 1.0),
+      width: 68,
+      height: 68,
+      decoration: BoxDecoration(
+        color: scheme.primary,
+        borderRadius: borderRadius,
+        boxShadow: [
+          BoxShadow(
+            color: scheme.primary.withValues(alpha: 0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: borderRadius,
+          onTap: () => _toggle(r),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: Icon(
+                _playing ? Symbols.pause_rounded : Symbols.play_arrow_rounded,
+                key: ValueKey(_playing),
+                fill: 1,
+                size: 34,
+                color: scheme.onPrimary,
+              ),
+            ),
           ),
         ),
       ),
@@ -1061,153 +1081,165 @@ class _WaveformSeekBarState extends State<WaveformSeekBar> {
     return Semantics(
       label: widget.label,
       value: '${formatDuration(widget.position)} / ${formatDuration(widget.total)}',
-      child: SizedBox(
-        height: widget.height,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            Duration at(Offset local) =>
-                positionAt(dx: local.dx, width: width, total: widget.total);
-            void scrub(Offset local) {
-              _dragged = at(local);
-              widget.onScrub(_dragged!);
-            }
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          Duration at(Offset local) =>
+              positionAt(dx: local.dx, width: width, total: widget.total);
+          void scrub(Offset local) {
+            _dragged = at(local);
+            widget.onScrub(_dragged!);
+          }
 
-            return GestureDetector(
-              // Slupki nie wypelniaja calego pasa, a przerwy miedzy nimi maja przewijac tak
-              // samo jak one.
-              behavior: HitTestBehavior.opaque,
-              onTapUp: (d) => widget.onSeek(at(d.localPosition)),
-              onHorizontalDragStart: (d) => scrub(d.localPosition),
-              onHorizontalDragUpdate: (d) => scrub(d.localPosition),
-              onHorizontalDragEnd: (_) {
-                widget.onSeek(_dragged ?? widget.position);
-                _dragged = null;
-              },
-              child: Stack(
-                // Kursor wystaje 4 px nad slupki i pod nie; przyciety wygladalby na urwany.
-                clipBehavior: Clip.none,
-                children: [
-                  WaveformBars(
-                    levels: widget.levels,
-                    height: widget.height,
-                    beat: widget.beat,
-                    played: playedBars(
-                      count: widget.levels.length,
-                      position: widget.position,
-                      total: widget.total,
-                    ),
-                  ),
-                  _cursor(context, width),
-                ],
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+          final fraction = widget.total > Duration.zero
+              ? (widget.position.inMilliseconds / widget.total.inMilliseconds).clamp(0.0, 1.0)
+              : 0.0;
+          final playedCount = playedBars(
+            count: widget.levels.length,
+            position: widget.position,
+            total: widget.total,
+          );
 
-  /// Kursor pozycji z makiety: pasek 4 px w kolorze `primary`, z halo 3 px w kolorze karty
-  /// (`box-shadow:0 0 0 3px var(--sc2)`), wystajacy 4 px poza pas slupkow.
-  Widget _cursor(BuildContext context, double width) {
-    final scheme = Theme.of(context).colorScheme;
-    const barWidth = 4.0;
-    final fraction = widget.total > Duration.zero
-        ? (widget.position.inMilliseconds / widget.total.inMilliseconds).clamp(0.0, 1.0)
-        : 0.0;
-    // Kursor stoi SRODKIEM na pozycji, wiec na obu koncach nagrania trzeba go wciagnac
-    // z powrotem w pas — inaczej polowa wisialaby poza karta.
-    final left = (width * fraction - barWidth / 2).clamp(0.0, (width - barWidth).clamp(0.0, width));
-    return Positioned(
-      left: left,
-      top: -4,
-      bottom: -4,
-      width: barWidth,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: scheme.primary,
-          borderRadius: BorderRadius.circular(2),
-          boxShadow: [BoxShadow(color: scheme.surfaceContainer, spreadRadius: 3)],
-        ),
+          return GestureDetector(
+            // Slupki wypelniaja caly pas, a przerwy miedzy nimi maja przewijac tak samo
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (d) => widget.onSeek(at(d.localPosition)),
+            onHorizontalDragStart: (d) => scrub(d.localPosition),
+            onHorizontalDragUpdate: (d) => scrub(d.localPosition),
+            onHorizontalDragEnd: (_) {
+              widget.onSeek(_dragged ?? widget.position);
+              _dragged = null;
+            },
+            child: WaveformBars(
+              levels: widget.levels,
+              height: widget.height,
+              beat: widget.beat,
+              progress: fraction,
+              played: playedCount,
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-/// Pasek obwiedni amplitudy z makiety: slupki po 3 px odstepu, wysrodkowane w pionie
-/// i zaokraglone na 2 px. Liczba slupkow bierze sie z danych, nie z widoku — po stronie
-/// zapisu pilnuje jej [kWaveformBuckets].
-///
-/// Slupek zagrany dostaje pelny `primary`, niezagrany przygaszony `outlineVariant` — podzial
-/// z makiety, ktory robi z przebiegu takze wskaznik postepu.
+class _HorizontalProgressClipper extends CustomClipper<Rect> {
+  const _HorizontalProgressClipper(this.progress);
+  final double progress;
+
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTWH(0, 0, size.width * progress.clamp(0.0, 1.0), size.height);
+
+  @override
+  bool shouldReclip(covariant _HorizontalProgressClipper oldClipper) =>
+      oldClipper.progress != progress;
+}
+
+/// Gęsta mikro-obwiednia audio wypełniająca 100% szerokości z subpikselowym, płynnym wskaźnikiem postępu.
 class WaveformBars extends StatelessWidget {
   const WaveformBars({
     super.key,
     required this.levels,
     required this.height,
-    required this.played,
+    this.progress = 0.0,
+    this.played = 0,
     this.beat,
   });
 
-  /// Wysokosci slupkow, 0..1.
   final List<double> levels;
-
-  /// Wysokosc pasa.
   final double height;
-
-  /// Ile pierwszych slupkow jest juz zagranych.
+  final double progress;
   final int played;
-
-  /// Czas od startu odtwarzania. `null` znaczy „nagranie nie gra": slupki stoja wtedy na
-  /// swoich prawdziwych wysokosciach, bo obwiednia jest przede wszystkim wykresem.
   final Duration? beat;
-
-  /// Wysokosc slupka 0..1: w spoczynku prawdziwa, w trakcie odtwarzania rozkolysana wokol
-  /// niej przez [dancingBarLevel].
-  double _levelAt(int index, double? beatSeconds) {
-    final level = levels[index].clamp(0.0, 1.0);
-    if (beatSeconds == null) return level;
-    return dancingBarLevel(level: level, elapsedSeconds: beatSeconds, index: index);
-  }
-
-  static const double _gap = 3;
-
-  /// Cichy fragment tez musi cos narysowac. Slupek zerowej wysokosci robi w pasku dziure,
-  /// ktora czyta sie jak blad rysowania, a nie jak cisze.
-  static const double _minBar = 2;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final radius = BorderRadius.circular(2);
     final playedColor = scheme.primary;
     final restColor = scheme.outlineVariant.withValues(alpha: 0.75);
     final beatSeconds = beat == null
         ? null
         : beat!.inMicroseconds / Duration.microsecondsPerSecond;
+
     return SizedBox(
       height: height,
-      child: Row(
+      child: Stack(
         children: [
-          for (var i = 0; i < levels.length; i++) ...[
-            if (i > 0) const SizedBox(width: _gap),
-            Expanded(
-              child: SizedBox(
-                height: (_levelAt(i, beatSeconds) * height).clamp(_minBar, height),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: i < played ? playedColor : restColor,
-                    borderRadius: radius,
-                  ),
-                ),
+          CustomPaint(
+            size: Size.infinite,
+            painter: _DensePillsPainter(
+              levels: levels,
+              color: restColor,
+              beatSeconds: beatSeconds,
+            ),
+          ),
+          ClipRect(
+            clipper: _HorizontalProgressClipper(progress),
+            child: CustomPaint(
+              size: Size.infinite,
+              painter: _DensePillsPainter(
+                levels: levels,
+                color: playedColor,
+                beatSeconds: beatSeconds,
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
+}
+
+class _DensePillsPainter extends CustomPainter {
+  _DensePillsPainter({
+    required this.levels,
+    required this.color,
+    required this.beatSeconds,
+  });
+
+  final List<double> levels;
+  final Color color;
+  final double? beatSeconds;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (levels.isEmpty || size.width <= 0 || size.height <= 0) return;
+    const pillWidth = 2.5;
+    const minGap = 1.5;
+    final count = ((size.width + minGap) / (pillWidth + minGap)).floor().clamp(20, 240);
+    final step = (size.width - pillWidth) / (count - 1);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+
+    for (var i = 0; i < count; i++) {
+      final t = count > 1 ? (i / (count - 1)) * (levels.length - 1) : 0.0;
+      final i0 = t.floor().clamp(0, levels.length - 1);
+      final i1 = t.ceil().clamp(0, levels.length - 1);
+      final fract = t - i0;
+      final base = levels[i0] + (levels[i1] - levels[i0]) * fract;
+      final lvl = beatSeconds == null
+          ? base
+          : dancingBarLevel(level: base, elapsedSeconds: beatSeconds!, index: i % 8);
+      final barH = (lvl * size.height).clamp(2.5, size.height);
+      final x = i * step;
+      final y = (size.height - barH) / 2;
+
+      final rrect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x, y, pillWidth, barH),
+        const Radius.circular(1.25),
+      );
+      canvas.drawRRect(rrect, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DensePillsPainter oldDelegate) =>
+      oldDelegate.color != color ||
+      oldDelegate.beatSeconds != beatSeconds ||
+      oldDelegate.levels != levels;
 }
 
 /// Przycisk skoku o 10 s: 48x48 bez tla, ikona 24 — jak w wierszu transportu makiety.

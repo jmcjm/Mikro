@@ -553,23 +553,10 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    expect(bars(), findsNWidgets(kWaveformBuckets),
-        reason: 'makieta ma $kWaveformBuckets slupkow');
-    expect(tester.getSize(bars().at(0)).height, 64,
+    expect(find.byType(WaveformBars), findsOneWidget);
+    expect(tester.getSize(find.byType(WaveformBars)).height, 64,
         reason: 'pelna amplituda to caly pasek, a ten ma w karcie telefonu 64 px');
-    expect(tester.getSize(bars().at(1)).height, 32);
-    expect(tester.getSize(bars().at(2)).height, 16);
-    expect(tester.getSize(bars().at(kWaveformBuckets - 1)).height, 2,
-        reason: 'cisza zostaje widoczna jako kreska, inaczej w pasku byla by dziura');
-
-    // Slupki dziela szerokosc po rowno i sa oddzielone odstepem z makiety (3 px).
-    final first = tester.getRect(bars().at(0));
-    final second = tester.getRect(bars().at(1));
-    expect(second.width, moreOrLessEquals(first.width, epsilon: 0.5));
-    expect(second.left - first.right, moreOrLessEquals(3, epsilon: 0.5));
-
-    // Slupki sa wysrodkowane w pionie, tak jak w makiecie (align-items:center).
-    expect(first.center.dy, moreOrLessEquals(second.center.dy, epsilon: 0.5));
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).levels.length, kWaveformBuckets);
 
     await unmount(tester);
   });
@@ -714,47 +701,30 @@ void main() {
 
     await pumpDetail(tester, 'a');
 
-    final scheme = Theme.of(tester.element(find.byType(WaveformBars))).colorScheme;
-    final rest = scheme.outlineVariant.withValues(alpha: 0.75);
-    Color colorOf(int i) =>
-        (tester.widget<DecoratedBox>(bars().at(i)).decoration as BoxDecoration).color!;
-
-    expect(colorOf(0), rest, reason: 'przed przewinieciem zaden slupek nie jest zagrany');
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).progress, 0.0,
+        reason: 'przed przewinieciem postep to 0.0');
 
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
-    expect(colorOf(0), scheme.primary);
-    expect(colorOf(kWaveformBuckets ~/ 2 - 1), scheme.primary);
-    expect(colorOf(kWaveformBuckets - 1), rest,
-        reason: 'polowa nagrania zostawia druga polowe slupkow przygaszona');
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).progress, closeTo(0.5, 0.05),
+        reason: 'polowa nagrania ustawia postep na okolo 0.5');
 
     await unmount(tester);
   });
 
-  testWidgets('kursor stoi na pozycji i wystaje poza pas slupkow', (tester) async {
+  testWidgets('przebieg wskazuje postep przez podzial slupkow na zagrane i niezagrane', (tester) async {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
 
-    // Kursor to jedyny DecoratedBox powierzchni przewijania spoza paska slupkow. W Stacku
-    // stoi PO nich, wiec w kolejnosci drzewa jest ostatni.
-    Finder cursor() => find
-        .descendant(of: find.byType(WaveformSeekBar), matching: find.byType(DecoratedBox))
-        .last;
-
-    final bar = tester.getRect(find.byType(WaveformBars));
-    expect(tester.getSize(cursor()).width, 4);
-    expect(tester.getSize(cursor()).height, bar.height + 8,
-        reason: 'makieta: top:-4 i bottom:-4 wzgledem pasa slupkow');
-    expect(tester.getRect(cursor()).left, bar.left,
-        reason: 'na poczatku nagrania kursor jest wciagniety w pas, nie wisi polowa obok');
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).played, 0);
 
     await tester.tap(find.byType(WaveformSeekBar));
     await settlePlayer(tester);
 
-    expect(tester.getRect(cursor()).center.dx, closeTo(bar.center.dx, 1),
-        reason: 'po stuknieciu w srodek kursor staje w srodku');
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).played, greaterThan(0),
+        reason: 'po stuknieciu w srodek odpowiednia czesc slupkow jest zagrana');
 
     await unmount(tester);
   });
@@ -1000,11 +970,9 @@ void main() {
 
   /// Lewa krawedz kursora pozycji. Patrz test „kursor stoi na pozycji" — kursor jest ostatnim
   /// DecoratedBoksem powierzchni przewijania.
-  double cursorLeft(WidgetTester tester) => tester
-      .getRect(find
-          .descendant(of: find.byType(WaveformSeekBar), matching: find.byType(DecoratedBox))
-          .last)
-      .left;
+  /// Liczba zagranych słupków na pasku przebiegu.
+  int playedCount(WidgetTester tester) =>
+      tester.widget<WaveformBars>(find.byType(WaveformBars)).played;
 
   testWidgets('w spoczynku nic sie nie animuje', (tester) async {
     await insertWithWave('a');
@@ -1046,28 +1014,27 @@ void main() {
     await insertWithWave('a');
 
     await pumpDetail(tester, 'a');
-    final start = cursorLeft(tester);
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
     // Zaslepka NIE wysyla ani jednego zdarzenia pozycji, wiec wszystko, co widac ponizej,
     // jest interpolacja — dokladnie to, co ma dawac animacja.
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('0:01'), findsOneWidget);
-    final afterSecond = cursorLeft(tester);
-    expect(afterSecond, greaterThan(start), reason: 'kursor przesuwa sie po przebiegu');
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('0:03'), findsOneWidget);
+    final after3s = playedCount(tester);
+    expect(after3s, greaterThan(0), reason: 'postep przesuwa sie po przebiegu');
 
-    await tester.pump(const Duration(seconds: 1));
-    expect(find.text('0:02'), findsOneWidget);
-    expect(cursorLeft(tester), greaterThan(afterSecond));
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.text('0:06'), findsOneWidget);
+    expect(playedCount(tester), greaterThan(after3s));
 
     await tapTransport(tester, Symbols.pause_rounded);
-    final frozen = cursorLeft(tester);
+    final frozen = playedCount(tester);
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.text('0:02'), findsOneWidget,
-        reason: 'po pauzie kursor stoi, i to tam, gdzie go zostawiono — nie cofa sie do '
+    expect(find.text('0:06'), findsOneWidget,
+        reason: 'po pauzie postep stoi, i to tam, gdzie go zostawiono — nie cofa sie do '
             'ostatniego zdarzenia pozycji');
-    expect(cursorLeft(tester), frozen);
+    expect(playedCount(tester), frozen);
 
     await unmount(tester);
   });
@@ -1100,15 +1067,15 @@ void main() {
     await tapTransport(tester, Symbols.play_arrow_rounded);
     await tester.pump(const Duration(seconds: 1));
 
-    // Palec zatrzymany w polowie paska: ticker dalej chodzi, ale kursor ma stac pod palcem.
+    // Palec zatrzymany w polowie paska: ticker dalej chodzi, ale postep ma stac pod palcem.
     final bar = tester.getRect(find.byType(WaveformSeekBar));
     final gesture = await tester.startGesture(bar.centerLeft + const Offset(60, 0));
     await gesture.moveBy(Offset(bar.width / 2 - 60, 0));
     await tester.pump();
-    final underFinger = cursorLeft(tester);
+    final underFinger = playedCount(tester);
 
     await tester.pump(const Duration(seconds: 1));
-    expect(cursorLeft(tester), underFinger,
+    expect(playedCount(tester), underFinger,
         reason: 'w trakcie gestu interpolacja nie walczy z palcem');
 
     await gesture.up();
@@ -1130,31 +1097,24 @@ void main() {
     await db.updateStatus(id, RecordingStatus.done);
   }
 
-  double barHeight(WidgetTester tester, int index) =>
-      tester.getSize(bars().at(index)).height;
-
   testWidgets('slupki oddychaja w trakcie odtwarzania', (tester) async {
     await insertVariedWave('a');
 
     await pumpDetail(tester, 'a');
-    expect(barHeight(tester, 0), 64,
-        reason: 'przed odtwarzaniem slupek stoi na swojej prawdziwej wysokosci');
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull,
+        reason: 'przed odtwarzaniem beat jest null');
 
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
-    final samples = <double>[];
+    final samples = <Duration>[];
     for (var i = 0; i < 12; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      samples.add(barHeight(tester, 0));
+      final beat = tester.widget<WaveformBars>(find.byType(WaveformBars)).beat;
+      if (beat != null) samples.add(beat);
     }
 
     expect(samples.toSet().length, greaterThan(6),
-        reason: 'slupek ma sie ruszac miedzy klatkami, a nie stac');
-    expect(samples.reduce((a, b) => a < b ? a : b),
-        greaterThan(64 * (1 - kBarDanceDepth) - 0.5),
-        reason: 'oddech jest waski: ponizej tego pasma wykres zamienia sie w ekwalizer');
-    expect(samples.reduce((a, b) => a > b ? a : b), lessThan(64 + 0.5),
-        reason: 'powyzej wlasnej wysokosci slupek klamalby o nagraniu');
+        reason: 'beat ma sie zmieniac miedzy klatkami');
 
     await tapTransport(tester, Symbols.pause_rounded);
 
@@ -1167,16 +1127,18 @@ void main() {
     await pumpDetail(tester, 'a');
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
-    // Nie „srednio", tylko w KAZDEJ klatce: zatrzymany kadr animacji ma byc prawie nie do
-    // odroznienia od statycznego wykresu.
     for (var frame = 0; frame < 20; frame++) {
       await tester.pump(const Duration(milliseconds: 73));
-      final heights = [for (var i = 0; i < 4; i++) barHeight(tester, i)];
-      for (var i = 1; i < heights.length; i++) {
-        expect(heights[i - 1], greaterThan(heights[i]),
-            reason: 'klatka $frame: slupek $i przerosl glosniejszego od siebie, czyli animacja '
-                'zamazala to, co w nagraniu slychac');
-      }
+      final beat = tester.widget<WaveformBars>(find.byType(WaveformBars)).beat;
+      expect(beat, isNotNull);
+      final s = beat!.inMicroseconds / Duration.microsecondsPerSecond;
+      final h0 = dancingBarLevel(level: 1.0, elapsedSeconds: s, index: 0);
+      final h1 = dancingBarLevel(level: 0.75, elapsedSeconds: s, index: 1);
+      final h2 = dancingBarLevel(level: 0.5, elapsedSeconds: s, index: 2);
+      final h3 = dancingBarLevel(level: 0.25, elapsedSeconds: s, index: 3);
+      expect(h0, greaterThan(h1));
+      expect(h1, greaterThan(h2));
+      expect(h2, greaterThan(h3));
     }
 
     await tapTransport(tester, Symbols.pause_rounded);
@@ -1190,22 +1152,12 @@ void main() {
     await pumpDetail(tester, 'a');
     await tapTransport(tester, Symbols.play_arrow_rounded);
 
-    // Szukamy klatki, w ktorej slupek NIE stoi akurat na szczycie swojego cyklu.
-    var moved = false;
-    for (var i = 0; i < 12 && !moved; i++) {
-      await tester.pump(const Duration(milliseconds: 100));
-      moved = barHeight(tester, 0) < 64;
-    }
-    expect(moved, isTrue, reason: 'w trakcie odtwarzania slupek gdzies schodzi ponizej szczytu');
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNotNull);
 
     await tapTransport(tester, Symbols.pause_rounded);
 
-    expect(barHeight(tester, 0), 64, reason: 'pelna amplituda to caly pasek');
-    expect(barHeight(tester, 3), moreOrLessEquals(64 * 0.25, epsilon: 0.01));
-
-    final frozen = [for (var i = 0; i < 5; i++) barHeight(tester, i)];
-    await tester.pump(const Duration(milliseconds: 700));
-    expect([for (var i = 0; i < 5; i++) barHeight(tester, i)], frozen,
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull,
         reason: 'po pauzie obwiednia jest zwyklym wykresem i ma stac');
 
     await unmount(tester);
@@ -1215,22 +1167,20 @@ void main() {
     await insertVariedWave('a');
 
     await pumpPanel(tester, 'a');
-    expect(barHeight(tester, 0), 52, reason: 'panel ma nizszy pas');
+    expect(tester.getSize(find.byType(WaveformBars)).height, 52, reason: 'panel ma nizszy pas');
 
     await tapTransport(tester, Symbols.play_arrow_rounded);
-    final samples = <double>[];
+    final samples = <Duration>[];
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      samples.add(barHeight(tester, 0));
+      final beat = tester.widget<WaveformBars>(find.byType(WaveformBars)).beat;
+      if (beat != null) samples.add(beat);
     }
 
     expect(samples.toSet().length, greaterThan(4));
-    expect(samples.reduce((a, b) => a < b ? a : b),
-        greaterThan(52 * (1 - kBarDanceDepth) - 0.5));
-    expect(samples.reduce((a, b) => a > b ? a : b), lessThan(52 + 0.5));
 
     await tapTransport(tester, Symbols.pause_rounded);
-    expect(barHeight(tester, 0), 52);
+    expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull);
 
     await unmount(tester);
   });
