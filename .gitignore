@@ -47,11 +47,17 @@ app.*.map.json
 # Widget Preview related
 .widget_preview/
 
-# dokumenty robocze
+# Working documentation & plans
 docs/superpowers/
 .superpowers/
 
-# artefakty pakowania (leza pod /build/, ktore jest juz ignorowane wyzej -
-# wpisy zostawione wprost, zeby bylo widac, co produkuja skrypty z packaging/)
+# packaging artifacts (under /build/ which is ignored above - listed for clarity)
 /build/flatpak/
 /build/appimage/
+
+# Android signing keystores & properties
+android/key.properties
+android/app/key.properties
+*.jks
+*.keystore
+
