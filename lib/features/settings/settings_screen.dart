@@ -184,31 +184,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         children: [
           _sectionLabel(l10n.settingsProviderSection, colors),
           const SizedBox(height: 10),
-          SegmentedButton<ProviderPreset>(
-            // Groq i OpenAI to nazwy wlasne dostawcow i nie ida przez ARB.
-            segments: [
-              const ButtonSegment(value: ProviderPreset.groq, label: Text('Groq')),
-              const ButtonSegment(value: ProviderPreset.openai, label: Text('OpenAI')),
-              ButtonSegment(
-                value: ProviderPreset.custom,
-                label: Text(l10n.settingsProviderCustom),
-              ),
-            ],
-            selected: {_preset},
-            onSelectionChanged: (selection) => _applyPreset(selection.first),
-            selectedIcon: const Icon(Symbols.check_rounded, fill: 1, size: 18),
-            style: SegmentedButton.styleFrom(
-              side: BorderSide(color: colors.outline),
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(22)),
-              ),
-              foregroundColor: colors.onSurface,
-              selectedForegroundColor: colors.onSecondaryContainer,
-              selectedBackgroundColor: colors.secondaryContainer,
-              textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-              minimumSize: const Size(0, 44),
-            ),
-          ),
+          _providerConnectedButtonGroup(colors, l10n),
           const SizedBox(height: 10),
           TextField(
             controller: _baseUrl,
@@ -250,6 +226,91 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
         ],
       );
+
+  /// Grupa segmentów wyboru providera w stylu MD3 Expressive: connected button group
+  /// o wysokości 56 dp, 2 dp przerwy, zewnętrzne promienie 28 dp, wewnętrzne 8 dp,
+  /// a zaznaczony segment ma pełne zaokrąglenie 28 dp na wszystkich rogach i flex 1.35.
+  Widget _providerConnectedButtonGroup(ColorScheme colors, AppLocalizations l10n) {
+    final segments = [
+      (preset: ProviderPreset.groq, label: 'Groq'),
+      (preset: ProviderPreset.openai, label: 'OpenAI'),
+      (preset: ProviderPreset.custom, label: l10n.settingsProviderCustom),
+    ];
+
+    return SizedBox(
+      height: 56,
+      child: Row(
+        children: [
+          for (var i = 0; i < segments.length; i++) ...[
+            if (i > 0) const SizedBox(width: 2),
+            Expanded(
+              child: _providerSegmentItem(
+                preset: segments[i].preset,
+                label: segments[i].label,
+                index: i,
+                total: segments.length,
+                isSelected: _preset == segments[i].preset,
+                colors: colors,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _providerSegmentItem({
+    required ProviderPreset preset,
+    required String label,
+    required int index,
+    required int total,
+    required bool isSelected,
+    required ColorScheme colors,
+  }) {
+    final BorderRadius radius;
+    if (isSelected) {
+      radius = BorderRadius.circular(28);
+    } else if (index == 0) {
+      radius = const BorderRadius.horizontal(
+        left: Radius.circular(28),
+        right: Radius.circular(8),
+      );
+    } else if (index == total - 1) {
+      radius = const BorderRadius.horizontal(
+        left: Radius.circular(8),
+        right: Radius.circular(28),
+      );
+    } else {
+      radius = BorderRadius.circular(8);
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 240),
+      curve: const Cubic(0.2, 0.0, 0.0, 1.0),
+      decoration: BoxDecoration(
+        color: isSelected ? colors.primary : colors.surfaceContainerHigh,
+        borderRadius: radius,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: radius,
+          onTap: () => _applyPreset(preset),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0.1,
+                color: isSelected ? colors.onPrimary : colors.onSurface,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _themeSection(ColorScheme colors, AppLocalizations l10n) {
     final mode = ref.watch(themeModeProvider);

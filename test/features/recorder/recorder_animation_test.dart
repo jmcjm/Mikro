@@ -90,7 +90,7 @@ void main() {
           reason: 'w trakcie nagrania puls ma faktycznie chodzic');
 
       controller.emit(const RecorderState());
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(tester.binding.transientCallbackCount, 0,
           reason: 'stop nagrania zatrzymuje ticker, a nie tylko chowa animacje');
     });
