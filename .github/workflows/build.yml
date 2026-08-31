@@ -77,13 +77,13 @@ jobs:
       - name: Prepare APK artifact
         run: |
           mkdir -p dist
-          cp build/app/outputs/flutter-apk/app-release.apk dist/pl.jmc.mikro.apk
+          cp build/app/outputs/flutter-apk/app-release.apk dist/mikro.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: mikro-apk
-          path: dist/pl.jmc.mikro.apk
+          path: dist/mikro.apk
 
   build-appimage:
     name: Build Linux AppImage
@@ -219,7 +219,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/pl.jmc.mikro.apk
+            release-assets/mikro.apk
             release-assets/Mikro-x86_64.AppImage
             release-assets/pl.jmc.mikro.flatpak
           generate_release_notes: true
