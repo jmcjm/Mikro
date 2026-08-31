@@ -1,58 +1,49 @@
-# Pakowanie Mikro na Linuksa
+# Linux Packaging for Mikro
 
-Aplikacja jest dystrybuowana w dwoch formatach: **Flatpak** i **AppImage**.
-Oba biora ten sam bundle Fluttera (`build/linux/x64/release/bundle`) oraz te same
-metadane desktopowe z `packaging/shared/`, wiec nie da sie ich rozjechac.
+The application is distributed in two Linux formats: **Flatpak** and **AppImage**.
+Both consume the exact same Flutter bundle (`build/linux/x64/release/bundle`) and identical desktop metadata from `packaging/shared/`.
 
-## Jedna komenda na format
+## One Command Per Format
 
 ```sh
-./packaging/build-flatpak.sh --install   # buduje i instaluje w flatpaku --user
-./packaging/build-appimage.sh            # buduje build/appimage/Mikro-x86_64.AppImage
+./packaging/build-flatpak.sh --install   # builds and installs to flatpak --user
+./packaging/build-appimage.sh            # builds build/appimage/Mikro-x86_64.AppImage
 ```
 
-Dopisz `--clean`, gdy chcesz build od zera (`flutter clean`) - obowiazkowo przy
-pomiarach rozmiaru bundla. Dopisz `--skip-bundle`, gdy bundle jest juz zbudowany
-i chcesz tylko przepakowac.
+Append `--clean` for a clean build (`flutter clean`). Append `--skip-bundle` when the Flutter bundle is already built and you only want to re-package.
 
-## Uklad katalogow
+## Directory Structure
 
-| Sciezka | Co to |
+| Path | Description |
 | --- | --- |
-| `packaging/build-bundle.sh` | wspolny krok: `flutter build linux --release` (domyslnie w devcontainerze) |
-| `packaging/build-flatpak.sh` | flatpak-builder + jednoplikowy `.flatpak` |
-| `packaging/build-appimage.sh` | AppDir + appimagetool |
-| `packaging/shared/` | `.desktop` i AppStream metainfo - wspolne dla obu formatow |
-| `packaging/icons/` | master 1024x1024 + wygenerowane 64/128/256/512 |
-| `packaging/flatpak/` | manifest Flatpaka |
-| `packaging/appimage/` | `AppRun` |
+| `packaging/build-bundle.sh` | Shared build step: `flutter build linux --release` (runs in devcontainer by default) |
+| `packaging/build-flatpak.sh` | `flatpak-builder` + single-file `.flatpak` bundle |
+| `packaging/build-appimage.sh` | AppDir assembly + `appimagetool` packaging |
+| `packaging/shared/` | `.desktop` and AppStream metainfo shared by both formats |
+| `packaging/icons/` | Master 1024x1024 icon + pre-generated 64/128/256/512 sizes |
+| `packaging/flatpak/` | Flatpak manifest (`pl.jmc.mikro.yml`) |
+| `packaging/appimage/` | AppImage entrypoint script (`AppRun`) |
 
-Artefakty lezy w `build/flatpak/` i `build/appimage/` - oba katalogi sa ignorowane
-przez gita.
+Built artifacts are output to `build/flatpak/` and `build/appimage/` (both git-ignored).
 
-## Identyfikator aplikacji
+## Application ID
 
-Wszedzie `pl.jmc.mikro`: `APPLICATION_ID` w `linux/CMakeLists.txt`, `applicationId`
-Androida, nazwy plikow `.desktop`, metainfo i ikon oraz `app-id` w manifescie
-Flatpaka. Dzieki temu `app_id` okna pod Waylandem trafia w plik `.desktop`
-i srodowisko pokazuje wlasciwa ikone.
+Consistent `pl.jmc.mikro` identifier across all platforms: `APPLICATION_ID` in `linux/CMakeLists.txt`, `applicationId` in Android, `.desktop` file names, metainfo, icon names, and the Flatpak `app-id`. This guarantees proper Wayland window `app_id` mapping and system icon presentation.
 
-## Czego aplikacja potrzebuje od systemu
+## System Dependencies
 
 - `gtk3`, `libsecret-1`, `json-glib`
-- `gstreamer1` z wtyczkami base/good (odtwarzanie przez audioplayers)
-- `parecord` i `pactl` (pulseaudio-utils) oraz `ffmpeg` - `record_linux` uruchamia
-  je jako procesy potomne podczas nagrywania
-- glibc >= 2.38 (wynika z toolchainu w devcontainerze)
+- `gstreamer1` with base/good plugins (audio playback via audioplayers)
+- `parecord` and `pactl` (`pulseaudio-utils`), plus `ffmpeg` (spawned during microphone recording)
+- `glibc >= 2.38` (determined by the devcontainer toolchain)
 
-Flatpak dostaje to wszystko z `org.freedesktop.Platform//25.08`. AppImage polega na
-systemie uzytkownika - stad wymagania wypisane wyzej.
+Flatpak bundles all of these from `org.freedesktop.Platform//25.08`. AppImage relies on the host system dependencies.
 
-## Regeneracja ikon
+## Icon Regeneration
 
 ```sh
 ./packaging/icons/generate-sizes.sh
 ```
 
-Odpalamy tylko po podmianie mastera `packaging/icons/mikro-icon-1024.png`;
-wygenerowane rozmiary sa zacommitowane, zeby build nie wymagal ImageMagicka.
+Run only after modifying the master icon `packaging/icons/mikro-icon-1024.png`. Pre-generated sizes are committed to the repository so standard builds do not require ImageMagick.
+

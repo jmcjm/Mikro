@@ -1,23 +1,21 @@
 #!/usr/bin/env bash
-# Buduje bundla Fluttera dla Linuksa (release) do build/linux/x64/release/bundle.
+# Builds the Flutter release bundle for Linux to build/linux/x64/release/bundle.
 #
-# Wspolny krok dla build-flatpak.sh i build-appimage.sh; mozna go tez uruchomic
-# osobno. Domyslnie (MIKRO_BUILD_MODE=auto) buduje w devcontainerze repozytorium,
-# bo tylko tam jest przewidziany toolchain Fluttera; gdy CLI devcontainerow nie
-# ma, korzysta z `flutter` z PATH.
+# Shared step for build-flatpak.sh and build-appimage.sh; can also be run standalone.
+# By default (MIKRO_BUILD_MODE=auto) builds in the repo's devcontainer where the
+# complete toolchain is configured; falls back to host `flutter` if devcontainer CLI is absent.
 #
-# Uzycie (z katalogu glownego repo):
+# Usage (from repository root):
 #   ./packaging/build-bundle.sh [--clean]
 #
-# Opcje:
-#   --clean   wykonuje `flutter clean` przed buildem (konieczne, gdy mierzysz
-#             rozmiar bundla - inaczej zostaja w nim stale pliki)
+# Options:
+#   --clean   Runs `flutter clean` prior to build (mandatory for bundle size benchmarks).
 #
-# Zmienne srodowiskowe:
-#   MIKRO_BUILD_MODE                 auto (domyslnie) | devcontainer | host
-#   MIKRO_DEVCONTAINER_DOCKER_PATH   binarka silnika kontenerow (domyslnie podman)
+# Environment variables:
+#   MIKRO_BUILD_MODE                 auto (default) | devcontainer | host
+#   MIKRO_DEVCONTAINER_DOCKER_PATH   container engine binary (default: podman)
 #
-# Wymaga: devcontainer CLI + podman ALBO flutter w PATH.
+# Requires: devcontainer CLI + podman OR flutter in PATH.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,13 +27,10 @@ CLEAN=0
 for arg in "$@"; do
   case "$arg" in
     --clean) CLEAN=1 ;;
-    *) echo "nieznana opcja: $arg" >&2; exit 2 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 
-# Devcontainer jest podpiety do glownego katalogu repozytorium, a nie do
-# worktree, wiec sciezke w kontenerze skladamy z /workspaces/<nazwa repo>
-# i pozycji tego katalogu wzgledem glownego katalogu repozytorium.
 container_workdir() {
   local main_root rel
   main_root="$(cd "$(git -C "$REPO_ROOT" rev-parse --git-common-dir)/.." && pwd)"
@@ -53,7 +48,7 @@ if [ "$BUILD_MODE" = auto ]; then
   elif command -v flutter >/dev/null; then
     BUILD_MODE=host
   else
-    echo "brak toolchainu: ani devcontainer CLI, ani flutter w PATH" >&2
+    echo "no toolchain found: neither devcontainer CLI nor flutter in PATH" >&2
     exit 1
   fi
 fi
@@ -63,20 +58,20 @@ flutter_cmd="flutter build linux --release"
 
 case "$BUILD_MODE" in
   devcontainer)
-    echo "==> build bundla w devcontainerze (${DOCKER_PATH})"
+    echo "==> Building Linux bundle inside devcontainer (${DOCKER_PATH})"
     devcontainer up --workspace-folder "$(main_repo_root)" --docker-path "$DOCKER_PATH" >/dev/null
     devcontainer exec --workspace-folder "$(main_repo_root)" --docker-path "$DOCKER_PATH" -- \
       bash -lc "cd '$(container_workdir)' && $flutter_cmd"
     ;;
   host)
-    echo "==> build bundla lokalnym flutterem"
+    echo "==> Building Linux bundle with local Flutter toolchain"
     (cd "$REPO_ROOT" && eval "$flutter_cmd")
     ;;
   *)
-    echo "nieznany MIKRO_BUILD_MODE: $BUILD_MODE" >&2
+    echo "unknown MIKRO_BUILD_MODE: $BUILD_MODE" >&2
     exit 2
     ;;
 esac
 
-[ -x "$BUNDLE_DIR/mikro" ] || { echo "build sie udal, ale brak $BUNDLE_DIR/mikro" >&2; exit 1; }
-echo "==> bundle gotowy: $BUNDLE_DIR ($(du -sh "$BUNDLE_DIR" | cut -f1))"
+[ -x "$BUNDLE_DIR/mikro" ] || { echo "build succeeded, but $BUNDLE_DIR/mikro not found" >&2; exit 1; }
+echo "==> bundle ready: $BUNDLE_DIR ($(du -sh "$BUNDLE_DIR" | cut -f1))"

@@ -1,17 +1,14 @@
-# Manifest Flatpaka aplikacji Mikro.
+# Flatpak manifest for Mikro.
 #
-# Strategia: Flutter budowany jest POZA flatpak-builderem (w devcontainerze),
-# a tutaj pakowany jest gotowy bundle z build/linux/x64/release/bundle razem
-# z integracja desktopowa. Dzieki temu sandbox budowania nie potrzebuje SDK
-# Fluttera ani dostepu do sieci.
+# Strategy: Flutter is built OUTSIDE flatpak-builder (e.g. in devcontainer/CI),
+# and here the prepared bundle from build/linux/x64/release/bundle is packaged
+# alongside desktop integration assets.
 #
-# Budowanie: ./packaging/build-flatpak.sh (z katalogu glownego repo).
+# Build: ./packaging/build-flatpak.sh (from repo root).
 #
-# Wybor runtime'u: org.freedesktop.Platform 25.08 dostarcza komplet zaleznosci
-# aplikacji (gtk3, gstreamer z wtyczkami pulse/pipewire/playback, libsecret,
-# json-glib) oraz binarki parecord/pactl/ffmpeg, ktore record_linux uruchamia
-# jako procesy potomne. Galaz 24.08 NIE zawiera libsecret-1 wymaganego przez
-# flutter_secure_storage, dlatego 25.08 jest minimalna dzialajaca wersja.
+# Runtime: org.freedesktop.Platform 25.08 supplies all dependencies
+# (gtk3, gstreamer with pulse/pipewire/playback plugins, libsecret, json-glib)
+# and parecord/pactl/ffmpeg binaries used by record_linux.
 app-id: pl.jmc.mikro
 runtime: org.freedesktop.Platform
 runtime-version: '25.08'
@@ -19,31 +16,26 @@ sdk: org.freedesktop.Sdk
 command: mikro
 
 finish-args:
-  # Natywny backend sesji graficznej; fallback-x11 dla sesji bez Waylanda.
+  # Native display session backend; fallback-x11 for non-Wayland sessions.
   - --socket=wayland
   - --socket=fallback-x11
-  # Wspoldzielone IPC (pamiec dzielona MIT-SHM) - wymagane przez backend X11.
+  # Shared IPC (MIT-SHM shared memory) required by X11 backend.
   - --share=ipc
-  # Akceleracja GPU dla renderera Fluttera.
+  # GPU acceleration for Flutter renderer.
   - --device=dri
-  # Nagrywanie z mikrofonu (parecord) i odtwarzanie (GStreamer) przez
-  # PulseAudio / PipeWire.
+  # Microphone capture (parecord) and playback (GStreamer) via PulseAudio / PipeWire.
   - --socket=pulseaudio
-  # Wysylanie nagran do zewnetrznego API transkrypcji.
+  # Network access for transcription and LLM API.
   - --share=network
-  # connectivity_plus odpytuje NetworkManagera po systemowej magistrali D-Bus
-  # (monitoring lacznosci i wznawianie transkrypcji po jej odzyskaniu). Bez tego
-  # aplikacja startuje, ale wywala SocketException na systemowej magistrali.
+  # connectivity_plus monitors NetworkManager over system D-Bus.
   - --system-talk-name=org.freedesktop.NetworkManager
-  # flutter_secure_storage trzyma klucz API w Secret Service (libsecret).
+  # flutter_secure_storage stores API keys in Secret Service (libsecret).
   - --talk-name=org.freedesktop.secrets
 
 modules:
   - name: mikro
     buildsystem: simple
     build-commands:
-      # Bundle Fluttera musi zostac w calosci: binarka szuka bibliotek przez
-      # RPATH $ORIGIN/lib, a silnik katalogu data/ obok pliku wykonywalnego.
       - install -d /app/mikro
       - cp -a bundle/. /app/mikro/
       - install -d /app/bin

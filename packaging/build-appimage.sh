@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# Buduje AppImage'a aplikacji Mikro.
+# Builds the AppImage for Mikro.
 #
-# Co robi:
-#   1. buduje bundla Fluttera (packaging/build-bundle.sh), chyba ze --skip-bundle,
-#   2. sklada od zera AppDira w build/appimage/Mikro.AppDir (bundle -> usr/bin,
-#      AppRun, plik .desktop, metainfo, ikony hicolor + ikona i .DirIcon w korzeniu),
-#   3. pakuje AppDira appimagetoolem do build/appimage/Mikro-<arch>.AppImage.
+# Process:
+#   1. Builds Flutter bundle (packaging/build-bundle.sh) unless --skip-bundle is passed.
+#   2. Assembles AppDir in build/appimage/Mikro.AppDir (bundle -> usr/bin,
+#      AppRun, .desktop, metainfo, hicolor icons + root icon and .DirIcon).
+#   3. Packages AppDir using appimagetool into build/appimage/Mikro-<arch>.AppImage.
 #
-# Uzycie (z katalogu glownego repo):
+# Usage (from repository root):
 #   ./packaging/build-appimage.sh [--skip-bundle] [--clean]
 #
-# appimagetool jest szukany w tej kolejnosci: $APPIMAGETOOL, PATH, a na koncu
-# pobierany z GitHuba do build/appimage/tools (katalog jest ignorowany przez gita).
-# Gdy FUSE nie dziala, appimagetool jest uruchamiany z --appimage-extract-and-run.
-# Walidacje AppStreama robimy sami (host ma nowsze appstreamcli niz appimagetool),
-# dlatego appimagetool dostaje --no-appstream.
-# Idempotentny: AppDir i plik wyjsciowy sa kasowane na starcie.
+# appimagetool search order: $APPIMAGETOOL, PATH, or downloaded from GitHub
+# to build/appimage/tools (git-ignored).
+# Uses --appimage-extract-and-run if FUSE is unavailable.
+# AppStream validation is executed beforehand with host appstreamcli, so appimagetool
+# is invoked with --no-appstream.
 #
-# Zaleznosci systemu docelowego (NIE sa pakowane do AppImage'a):
-#   glibc >= 2.38, gtk3, libsecret-1, gstreamer1 z wtyczkami base/good,
-#   pulseaudio-utils (parecord, pactl) oraz ffmpeg - dwa ostatnie sa uruchamiane
-#   jako procesy potomne przez record_linux podczas nagrywania.
+# Target system dependencies (not bundled into the AppImage):
+#   glibc >= 2.38, gtk3, libsecret-1, gstreamer1 with base/good plugins,
+#   pulseaudio-utils (parecord, pactl), and ffmpeg.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -41,26 +39,26 @@ for arg in "$@"; do
   case "$arg" in
     --skip-bundle) SKIP_BUNDLE=1 ;;
     --clean) BUNDLE_ARGS+=(--clean) ;;
-    *) echo "nieznana opcja: $arg" >&2; exit 2 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 
 if [ "$SKIP_BUNDLE" -eq 0 ]; then
   "$PACKAGING_DIR/build-bundle.sh" "${BUNDLE_ARGS[@]+"${BUNDLE_ARGS[@]}"}"
 else
-  [ -x "$BUNDLE_DIR/mikro" ] || { echo "brak zbudowanego bundla - odpal bez --skip-bundle" >&2; exit 1; }
+  [ -x "$BUNDLE_DIR/mikro" ] || { echo "no built bundle found - run without --skip-bundle" >&2; exit 1; }
 fi
 
 if command -v appstreamcli >/dev/null; then
-  echo "==> walidacja metainfo"
+  echo "==> Validating metainfo"
   appstreamcli validate --no-net "$PACKAGING_DIR/shared/$APP_ID.metainfo.xml"
 fi
 if command -v desktop-file-validate >/dev/null; then
-  echo "==> walidacja pliku .desktop"
+  echo "==> Validating .desktop file"
   desktop-file-validate "$PACKAGING_DIR/shared/$APP_ID.desktop"
 fi
 
-echo "==> skladanie AppDira"
+echo "==> Assembling AppDir"
 rm -rf "$APP_DIR" "$OUT_FILE"
 mkdir -p "$APP_DIR/usr/bin"
 cp -a "$BUNDLE_DIR/." "$APP_DIR/usr/bin/"
@@ -73,8 +71,7 @@ for size in 64 128 256 512; do
     "$APP_DIR/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
 done
 
-# appimagetool wymaga pliku .desktop i ikony w korzeniu AppDira; .DirIcon jest
-# ikona pokazywana przez menedzery plikow.
+# appimagetool requires .desktop and icon in root of AppDir; .DirIcon is for file managers.
 cp "$APP_DIR/usr/share/applications/$APP_ID.desktop" "$APP_DIR/$APP_ID.desktop"
 cp "$APP_DIR/usr/share/icons/hicolor/256x256/apps/$APP_ID.png" "$APP_DIR/$APP_ID.png"
 cp "$APP_DIR/$APP_ID.png" "$APP_DIR/.DirIcon"
@@ -84,7 +81,7 @@ appimagetool_path() {
   if command -v appimagetool >/dev/null; then command -v appimagetool; return; fi
   local local_tool="$TOOLS_DIR/appimagetool-$ARCH.AppImage"
   if [ ! -x "$local_tool" ]; then
-    echo "==> pobieram appimagetool do $TOOLS_DIR" >&2
+    echo "==> Downloading appimagetool to $TOOLS_DIR" >&2
     mkdir -p "$TOOLS_DIR"
     curl -fsSL -o "$local_tool" "$APPIMAGETOOL_URL"
     chmod +x "$local_tool"
@@ -93,13 +90,12 @@ appimagetool_path() {
 }
 
 TOOL="$(appimagetool_path)"
-# Sonda: gdy FUSE nie dziala, appimagetool nie wystartuje bez rozpakowania.
 TOOL_ARGS=()
 if ! "$TOOL" --appimage-version >/dev/null 2>&1; then
   TOOL_ARGS+=(--appimage-extract-and-run)
 fi
 
-echo "==> appimagetool"
+echo "==> Running appimagetool"
 ARCH="$ARCH" "$TOOL" "${TOOL_ARGS[@]+"${TOOL_ARGS[@]}"}" --no-appstream "$APP_DIR" "$OUT_FILE"
 
-echo "==> gotowe: $OUT_FILE ($(du -h "$OUT_FILE" | cut -f1))"
+echo "==> Ready: $OUT_FILE ($(du -h "$OUT_FILE" | cut -f1))"

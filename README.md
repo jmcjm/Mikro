@@ -1,28 +1,21 @@
 # Mikro
 
-Dyktafon na Androida i Linuksa, ktory nagrania glosowe zamienia na tekst przy pomocy
-zewnetrznej uslugi transkrypcji zgodnej z API OpenAI. Nagrania trafiaja do lokalnej
-bazy na urzadzeniu; nic poza samym audio i transkryptem nie opuszcza maszyny.
+Voice recorder for Android and Linux that turns audio recordings into text using an external OpenAI-compatible transcription API. Recordings are saved locally on the device; nothing other than audio and transcript leaves your machine.
 
-## Co potrafi
+## Features
 
-- nagrywanie z mikrofonu z podgladem poziomu sygnalu i zapisem obwiedni amplitudy
-- automatyczna transkrypcja zaraz po zakonczeniu nagrania, w tle
-- tytul i tagi ukladane przez model jezykowy z gotowego transkryptu
-- biblioteka nagran z odtwarzaniem, wyszukiwaniem rozmytym i filtrem po tagach
-- reczna edycja tagow w szczegolach nagrania
-- kolejka offline: nagrania, ktore utknely na bledzie sieci, wznawiaja sie po powrocie
-  lacznosci; bledy autoryzacji czy limitu nie sa ponawiane, bo ponowia sie tak samo
-- interfejs po polsku i angielsku, motyw jasny/ciemny i cztery palety kolorow
+- Microphone recording with live audio level visualization and amplitude waveform capture
+- Automatic background transcription immediately after recording completes
+- AI-generated title and tags extracted from the transcript using LLM completion
+- Recordings library with playback, fuzzy search, and tag filtering
+- Manual tag editing and management in recording details
+- Offline queue: recordings paused on network errors automatically resume when connectivity returns; auth and rate-limit errors are not retried endlessly
+- Multilingual interface (English and Polish), light/dark themes, and Material 3 Expressive design
+- Secure API key storage (Android Keystore / Linux Secret Service / libsecret)
 
-Adres uslugi, klucz API i nazwy modeli ustawia sie w aplikacji. Klucz idzie do
-schowka systemowego (Keystore na Androidzie, libsecret na Linuksie), nie do preferencji.
+## Building
 
-## Budowanie
-
-Toolchain siedzi w devcontainerze (`.devcontainer/`) i tylko tam jest przewidziany —
-Flutter, Android SDK i biblioteki natywne Linuksa sa zainstalowane w obrazie. Kontener
-otwiera sie dowolnym klientem devcontainerow albo z linii polecen:
+The full toolchain is set up in the devcontainer (`.devcontainer/`) — Flutter, Android SDK, and Linux native libraries are preconfigured. Open the container in any devcontainer-compatible editor or via CLI:
 
 ```sh
 devcontainer up --workspace-folder .
@@ -31,19 +24,20 @@ devcontainer exec --workspace-folder . flutter build linux --release
 devcontainer exec --workspace-folder . flutter build apk --release
 ```
 
-Paczki desktopowe skladaja skrypty z `packaging/` — obie biora ten sam bundle Fluttera
-i te same metadane desktopowe, wiec nie da sie ich rozjechac:
+Desktop Linux packages are built using the scripts in `packaging/` — both use the same Flutter bundle and shared metadata:
 
 ```sh
 ./packaging/build-flatpak.sh --install
 ./packaging/build-appimage.sh
 ```
 
-Skrypty domyslnie wolaja build wewnatrz devcontainera; szczegoly, zaleznosci systemowe
-i uklad katalogow opisuje `packaging/README.md`.
+For packaging details, dependencies, and layout, see [`packaging/README.md`](packaging/README.md).
 
-## Licencje
+## CI / CD
 
-Kod aplikacji jest wlasnoscia autora. Zbundlowany kroj Roboto Mono
-(`assets/fonts/`) jest na licencji SIL Open Font License 1.1 — pelny tekst lezy
-w `assets/fonts/OFL.txt` i musi isc razem z fontem w kazdej dystrybucji.
+Automated builds and GitHub Releases are configured via [GitHub Actions](.github/workflows/build.yml). Pushing a version tag (e.g. `1.0` or `v1.0`) automatically builds and publishes the Android APK, Linux AppImage, and Linux Flatpak packages.
+
+## License
+
+Application code is owned by the author. The bundled Roboto Mono typeface (`assets/fonts/`) is licensed under the SIL Open Font License 1.1 — full text is in `assets/fonts/OFL.txt`.
+

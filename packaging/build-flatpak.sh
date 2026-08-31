@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
-# Buduje pakiet Flatpak aplikacji Mikro.
+# Builds the Flatpak package for Mikro.
 #
-# Co robi:
-#   1. buduje bundla Fluttera (packaging/build-bundle.sh), chyba ze --skip-bundle,
-#   2. waliduje metainfo i plik .desktop, jesli narzedzia sa dostepne,
-#   3. uruchamia flatpak-builder na packaging/flatpak/pl.jmc.mikro.yml
-#      (katalog roboczy i repozytorium OSTree laduja w build/flatpak/),
-#   4. sklada jednoplikowy build/flatpak/pl.jmc.mikro.flatpak,
-#   5. z opcja --install instaluje pakiet w instalacji uzytkownika (--user).
+# Process:
+#   1. Builds Flutter bundle (packaging/build-bundle.sh) unless --skip-bundle is passed.
+#   2. Validates metainfo and .desktop file if validation tools are available.
+#   3. Runs flatpak-builder using packaging/flatpak/pl.jmc.mikro.yml
+#      (workdir and OSTree repo located under build/flatpak/).
+#   4. Assembles single-file build/flatpak/pl.jmc.mikro.flatpak bundle.
+#   5. With --install, installs the bundle into the current user's flatpak environment.
 #
-# Uzycie (z katalogu glownego repo):
+# Usage (from repository root):
 #   ./packaging/build-flatpak.sh [--skip-bundle] [--clean] [--install]
 #
-# Wymaga: flatpak, flatpak-builder oraz runtime'u org.freedesktop.Platform//25.08
-# i org.freedesktop.Sdk//25.08 (skrypt sprawdza obecnosc i podpowiada komende).
-# Idempotentny: flatpak-builder dostaje --force-clean, a repozytorium OSTree
-# przyjmuje kolejne commity bez konfliktow.
+# Requires: flatpak, flatpak-builder, and runtimes org.freedesktop.Platform//25.08
+# and org.freedesktop.Sdk//25.08.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,17 +36,17 @@ for arg in "$@"; do
     --skip-bundle) SKIP_BUNDLE=1 ;;
     --clean) BUNDLE_ARGS+=(--clean) ;;
     --install) INSTALL=1 ;;
-    *) echo "nieznana opcja: $arg" >&2; exit 2 ;;
+    *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
 
-command -v flatpak >/dev/null || { echo "brak flatpaka" >&2; exit 1; }
-command -v flatpak-builder >/dev/null || { echo "brak flatpak-buildera" >&2; exit 1; }
+command -v flatpak >/dev/null || { echo "flatpak not found" >&2; exit 1; }
+command -v flatpak-builder >/dev/null || { echo "flatpak-builder not found" >&2; exit 1; }
 
 for rt in "org.freedesktop.Platform//$RUNTIME_VERSION" "org.freedesktop.Sdk//$RUNTIME_VERSION"; do
   if ! flatpak info "$rt" >/dev/null 2>&1; then
-    echo "brak runtime'u $rt" >&2
-    echo "zainstaluj: flatpak install --user flathub $rt" >&2
+    echo "missing runtime: $rt" >&2
+    echo "install with: flatpak install --user flathub $rt" >&2
     exit 1
   fi
 done
@@ -57,35 +55,31 @@ if [ "$SKIP_BUNDLE" -eq 0 ]; then
   "$PACKAGING_DIR/build-bundle.sh" "${BUNDLE_ARGS[@]+"${BUNDLE_ARGS[@]}"}"
 else
   [ -x "$REPO_ROOT/build/linux/x64/release/bundle/mikro" ] || {
-    echo "brak zbudowanego bundla - odpal bez --skip-bundle" >&2; exit 1; }
+    echo "no built bundle found - run without --skip-bundle" >&2; exit 1; }
 fi
 
-# Walidacja metadanych jest opcjonalna: appstreamcli chodzi po sieci, wiec
-# --no-net trzyma wynik deterministycznym niezaleznie od stanu lacza.
 if command -v appstreamcli >/dev/null; then
-  echo "==> walidacja metainfo"
+  echo "==> Validating metainfo"
   appstreamcli validate --no-net "$PACKAGING_DIR/shared/$APP_ID.metainfo.xml"
 fi
 if command -v desktop-file-validate >/dev/null; then
-  echo "==> walidacja pliku .desktop"
+  echo "==> Validating .desktop file"
   desktop-file-validate "$PACKAGING_DIR/shared/$APP_ID.desktop"
 fi
 
-echo "==> flatpak-builder"
+echo "==> Running flatpak-builder"
 mkdir -p "$OUT_DIR"
-# --state-dir trzyma cache buildera pod build/, zamiast smiecic .flatpak-builder
-# w katalogu glownym repozytorium.
 flatpak-builder --user --force-clean --state-dir="$STATE_DIR" \
   --repo="$OSTREE_REPO" "$BUILD_DIR" "$MANIFEST"
 
-echo "==> sklejanie pakietu jednoplikowego"
+echo "==> Building single-file bundle"
 rm -f "$BUNDLE_FILE"
 flatpak build-bundle "$OSTREE_REPO" "$BUNDLE_FILE" "$APP_ID" master
 
 if [ "$INSTALL" -eq 1 ]; then
-  echo "==> instalacja --user"
+  echo "==> Installing bundle (--user)"
   flatpak install --user --noninteractive --reinstall "$BUNDLE_FILE"
-  echo "uruchom: flatpak run $APP_ID"
+  echo "Run with: flatpak run $APP_ID"
 fi
 
-echo "==> gotowe: $BUNDLE_FILE ($(du -h "$BUNDLE_FILE" | cut -f1))"
+echo "==> Ready: $BUNDLE_FILE ($(du -h "$BUNDLE_FILE" | cut -f1))"
