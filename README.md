@@ -13,11 +13,11 @@
 </p>
 
 <p>
-  <a href="https://github.com/jmcjm/mikro/releases/latest">
-    <img src="https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get it on GitHub" height="36">
-  </a>
   <a href="https://apps.obtainium.imranr.dev/?r=https://github.com/jmcjm/mikro">
-    <img src="https://img.shields.io/badge/Obtainium-Add%20to%20Obtainium-4878a6?style=for-the-badge&logo=android&logoColor=white" alt="Get it on Obtainium" height="36">
+    <img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="50">
+  </a>
+  <a href="https://github.com/jmcjm/mikro/releases/latest">
+    <img src="https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get it on GitHub" height="50">
   </a>
 </p>
 
