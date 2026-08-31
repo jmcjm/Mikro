@@ -39,5 +39,7 @@ Automated builds and GitHub Releases are configured via [GitHub Actions](.github
 
 ## License
 
-Application code is owned by the author. The bundled Roboto Mono typeface (`assets/fonts/`) is licensed under the SIL Open Font License 1.1 — full text is in `assets/fonts/OFL.txt`.
+This project is licensed under the [BSD Zero Clause License (0BSD)](LICENSE).
+
+The bundled Roboto Mono typeface (`assets/fonts/`) is licensed under the SIL Open Font License 1.1 — full text is in `assets/fonts/OFL.txt`.
 

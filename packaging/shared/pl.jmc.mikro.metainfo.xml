@@ -3,7 +3,7 @@
   <id>pl.jmc.mikro</id>
 
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>LicenseRef-proprietary</project_license>
+  <project_license>0BSD</project_license>
 
   <name>Mikro</name>
   <summary>Dyktafon z transkrypcją nagrań</summary>
