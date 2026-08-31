@@ -15,11 +15,11 @@
 ## Download
 
 <p align="center">
-  <a href="https://apps.obtainium.imranr.dev/?r=https://github.com/jmcjm/mikro">
-    <img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="50">
+  <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22pl.jmc.mikro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjmcjm%2Fmikro%22%2C%22author%22%3A%22jmcjm%22%2C%22name%22%3A%22Mikro%22%7D">
+    <img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="55">
   </a>
   <a href="https://github.com/jmcjm/mikro/releases/latest">
-    <img src="https://img.shields.io/badge/GitHub-Releases-181717?style=for-the-badge&logo=github&logoColor=white" alt="Get it on GitHub" height="50">
+    <img src="docs/badges/get-it-on-github.png" alt="Get it on GitHub" height="55">
   </a>
 </p>
 
