@@ -65,12 +65,8 @@ jobs:
           if [ -n "$KEYSTORE_BASE64" ]; then
             echo "==> Configuring release keystore from secrets"
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
-            cat << EOF > android/key.properties
-            storePassword=$KEYSTORE_PASSWORD
-            keyPassword=$KEY_PASSWORD
-            keyAlias=$KEY_ALIAS
-            storeFile=app/release.jks
-            EOF
+            printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=app/release.jks\n" \
+              "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
           else
             echo "==> No release keystore secret found, falling back to debug signing"
           fi
