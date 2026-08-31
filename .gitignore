@@ -63,6 +63,7 @@ android/app/key.properties
 
 # Local release build binaries & screenshots
 *.apk
-Screenshot_*.png
+Screenshot*
+
 
 

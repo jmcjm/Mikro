@@ -206,21 +206,25 @@ class _TagFilterBar extends ConsumerWidget {
     void select(String? tag) => ref.read(tagFilterProvider.notifier).state = tag;
     return SizedBox(
       height: 32,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: tags.length + 1,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => i == 0
-            ? _FilterChip(
-                label: l10n.libraryFilterAll,
-                selected: selected == null,
-                onTap: () => select(null),
-              )
-            : _FilterChip(
-                label: tags[i - 1],
-                selected: selected == tags[i - 1],
-                onTap: () => select(tags[i - 1]),
+      child: HorizontalScrollable(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _FilterChip(
+              label: l10n.libraryFilterAll,
+              selected: selected == null,
+              onTap: () => select(null),
+            ),
+            for (final tag in tags) ...[
+              const SizedBox(width: 8),
+              _FilterChip(
+                label: tag,
+                selected: selected == tag,
+                onTap: () => select(tag),
               ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -380,17 +384,20 @@ class RecordingCard extends ConsumerWidget {
               ],
               if (item.tags.isNotEmpty) ...[
                 const SizedBox(height: 10),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    for (final tag in item.tags)
-                      TagChip(
-                        label: tag,
-                        dense: true,
-                        onTap: () => ref.read(tagFilterProvider.notifier).state = tag,
-                      ),
-                  ],
+                HorizontalScrollable(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < item.tags.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 6),
+                        TagChip(
+                          label: item.tags[i],
+                          dense: true,
+                          onTap: () => ref.read(tagFilterProvider.notifier).state = item.tags[i],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
               const SizedBox(height: 10),

@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,21 @@ import 'features/settings/settings_screen.dart';
 import 'features/shell/home_tab.dart';
 import 'l10n/app_localizations.dart';
 
+/// Enables drag scrolling for all input devices (including mouse and trackpad on desktop).
+class AppScrollBehavior extends MaterialScrollBehavior {
+  const AppScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+        PointerDeviceKind.invertedStylus,
+        PointerDeviceKind.unknown,
+      };
+}
+
 class MikroApp extends ConsumerWidget {
   const MikroApp({super.key});
 
@@ -22,6 +38,7 @@ class MikroApp extends ConsumerWidget {
     final palette = ref.watch(themePaletteProvider);
     return MaterialApp(
       title: 'Mikro',
+      scrollBehavior: const AppScrollBehavior(),
       theme: buildTheme(palette: palette, brightness: Brightness.light),
       darkTheme: buildTheme(palette: palette, brightness: Brightness.dark),
       themeMode: ref.watch(themeModeProvider),

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
@@ -283,3 +284,68 @@ class ErrorActionButton extends StatelessWidget {
     );
   }
 }
+
+/// Horizontal scrollable container that responds to mouse wheel, trackpad, and drag scrolling.
+class HorizontalScrollable extends StatefulWidget {
+  const HorizontalScrollable({
+    super.key,
+    required this.child,
+    this.controller,
+  });
+
+  final Widget child;
+  final ScrollController? controller;
+
+  @override
+  State<HorizontalScrollable> createState() => _HorizontalScrollableState();
+}
+
+class _HorizontalScrollableState extends State<HorizontalScrollable> {
+  ScrollController? _internalController;
+
+  ScrollController get _effectiveController =>
+      widget.controller ?? (_internalController ??= ScrollController());
+
+  @override
+  void didUpdateWidget(HorizontalScrollable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      if (oldWidget.controller == null) {
+        _internalController?.dispose();
+        _internalController = null;
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalController?.dispose();
+    super.dispose();
+  }
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is PointerScrollEvent && _effectiveController.hasClients) {
+      final delta = event.scrollDelta.dy != 0 ? event.scrollDelta.dy : event.scrollDelta.dx;
+      if (delta != 0) {
+        final target = (_effectiveController.offset + delta).clamp(
+          0.0,
+          _effectiveController.position.maxScrollExtent,
+        );
+        _effectiveController.jumpTo(target);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: _handlePointerSignal,
+      child: SingleChildScrollView(
+        controller: _effectiveController,
+        scrollDirection: Axis.horizontal,
+        child: widget.child,
+      ),
+    );
+  }
+}
+

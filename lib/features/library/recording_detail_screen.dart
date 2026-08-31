@@ -540,15 +540,18 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     );
   }
 
-  /// Tag row from mockup: recording chips followed by trailing "+ tag" action button.
-  Widget _tagRow(RecordingWithTags item) => Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: [
-          for (final tag in item.tags)
-            TagChip(label: tag, onDelete: () => _removeTag(item.recording.id, tag)),
-          AddTagChip(onTap: () => _addTag(item)),
-        ],
+  /// Tag row from mockup: horizontally scrollable recording chips followed by trailing "+ tag" action button.
+  Widget _tagRow(RecordingWithTags item) => HorizontalScrollable(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final tag in item.tags) ...[
+              TagChip(label: tag, onDelete: () => _removeTag(item.recording.id, tag)),
+              const SizedBox(width: 6),
+            ],
+            AddTagChip(onTap: () => _addTag(item)),
+          ],
+        ),
       );
 
   /// Player card variant determined by host frame: mobile stacks transport below waveform, desktop places play button beside waveform.
