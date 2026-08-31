@@ -14,8 +14,8 @@
 
 ## Download
 
-[<img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" width="24%" align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22pl.jmc.mikro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjmcjm%2Fmikro%22%2C%22author%22%3A%22jmcjm%22%2C%22name%22%3A%22Mikro%22%7D)
-[<img src="docs/badges/get-it-on-github.png" alt="Get it on Obtainium" width="24%" align="center">](https://github.com/jmcjm/mikro/releases/latest)
+[<img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80px" align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22pl.jmc.mikro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjmcjm%2Fmikro%22%2C%22author%22%3A%22jmcjm%22%2C%22name%22%3A%22Mikro%22%7D)
+[<img src="docs/badges/get-it-on-github.png" alt="Get it on Obtainium" height="80px" align="center">](https://github.com/jmcjm/mikro/releases/latest)
 
 ## Screenshots
 
