@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="1.0.4" date="2026-09-01">
+      <description>
+        <p>Wydanie 1.0.4.</p>
+        <p xml:lang="en">Release 1.0.4.</p>
+      </description>
+    </release>
     <release version="1.0.3" date="2026-08-31">
       <description>
         <p>Dodano zrzuty ekranu i logo do dokumentacji oraz naprawiono zależnosci CI/CD dla wersji desktopowych.</p>
