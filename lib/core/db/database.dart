@@ -186,6 +186,28 @@ class AppDatabase extends _$AppDatabase {
         }
       });
 
+  /// Rolls a recording back to the state right after recording: clears transcript, model, title,
+  /// error and ALL tags (manual ones too — they described the old transcript), then sets status to
+  /// `recorded` so the pipeline processes it from scratch. Audio and waveform stay untouched.
+  ///
+  /// Orphaned tags are removed with a typed delete for the same reason as in [removeTag]: raw SQL
+  /// would not invalidate streams watching the Tags table.
+  Future<void> resetProcessing(String id) => transaction(() async {
+        await (update(recordings)..where((r) => r.id.equals(id))).write(
+          const RecordingsCompanion(
+            status: Value(RecordingStatus.recorded),
+            transcript: Value(null),
+            providerUsed: Value(null),
+            title: Value(null),
+            errorMessage: Value(null),
+            errorKind: Value(null),
+          ),
+        );
+        await (delete(recordingTags)..where((rt) => rt.recordingId.equals(id))).go();
+        final used = selectOnly(recordingTags)..addColumns([recordingTags.tagId]);
+        await (delete(tags)..where((t) => t.id.isNotInQuery(used))).go();
+      });
+
   /// Deletes a recording and cleans up orphaned tags.
   ///
   /// Raw `customStatement` is safe here ONLY because typed `delete(recordings)` runs in the same transaction:

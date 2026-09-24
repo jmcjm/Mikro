@@ -584,4 +584,40 @@ void main() {
     await settleConnectivity();
     expect(stt.calls, 1);
   });
+
+  test('regenerate drops old results and processes recording from audio again', () async {
+    await insert('a');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+    await db.addTag('a', 'reczny');
+    expect(stt.calls, 1);
+
+    tagger.title = 'Nowy tytul';
+    expect(await pipeline.regenerate('a'), isTrue);
+    await pipeline.idle;
+
+    final r = (await db.getRecording('a'))!;
+    expect(stt.calls, 2, reason: 'transcript is discarded, so STT runs again');
+    expect(r.status, RecordingStatus.done);
+    expect(r.title, 'Nowy tytul');
+    final tags = (await db.watchAllWithTags().first).first.tags;
+    expect(tags, unorderedEquals(['praca', 'notatki']),
+        reason: 'manual tag belonged to the old transcript and is dropped');
+  });
+
+  test('regenerate of a recording in processing is rejected and leaves it alone', () async {
+    final delayed = DelayedTranscription();
+    final guarded = ProcessingPipeline(
+        db: db, transcriptionApi: delayed, taggingApi: tagger, settings: settings);
+    await insert('a');
+
+    guarded.enqueue('a');
+    await delayed.started.future;
+    expect(await guarded.regenerate('a'), isFalse);
+    delayed.gate.complete();
+    await guarded.idle;
+
+    expect(delayed.calls, 1);
+    expect((await db.getRecording('a'))!.status, RecordingStatus.done);
+  });
 }

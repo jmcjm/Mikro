@@ -106,9 +106,9 @@
   "@detailBackTooltip": {
     "description": "Podpowiedz strzalki powrotu w pasku szczegolow nagrania."
   },
-  "detailShareTooltip": "Udostępnij transkrypt",
+  "detailShareTooltip": "Udostępnij",
   "@detailShareTooltip": {
-    "description": "Podpowiedz ikony udostepniania w szczegolach nagrania."
+    "description": "Podpowiedz ikony udostepniania w szczegolach nagrania; otwiera menu wyboru tresci."
   },
   "detailCopyTooltip": "Kopiuj transkrypt",
   "@detailCopyTooltip": {
@@ -185,6 +185,46 @@
   "detailRetryProcessing": "Ponów przetwarzanie",
   "@detailRetryProcessing": {
     "description": "Przycisk w bannerze bledu w szczegolach nagrania; wznawia przetwarzanie."
+  },
+  "detailShareTranscript": "Transkrypt",
+  "@detailShareTranscript": {
+    "description": "Pozycja menu udostepniania: tekst transkryptu."
+  },
+  "detailShareAudio": "Plik audio",
+  "@detailShareAudio": {
+    "description": "Pozycja menu udostepniania: oryginalny plik nagrania."
+  },
+  "detailCopiedAudioPath": "Skopiowano ścieżkę pliku audio do schowka.",
+  "@detailCopiedAudioPath": {
+    "description": "Pasek powiadomienia, gdy brak systemowego arkusza udostepniania i zamiast pliku audio kopiujemy jego sciezke."
+  },
+  "detailShareError": "Nie udało się udostępnić.",
+  "@detailShareError": {
+    "description": "Pasek powiadomienia, gdy udostepnienie (np. brak pliku audio) sie nie powiodlo."
+  },
+  "detailRegenerateTooltip": "Wygeneruj ponownie",
+  "@detailRegenerateTooltip": {
+    "description": "Podpowiedz ikony ponownego przetworzenia nagrania w szczegolach."
+  },
+  "detailRegenerateTitle": "Wygenerować ponownie?",
+  "@detailRegenerateTitle": {
+    "description": "Tytul okna potwierdzenia ponownego przetworzenia nagrania."
+  },
+  "detailRegenerateMessage": "Transkrypt, tytuł i wszystkie tagi (także dodane ręcznie) zostaną usunięte, a nagranie przetworzone od nowa.",
+  "@detailRegenerateMessage": {
+    "description": "Tresc okna potwierdzenia ponownego przetworzenia nagrania."
+  },
+  "detailRegenerateConfirm": "Regeneruj",
+  "@detailRegenerateConfirm": {
+    "description": "Przycisk potwierdzenia w oknie ponownego przetworzenia nagrania."
+  },
+  "detailRegenerateBusy": "To nagranie jest właśnie przetwarzane.",
+  "@detailRegenerateBusy": {
+    "description": "Pasek powiadomienia, gdy regeneracja zostala odrzucona, bo nagranie jest w kolejce."
+  },
+  "detailRegenerateError": "Nie udało się zresetować nagrania.",
+  "@detailRegenerateError": {
+    "description": "Pasek powiadomienia, gdy reset nagrania w bazie sie nie powiodl."
   },
   "detailRewindTooltip": "Cofnij o 10 sekund",
   "@detailRewindTooltip": {

@@ -406,4 +406,39 @@ void main() {
     expect((await db.getRecording('z-przebiegiem'))!.waveform, '[0.1,0.5]');
     expect((await db.getRecording('bez-przebiegu'))!.waveform, isNull);
   });
+
+  test('resetProcessing rolls recording back to recorded and drops its tags', () async {
+    await db.insertRecording(
+      id: 'a',
+      createdAt: DateTime.utc(2026, 8, 29),
+      durationMs: 1000,
+      audioPath: '/tmp/a.m4a',
+      waveform: '[0.1,0.5]',
+    );
+    await insert('b');
+    await db.setTranscript('a', 'stary transkrypt', 'whisper-1');
+    await db.setTitle('a', 'Stary tytul');
+    await db.setTags('a', ['tylko-a', 'wspolny']);
+    await db.setTags('b', ['wspolny']);
+    await db.updateStatus('a', RecordingStatus.error, errorMessage: 'x', errorKind: 'server');
+
+    await db.resetProcessing('a');
+
+    final r = (await db.getRecording('a'))!;
+    expect(r.status, RecordingStatus.recorded);
+    expect(r.transcript, isNull);
+    expect(r.providerUsed, isNull);
+    expect(r.title, isNull);
+    expect(r.errorMessage, isNull);
+    expect(r.errorKind, isNull);
+    expect(r.audioPath, '/tmp/a.m4a', reason: 'audio is the input of regeneration');
+    expect(r.waveform, '[0.1,0.5]');
+
+    final all = await db.watchAllWithTags().first;
+    expect(all.firstWhere((x) => x.recording.id == 'a').tags, isEmpty);
+    expect(all.firstWhere((x) => x.recording.id == 'b').tags, ['wspolny'],
+        reason: 'tag shared with another recording must survive');
+    final names = (await db.select(db.tags).get()).map((t) => t.name);
+    expect(names, ['wspolny'], reason: 'orphaned tag is cleaned up');
+  });
 }

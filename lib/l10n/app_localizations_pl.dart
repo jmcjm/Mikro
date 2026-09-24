@@ -82,7 +82,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get detailBackTooltip => 'Wstecz';
 
   @override
-  String get detailShareTooltip => 'Udostępnij transkrypt';
+  String get detailShareTooltip => 'Udostępnij';
 
   @override
   String get detailCopyTooltip => 'Kopiuj transkrypt';
@@ -141,6 +141,38 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get detailRetryProcessing => 'Ponów przetwarzanie';
+
+  @override
+  String get detailShareTranscript => 'Transkrypt';
+
+  @override
+  String get detailShareAudio => 'Plik audio';
+
+  @override
+  String get detailCopiedAudioPath =>
+      'Skopiowano ścieżkę pliku audio do schowka.';
+
+  @override
+  String get detailShareError => 'Nie udało się udostępnić.';
+
+  @override
+  String get detailRegenerateTooltip => 'Wygeneruj ponownie';
+
+  @override
+  String get detailRegenerateTitle => 'Wygenerować ponownie?';
+
+  @override
+  String get detailRegenerateMessage =>
+      'Transkrypt, tytuł i wszystkie tagi (także dodane ręcznie) zostaną usunięte, a nagranie przetworzone od nowa.';
+
+  @override
+  String get detailRegenerateConfirm => 'Regeneruj';
+
+  @override
+  String get detailRegenerateBusy => 'To nagranie jest właśnie przetwarzane.';
+
+  @override
+  String get detailRegenerateError => 'Nie udało się zresetować nagrania.';
 
   @override
   String get detailRewindTooltip => 'Cofnij o 10 sekund';

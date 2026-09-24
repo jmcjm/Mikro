@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
 import 'package:audioplayers_platform_interface/audioplayers_platform_interface.dart';
+import 'package:dio/dio.dart';
 import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
@@ -9,10 +10,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:mikro/core/api/tagging_api.dart';
+import 'package:mikro/core/api/transcription_api.dart';
 import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
+import 'package:mikro/core/models/provider_config.dart';
 import 'package:mikro/core/models/recording_status.dart';
+import 'package:mikro/core/pipeline/processing_pipeline.dart';
 import 'package:mikro/core/providers.dart';
+import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/playback.dart';
@@ -47,6 +53,13 @@ class _FakeGlobalPlatform extends GlobalAudioplayersPlatformInterface {
 class _FakeDbError {
   @override
   String toString() => 'baza padla';
+}
+
+class _NoConfigSettings implements SettingsRepository {
+  @override
+  Future<ProviderConfig?> load() async => null;
+  @override
+  Future<void> save(ProviderConfig config) async {}
 }
 
 void main() {
@@ -141,10 +154,11 @@ void main() {
     String id, {
     Locale locale = const Locale('pl'),
     bool confirmSeek = true,
+    List<Override> overrides = const [],
   }) async {
     stubAudioPlayers(tester, confirmSeek: confirmSeek);
     await tester.pumpWidget(ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
+      overrides: [databaseProvider.overrideWithValue(db), ...overrides],
       child: localizedApp(
         RecordingDetailScreen(recordingId: id),
         locale: locale,
@@ -217,9 +231,17 @@ void main() {
 
     expect(find.text(plL10n.statusTranscribing), findsNWidgets(2)); // badge and caption under spinner
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    // Without transcript there is nothing to share or copy.
-    expect(find.byIcon(Symbols.share_rounded), findsNothing);
+    // Without transcript there is nothing to copy, but the audio can already be shared.
+    expect(find.byIcon(Symbols.share_rounded), findsOneWidget);
     expect(find.byIcon(Symbols.content_copy_rounded), findsNothing);
+    // Regenerating underneath a running pipeline step is not offered.
+    expect(find.byIcon(Symbols.autorenew_rounded), findsNothing);
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    // Not pumpAndSettle: the progress spinner never settles.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text(plL10n.detailShareAudio), findsOneWidget);
+    expect(find.text(plL10n.detailShareTranscript), findsNothing);
 
     await unmount(tester);
   });
@@ -315,11 +337,94 @@ void main() {
 
     await pumpDetail(tester, 'a');
     await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(plL10n.detailShareTranscript));
     await tester.pump();
     await tester.pump();
 
     expect(copied, ['Notatka ze standupu']);
     expect(find.text(plL10n.detailCopiedTranscript), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('GUARD: without native share sheet sharing audio copies its path',
+      (tester) async {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    await insert('a');
+    await db.setTranscript('a', 'Notatka ze standupu', 'whisper-1');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(plL10n.detailShareAudio));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['/tmp/a.m4a']);
+    expect(find.text(plL10n.detailCopiedAudioPath), findsOneWidget);
+
+    await unmount(tester);
+  });
+
+  testWidgets('regenerate after confirmation drops transcript, title and tags', (tester) async {
+    await insert('a');
+    await db.setTranscript('a', 'Stary transkrypt', 'whisper-1');
+    await db.setTitle('a', 'Stary tytul');
+    await db.setTags('a', ['praca']);
+    await db.updateStatus('a', RecordingStatus.done);
+
+    // No provider config: the re-queued recording stops at noConfig instead of reaching the network.
+    final pipeline = ProcessingPipeline(
+      db: db,
+      transcriptionApi: TranscriptionApi(Dio()),
+      taggingApi: TaggingApi(Dio()),
+      settings: _NoConfigSettings(),
+    );
+    await pumpDetail(tester, 'a',
+        overrides: [pipelineProvider.overrideWithValue(pipeline)]);
+
+    await tester.tap(find.byIcon(Symbols.autorenew_rounded));
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.detailRegenerateMessage), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, plL10n.detailRegenerateConfirm));
+    await tester.runAsync(() => pipeline.idle);
+    await tester.pumpAndSettle();
+
+    final r = (await tester.runAsync(() => db.getRecording('a')))!;
+    expect(r.transcript, isNull);
+    expect(r.title, isNull);
+    expect(find.text('Stary transkrypt'), findsNothing);
+    expect(find.text('praca'), findsNothing);
+
+    await unmount(tester);
+  });
+
+  testWidgets('cancelling regenerate dialog keeps recording untouched', (tester) async {
+    await insert('a');
+    await db.setTranscript('a', 'Stary transkrypt', 'whisper-1');
+    await db.updateStatus('a', RecordingStatus.done);
+
+    await pumpDetail(tester, 'a');
+    await tester.tap(find.byIcon(Symbols.autorenew_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, plL10n.detailCancel));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stary transkrypt'), findsOneWidget);
 
     await unmount(tester);
   });

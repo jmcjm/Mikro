@@ -56,6 +56,24 @@ class ProcessingPipeline {
         .catchError((Object _) {});
   }
 
+  /// Discards transcript, title and tags of a recording and processes it again from the audio file.
+  ///
+  /// Returns `false` without touching anything when the recording is already queued or being
+  /// processed — resetting it underneath a running step would let that step write stale results
+  /// over the reset. The id is reserved in [_inFlight] for the duration of the reset, so a resume
+  /// racing with it (connectivity edge, startup) is deduplicated instead of processing
+  /// a half-reset row.
+  Future<bool> regenerate(String recordingId) async {
+    if (!_inFlight.add(recordingId)) return false;
+    try {
+      await db.resetProcessing(recordingId);
+    } finally {
+      _inFlight.remove(recordingId);
+    }
+    enqueue(recordingId);
+    return true;
+  }
+
   /// Enables connectivity responsiveness: listens for changes AND reconciles the initial startup state.
   /// The single entry point used in production — both paths converge in [_resumeAll].
   ///
