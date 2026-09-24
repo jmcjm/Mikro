@@ -98,4 +98,85 @@ void main() {
     expect(form.files.map((f) => f.key), contains('file'),
         reason: 'multipart must carry the recording in the file field');
   });
+
+  group('diarization', () {
+    const diarizeConfig = ProviderConfig(
+      baseUrl: 'https://api.test/v1',
+      apiKey: 'k',
+      sttModel: 'gpt-4o-transcribe-diarize',
+      tagModel: 'llm-x',
+    );
+
+    test('only models named "diarize" ask for speakers', () {
+      expect(TranscriptionApi.supportsDiarization('gpt-4o-transcribe-diarize'), isTrue);
+      expect(TranscriptionApi.supportsDiarization('whisper-large-v3-turbo'), isFalse);
+      expect(TranscriptionApi.supportsDiarization('gpt-4o-transcribe'), isFalse);
+    });
+
+    test('diarizing model requests diarized_json and gets speaker-labelled turns', () async {
+      FormData? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        sent = options.data as FormData;
+        handler.next(options);
+      }));
+      adapter.onPost('https://api.test/v1/audio/transcriptions',
+          (server) => server.reply(200, {
+                'text': 'Cześć. Jak leci? Dobrze.',
+                'segments': [
+                  {'speaker': 'A', 'text': 'Cześć.', 'start': 0.0, 'end': 1.0},
+                  {'speaker': 'A', 'text': ' Jak leci?', 'start': 1.0, 'end': 2.0},
+                  {'speaker': 'B', 'text': 'Dobrze.', 'start': 2.0, 'end': 3.0},
+                ],
+              }),
+          data: Matchers.any);
+
+      final text =
+          await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: diarizeConfig);
+
+      expect(text, 'A: Cześć. Jak leci?\n\nB: Dobrze.',
+          reason: 'consecutive segments of one speaker merge into a single turn');
+      final fields = {for (final f in sent!.fields) f.key: f.value};
+      expect(fields['response_format'], 'diarized_json');
+      expect(fields['chunking_strategy'], 'auto');
+    });
+
+    test('whisper request carries no diarization fields', () async {
+      FormData? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        sent = options.data as FormData;
+        handler.next(options);
+      }));
+      adapter.onPost('https://api.test/v1/audio/transcriptions',
+          (server) => server.reply(200, {'text': 'ok'}),
+          data: Matchers.any);
+
+      await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: config);
+
+      final keys = sent!.fields.map((f) => f.key);
+      expect(keys, isNot(contains('response_format')));
+      expect(keys, isNot(contains('chunking_strategy')));
+    });
+
+    test('diarizing model without usable segments falls back to text', () async {
+      adapter.onPost('https://api.test/v1/audio/transcriptions',
+          (server) => server.reply(200, {'text': 'bez mówców', 'segments': []}),
+          data: Matchers.any);
+      expect(
+        await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: diarizeConfig),
+        'bez mówców',
+      );
+    });
+
+    test('segments without speaker or text are handled', () {
+      expect(
+        TranscriptionApi.formatDiarizedSegments([
+          {'text': 'kto to?'},
+          {'speaker': 'A', 'text': '   '},
+          'śmieć',
+        ]),
+        '?: kto to?',
+      );
+      expect(TranscriptionApi.formatDiarizedSegments('nie lista'), isNull);
+    });
+  });
 }

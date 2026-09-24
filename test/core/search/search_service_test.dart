@@ -228,4 +228,37 @@ void main() {
       expect(service.search(data, query: 'jak mowis').map((r) => r.recording.id), ['mowisz']);
     });
   });
+
+  group('notes', () {
+    Note note(String id, String title, String content) => Note(
+          id: id,
+          recordingId: null,
+          title: title,
+          content: content,
+          createdAt: DateTime.utc(2026),
+          updatedAt: DateTime.utc(2026),
+        );
+    final notes = [
+      note('a', 'Standup zespołu', '## Ustalenia\n- **deploy** w piątek\n- [ ] poprawić testy'),
+      note('b', 'Lista zakupów', '- mleko\n- chleb'),
+    ];
+
+    test('empty query returns all notes in given order', () {
+      expect(service.searchNotes(notes).map((n) => n.id), ['a', 'b']);
+    });
+
+    test('matches words inside Markdown formatting', () {
+      expect(service.searchNotes(notes, query: 'deploy').map((n) => n.id), ['a']);
+      expect(service.searchNotes(notes, query: 'testy').map((n) => n.id), ['a']);
+    });
+
+    test('matches title, folds diacritics and tolerates typos', () {
+      expect(service.searchNotes(notes, query: 'zakupow').map((n) => n.id), ['b']);
+      expect(service.searchNotes(notes, query: 'mlekp').map((n) => n.id), ['b']);
+    });
+
+    test('unrelated query matches nothing', () {
+      expect(service.searchNotes(notes, query: 'rower'), isEmpty);
+    });
+  });
 }

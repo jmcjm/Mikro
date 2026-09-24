@@ -739,6 +739,156 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Nieznany błąd'**
   String get errorUnknown;
+
+  /// Zakladka nawigacji z lista notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki'**
+  String get navNotes;
+
+  /// Naglowek ekranu listy notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki'**
+  String get notesTitle;
+
+  /// Podpowiedz pola wyszukiwania notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Szukaj w notatkach'**
+  String get notesSearchHint;
+
+  /// Pusta lista notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.'**
+  String get notesEmpty;
+
+  /// Wyszukiwanie notatek bez wynikow.
+  ///
+  /// In pl, this message translates to:
+  /// **'Brak notatek pasujących do wyszukiwania.'**
+  String get notesNoResults;
+
+  /// Tytul zastepczy notatki bez tytulu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka bez tytułu'**
+  String get noteUntitled;
+
+  /// Podpowiedz pola tytulu w edytorze notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tytuł'**
+  String get noteTitleHint;
+
+  /// Podpowiedz pola tresci w trybie edycji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Treść notatki (Markdown)'**
+  String get noteContentHint;
+
+  /// Przelacza notatke w tryb edycji Markdown.
+  ///
+  /// In pl, this message translates to:
+  /// **'Edytuj'**
+  String get noteEditTooltip;
+
+  /// Przelacza notatke w tryb podgladu sformatowanego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Podgląd'**
+  String get notePreviewTooltip;
+
+  /// Link z notatki do nagrania, z ktorego powstala.
+  ///
+  /// In pl, this message translates to:
+  /// **'Źródło: {title}'**
+  String noteSourceLink(String title);
+
+  /// Notatka, ktorej nagranie usunieto.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagranie źródłowe zostało usunięte'**
+  String get noteSourceDeleted;
+
+  /// Tytul dialogu usuwania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usunąć notatkę?'**
+  String get noteDeleteTitle;
+
+  /// Tresc dialogu usuwania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.'**
+  String get noteDeleteMessage;
+
+  /// Podpowiedz przycisku regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygeneruj ponownie z transkryptu'**
+  String get noteRegenerateTooltip;
+
+  /// Tytul dialogu regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygenerować notatkę od nowa?'**
+  String get noteRegenerateTitle;
+
+  /// Tresc dialogu regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.'**
+  String get noteRegenerateMessage;
+
+  /// Blad zapisu notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zapisać notatki.'**
+  String get noteSaveError;
+
+  /// Ekran notatki, ktora zniknela z bazy.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka usunięta.'**
+  String get noteDeleted;
+
+  /// Przycisk tworzacy notatke Markdown z transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zrób notatkę'**
+  String get detailMakeNote;
+
+  /// Przycisk otwierajacy istniejaca notatke z tego nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Otwórz notatkę'**
+  String get detailOpenNote;
+
+  /// Stan przycisku podczas generowania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tworzę notatkę…'**
+  String get detailNoteGenerating;
+
+  /// Podpowiedz pustego, edytowalnego pola transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Transkrypt jest pusty'**
+  String get detailTranscriptHint;
+
+  /// Blad zapisu edytowanego transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zapisać transkryptu.'**
+  String get detailTranscriptSaveError;
+
+  /// Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.'**
+  String get settingsSttModelHelp;
 }
 
 class _AppLocalizationsDelegate

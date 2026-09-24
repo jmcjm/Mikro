@@ -13,11 +13,12 @@ const wideLayoutBreakpoint = 840.0;
 abstract final class HomeTab {
   static const recorder = 0;
   static const library = 1;
-  static const settings = 2;
+  static const notes = 2;
+  static const settings = 3;
 
   /// Number of destinations. Enforces that [HomeTabController.select] does not accept an index
   /// that IndexedStack cannot render.
-  static const count = 3;
+  static const count = 4;
 }
 
 /// Active shell tab. Lifted from HomeShell's local `setState` because screens inside

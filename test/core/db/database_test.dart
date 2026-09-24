@@ -127,10 +127,10 @@ void main() {
 
   // --- schema v2: errorKind (D2c) ---
 
-  test('fresh database is version 4 and has error_kind, waveform, and title columns', () async {
+  test('fresh database is version 5 and has error_kind, waveform, and title columns', () async {
     await insert('a');
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 4);
+    expect(version.data.values.first, 5);
 
     final columns = await db.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']),
@@ -168,7 +168,7 @@ void main() {
         reason: 'we do not know what kind of error it was, so it remains unrecognized');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 4,
+    expect(version.data.values.first, 5,
         reason: 'v1 database reaches current schema in a single open');
 
     // user_version alone proves nothing: drift bumps it upon leaving onUpgrade even
@@ -260,7 +260,7 @@ void main() {
         reason: 'pre-v3 recordings were not measured, so there is nothing to draw');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 4);
+    expect(version.data.values.first, 5);
 
     final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']), contains('waveform'));
@@ -375,7 +375,7 @@ void main() {
         reason: 'pre-v4 recordings had no titles, and we cannot guess title from transcript');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 4);
+    expect(version.data.values.first, 5);
 
     final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']), contains('title'));
@@ -440,5 +440,87 @@ void main() {
         reason: 'tag shared with another recording must survive');
     final names = (await db.select(db.tags).get()).map((t) => t.name);
     expect(names, ['wspolny'], reason: 'orphaned tag is cleaned up');
+  });
+
+  test('migration v4 -> v5 creates notes table and keeps recordings', () async {
+    await db.close();
+
+    final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
+      rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+          '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
+          '"transcript" TEXT NULL, "provider_used" TEXT NULL, "error_message" TEXT NULL, '
+          '"error_kind" TEXT NULL, "waveform" TEXT NULL, "title" TEXT NULL, PRIMARY KEY ("id"))');
+      rawDb.execute('CREATE TABLE "tags" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+          '"name" TEXT NOT NULL UNIQUE)');
+      rawDb.execute('CREATE TABLE "recording_tags" ("recording_id" TEXT NOT NULL '
+          'REFERENCES recordings (id) ON DELETE CASCADE, "tag_id" INTEGER NOT NULL '
+          'REFERENCES tags (id) ON DELETE CASCADE, PRIMARY KEY ("recording_id", "tag_id"))');
+      rawDb.execute("INSERT INTO recordings (id, created_at, duration_ms, audio_path, status, "
+          "transcript, title) VALUES ('stare', 0, 1000, '/stare.m4a', 'done', 'tekst', 'Tytuł')");
+      rawDb.execute('PRAGMA user_version = 4');
+    }));
+    addTearDown(legacy.close);
+
+    expect((await legacy.getRecording('stare'))!.title, 'Tytuł');
+    final version = await legacy.customSelect('PRAGMA user_version').getSingle();
+    expect(version.data.values.first, 5);
+
+    // The table must actually work, including the link to an existing recording.
+    await legacy.insertNote(
+        id: 'n', recordingId: 'stare', title: 't', content: 'c', now: DateTime.utc(2026));
+    expect((await legacy.getNote('n'))!.recordingId, 'stare');
+  });
+
+  test('updateTranscript changes text and keeps the model caption', () async {
+    await insert('a');
+    await db.setTranscript('a', 'oryginał', 'whisper-1');
+    await db.updateTranscript('a', 'poprawiony');
+    final r = await db.getRecording('a');
+    expect(r!.transcript, 'poprawiony');
+    expect(r.providerUsed, 'whisper-1');
+  });
+
+  test('notes: insert, partial update bumps updatedAt, list is newest first', () async {
+    await db.insertNote(
+        id: 'stara', recordingId: null, title: 'A', content: 'a', now: DateTime.utc(2026, 1, 1));
+    await db.insertNote(
+        id: 'nowa', recordingId: null, title: 'B', content: 'b', now: DateTime.utc(2026, 1, 2));
+    expect((await db.watchNotes().first).map((n) => n.id), ['nowa', 'stara']);
+
+    await db.updateNote('stara', content: 'zmienione', now: DateTime.utc(2026, 1, 3));
+    final updated = await db.getNote('stara');
+    expect(updated!.title, 'A', reason: 'fields not passed stay untouched');
+    expect(updated.content, 'zmienione');
+    expect(updated.createdAt.toUtc(), DateTime.utc(2026, 1, 1));
+    expect((await db.watchNotes().first).map((n) => n.id), ['stara', 'nowa']);
+
+    await db.deleteNote('stara');
+    expect(await db.getNote('stara'), isNull);
+  });
+
+  test('deleting a recording keeps its note and unlinks it, visibly to streams', () async {
+    await insert('a');
+    await db.insertNote(
+        id: 'n', recordingId: 'a', title: 't', content: 'c', now: DateTime.utc(2026));
+    final emissions = <List<Note>>[];
+    final sub = db.watchNotes().listen(emissions.add);
+    addTearDown(sub.cancel);
+    await pumpEventQueue();
+
+    await db.deleteRecording('a');
+    await pumpEventQueue();
+
+    expect(await db.getNote('n'), isNotNull, reason: 'a note outlives its source recording');
+    expect((await db.getNote('n'))!.recordingId, isNull);
+    expect(emissions.last.single.recordingId, isNull,
+        reason: 'the notes stream must learn about the unlink, not just the table');
+  });
+
+  test('resetProcessing leaves notes alone', () async {
+    await insert('a');
+    await db.insertNote(
+        id: 'n', recordingId: 'a', title: 't', content: 'c', now: DateTime.utc(2026));
+    await db.resetProcessing('a');
+    expect((await db.getNote('n'))!.recordingId, 'a');
   });
 }

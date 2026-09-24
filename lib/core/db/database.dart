@@ -51,6 +51,23 @@ class RecordingTags extends Table {
   Set<Column> get primaryKey => {recordingId, tagId};
 }
 
+/// Markdown note — a standalone entity, not a view of a recording. It starts as a model-written
+/// summary of a transcript, but the user edits it freely afterwards, and deleting the source
+/// recording keeps the note (the link just goes NULL). [recordingId] exists so the note screen
+/// can lead back to the transcript it was made from.
+class Notes extends Table {
+  TextColumn get id => text()();
+  TextColumn get recordingId =>
+      text().nullable().references(Recordings, #id, onDelete: KeyAction.setNull)();
+  TextColumn get title => text()();
+  TextColumn get content => text()();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 class RecordingWithTags {
   RecordingWithTags({required this.recording, required this.tags});
 
@@ -58,7 +75,7 @@ class RecordingWithTags {
   final List<String> tags;
 }
 
-@DriftDatabase(tables: [Recordings, Tags, RecordingTags])
+@DriftDatabase(tables: [Recordings, Tags, RecordingTags, Notes])
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
       : super(driftDatabase(
@@ -70,7 +87,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// Value of the `error_kind` column for network errors — the only kind that makes sense
   /// to retry when connectivity restores. The pipeline persists this as `ApiErrorKind.network.name`,
@@ -96,6 +113,10 @@ class AppDatabase extends _$AppDatabase {
           // tagging, and already processed recordings are not resent to the model just for titles.
           if (from < 4) {
             await m.addColumn(recordings, recordings.title);
+          }
+          // v4 -> v5: adds the notes table. Nothing to backfill — notes are created on demand.
+          if (from < 5) {
+            await m.createTable(notes);
           }
         },
         beforeOpen: (details) async {
@@ -148,6 +169,13 @@ class AppDatabase extends _$AppDatabase {
   Future<void> setTranscript(String id, String transcript, String providerUsed) =>
       (update(recordings)..where((r) => r.id.equals(id))).write(
         RecordingsCompanion(transcript: Value(transcript), providerUsed: Value(providerUsed)),
+      );
+
+  /// Manual transcript edit. Unlike [setTranscript] it leaves `providerUsed` alone: the text is
+  /// still the one that model produced, only corrected by hand.
+  Future<void> updateTranscript(String id, String transcript) =>
+      (update(recordings)..where((r) => r.id.equals(id))).write(
+        RecordingsCompanion(transcript: Value(transcript)),
       );
 
   Future<void> setTags(String recordingId, List<String> names) => transaction(() async {
@@ -214,7 +242,13 @@ class AppDatabase extends _$AppDatabase {
   /// it signals to drift that the recordings table has changed, invalidating the streams.
   /// A raw customStatement alone does not invalidate anything — a stream watching only the Tags table
   /// would not receive an invalidation notification and would show deleted tags.
+  ///
+  /// Linked notes are unlinked with a typed update before the delete. The foreign key would set
+  /// NULL on its own, but a change made by SQLite's `ON DELETE` is invisible to drift, so streams
+  /// watching the Notes table would keep pointing at a recording that no longer exists.
   Future<void> deleteRecording(String id) => transaction(() async {
+        await (update(notes)..where((n) => n.recordingId.equals(id)))
+            .write(const NotesCompanion(recordingId: Value(null)));
         await (delete(recordings)..where((r) => r.id.equals(id))).go();
         await customStatement(
             'DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM recording_tags)');
@@ -269,4 +303,37 @@ class AppDatabase extends _$AppDatabase {
       return [for (final id in order) byId[id]!];
     });
   }
+
+  Future<void> insertNote({
+    required String id,
+    required String? recordingId,
+    required String title,
+    required String content,
+    required DateTime now,
+  }) =>
+      into(notes).insert(NotesCompanion.insert(
+        id: id,
+        recordingId: Value(recordingId),
+        title: title,
+        content: content,
+        createdAt: now,
+        updatedAt: now,
+      ));
+
+  Future<Note?> getNote(String id) =>
+      (select(notes)..where((n) => n.id.equals(id))).getSingleOrNull();
+
+  /// Writes only the fields that were passed and always bumps `updatedAt` — the notes list is
+  /// ordered by it, so the note just worked on floats to the top.
+  Future<void> updateNote(String id, {String? title, String? content, required DateTime now}) =>
+      (update(notes)..where((n) => n.id.equals(id))).write(NotesCompanion(
+        title: title == null ? const Value.absent() : Value(title),
+        content: content == null ? const Value.absent() : Value(content),
+        updatedAt: Value(now),
+      ));
+
+  Future<void> deleteNote(String id) => (delete(notes)..where((n) => n.id.equals(id))).go();
+
+  Stream<List<Note>> watchNotes() =>
+      (select(notes)..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();
 }

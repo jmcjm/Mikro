@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_providers.dart';
 import 'features/library/library_screen.dart';
+import 'features/notes/notes_screen.dart';
 import 'features/onboarding/onboarding_gate.dart';
 import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
@@ -73,7 +74,7 @@ class HomeShell extends ConsumerWidget {
     // lose the list scroll position or the entered search query.
     final body = IndexedStack(
       index: index,
-      children: const [RecorderScreen(), LibraryScreen(), SettingsScreen()],
+      children: const [RecorderScreen(), LibraryScreen(), NotesScreen(), SettingsScreen()],
     );
 
     // Width is obtained from MediaQuery rather than LayoutBuilder: rail and bottom bar
@@ -108,8 +109,13 @@ class _HomeNavigationBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navSettings];
-    final icons = [Symbols.mic_rounded, Symbols.library_music_rounded, Symbols.settings_rounded];
+    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navNotes, l10n.navSettings];
+    final icons = [
+      Symbols.mic_rounded,
+      Symbols.library_music_rounded,
+      Symbols.sticky_note_2_rounded,
+      Symbols.settings_rounded,
+    ];
     return NavigationBar(
       selectedIndex: index,
       onDestinationSelected: onSelected,
@@ -163,8 +169,13 @@ class _HomeRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navSettings];
-    final icons = [Symbols.mic_rounded, Symbols.library_music_rounded, Symbols.settings_rounded];
+    final labels = [l10n.navRecord, l10n.navLibrary, l10n.navNotes, l10n.navSettings];
+    final icons = [
+      Symbols.mic_rounded,
+      Symbols.library_music_rounded,
+      Symbols.sticky_note_2_rounded,
+      Symbols.settings_rounded,
+    ];
     return NavigationRail(
       selectedIndex: index,
       onDestinationSelected: onSelected,

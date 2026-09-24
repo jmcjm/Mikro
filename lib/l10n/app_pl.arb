@@ -477,5 +477,111 @@
   "errorUnknown": "Nieznany błąd",
   "@errorUnknown": {
     "description": "Ostatnia deska ratunku, gdy nagranie ma status bledu, ale baza nie zna jego rodzaju."
+  },
+
+  "navNotes": "Notatki",
+  "@navNotes": {
+    "description": "Zakladka nawigacji z lista notatek."
+  },
+  "notesTitle": "Notatki",
+  "@notesTitle": {
+    "description": "Naglowek ekranu listy notatek."
+  },
+  "notesSearchHint": "Szukaj w notatkach",
+  "@notesSearchHint": {
+    "description": "Podpowiedz pola wyszukiwania notatek."
+  },
+  "notesEmpty": "Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.",
+  "@notesEmpty": {
+    "description": "Pusta lista notatek."
+  },
+  "notesNoResults": "Brak notatek pasujących do wyszukiwania.",
+  "@notesNoResults": {
+    "description": "Wyszukiwanie notatek bez wynikow."
+  },
+  "noteUntitled": "Notatka bez tytułu",
+  "@noteUntitled": {
+    "description": "Tytul zastepczy notatki bez tytulu."
+  },
+  "noteTitleHint": "Tytuł",
+  "@noteTitleHint": {
+    "description": "Podpowiedz pola tytulu w edytorze notatki."
+  },
+  "noteContentHint": "Treść notatki (Markdown)",
+  "@noteContentHint": {
+    "description": "Podpowiedz pola tresci w trybie edycji notatki."
+  },
+  "noteEditTooltip": "Edytuj",
+  "@noteEditTooltip": {
+    "description": "Przelacza notatke w tryb edycji Markdown."
+  },
+  "notePreviewTooltip": "Podgląd",
+  "@notePreviewTooltip": {
+    "description": "Przelacza notatke w tryb podgladu sformatowanego."
+  },
+  "noteSourceLink": "Źródło: {title}",
+  "@noteSourceLink": {
+    "description": "Link z notatki do nagrania, z ktorego powstala.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "noteSourceDeleted": "Nagranie źródłowe zostało usunięte",
+  "@noteSourceDeleted": {
+    "description": "Notatka, ktorej nagranie usunieto."
+  },
+  "noteDeleteTitle": "Usunąć notatkę?",
+  "@noteDeleteTitle": {
+    "description": "Tytul dialogu usuwania notatki."
+  },
+  "noteDeleteMessage": "Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.",
+  "@noteDeleteMessage": {
+    "description": "Tresc dialogu usuwania notatki."
+  },
+  "noteRegenerateTooltip": "Wygeneruj ponownie z transkryptu",
+  "@noteRegenerateTooltip": {
+    "description": "Podpowiedz przycisku regeneracji notatki."
+  },
+  "noteRegenerateTitle": "Wygenerować notatkę od nowa?",
+  "@noteRegenerateTitle": {
+    "description": "Tytul dialogu regeneracji notatki."
+  },
+  "noteRegenerateMessage": "Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.",
+  "@noteRegenerateMessage": {
+    "description": "Tresc dialogu regeneracji notatki."
+  },
+  "noteSaveError": "Nie udało się zapisać notatki.",
+  "@noteSaveError": {
+    "description": "Blad zapisu notatki."
+  },
+  "noteDeleted": "Notatka usunięta.",
+  "@noteDeleted": {
+    "description": "Ekran notatki, ktora zniknela z bazy."
+  },
+  "detailMakeNote": "Zrób notatkę",
+  "@detailMakeNote": {
+    "description": "Przycisk tworzacy notatke Markdown z transkryptu."
+  },
+  "detailOpenNote": "Otwórz notatkę",
+  "@detailOpenNote": {
+    "description": "Przycisk otwierajacy istniejaca notatke z tego nagrania."
+  },
+  "detailNoteGenerating": "Tworzę notatkę…",
+  "@detailNoteGenerating": {
+    "description": "Stan przycisku podczas generowania notatki."
+  },
+  "detailTranscriptHint": "Transkrypt jest pusty",
+  "@detailTranscriptHint": {
+    "description": "Podpowiedz pustego, edytowalnego pola transkryptu."
+  },
+  "detailTranscriptSaveError": "Nie udało się zapisać transkryptu.",
+  "@detailTranscriptSaveError": {
+    "description": "Blad zapisu edytowanego transkryptu."
+  },
+  "settingsSttModelHelp": "Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.",
+  "@settingsSttModelHelp": {
+    "description": "Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu."
   }
 }

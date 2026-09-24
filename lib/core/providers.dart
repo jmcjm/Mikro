@@ -4,10 +4,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'api/notes_api.dart';
 import 'api/tagging_api.dart';
 import 'api/transcription_api.dart';
 import 'audio/mikro_recorder.dart';
 import 'db/database.dart';
+import 'notes/note_service.dart';
 import 'pipeline/processing_pipeline.dart';
 import 'search/search_service.dart';
 import 'settings/settings_repository.dart';
@@ -44,6 +46,14 @@ final transcriptionApiProvider =
 
 final taggingApiProvider = Provider<TaggingApi>((ref) => TaggingApi(ref.watch(dioProvider)));
 
+final notesApiProvider = Provider<NotesApi>((ref) => NotesApi(ref.watch(dioProvider)));
+
+final noteServiceProvider = Provider<NoteService>((ref) => NoteService(
+      db: ref.watch(databaseProvider),
+      notesApi: ref.watch(notesApiProvider),
+      settings: ref.watch(settingsRepositoryProvider),
+    ));
+
 final recorderProvider = Provider<MikroRecorder>((ref) {
   final recorder = RecordPluginRecorder();
   ref.onDispose(recorder.dispose);
@@ -71,4 +81,14 @@ final filteredRecordingsProvider = Provider<List<RecordingWithTags>>((ref) {
         query: ref.watch(searchQueryProvider),
         tag: ref.watch(tagFilterProvider),
       );
+});
+
+final notesStreamProvider =
+    StreamProvider<List<Note>>((ref) => ref.watch(databaseProvider).watchNotes());
+
+final noteSearchQueryProvider = StateProvider<String>((ref) => '');
+
+final filteredNotesProvider = Provider<List<Note>>((ref) {
+  final all = ref.watch(notesStreamProvider).value ?? [];
+  return ref.watch(searchServiceProvider).searchNotes(all, query: ref.watch(noteSearchQueryProvider));
 });

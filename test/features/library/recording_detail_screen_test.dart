@@ -10,12 +10,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:mikro/core/api/notes_api.dart';
 import 'package:mikro/core/api/tagging_api.dart';
 import 'package:mikro/core/api/transcription_api.dart';
 import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/provider_config.dart';
 import 'package:mikro/core/models/recording_status.dart';
+import 'package:mikro/core/notes/note_service.dart';
 import 'package:mikro/core/pipeline/processing_pipeline.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
@@ -23,6 +25,7 @@ import 'package:mikro/core/theme/app_theme.dart';
 import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/playback.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
+import 'package:mikro/features/notes/note_view.dart';
 import 'package:mikro/l10n/app_localizations_en.dart';
 
 import '../../support/l10n_harness.dart';
@@ -60,6 +63,33 @@ class _NoConfigSettings implements SettingsRepository {
   Future<ProviderConfig?> load() async => null;
   @override
   Future<void> save(ProviderConfig config) async {}
+}
+
+/// Text field of the add-tag dialog. The transcript is a TextField too, so a bare
+/// `find.byType(TextField)` would be ambiguous.
+final dialogField =
+    find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField));
+
+/// Note service that skips the model: writes a fixed note straight to the database.
+class _FakeNoteService extends NoteService {
+  _FakeNoteService(AppDatabase db)
+      : super(db: db, notesApi: NotesApi(Dio()), settings: _NoConfigSettings());
+
+  final requested = <String>[];
+
+  @override
+  Future<String> createFromRecording(String recordingId) async {
+    requested.add(recordingId);
+    final recording = await db.getRecording(recordingId);
+    await db.insertNote(
+      id: 'nowa',
+      recordingId: recordingId,
+      title: 'Notatka z modelu',
+      content: 'z: ${recording!.transcript}',
+      now: DateTime(2026, 9, 1),
+    );
+    return 'nowa';
+  }
 }
 
 void main() {
@@ -538,7 +568,7 @@ void main() {
     await openAddTagDialog(tester);
 
     expect(find.text(plL10n.detailAddTagTitle), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '  Release  ');
+    await tester.enterText(dialogField, '  Release  ');
     await tester.pump();
     await tester.tap(find.widgetWithText(FilledButton, plL10n.detailAddTagConfirm));
     await tester.pump();
@@ -580,11 +610,11 @@ void main() {
 
     expect(confirm().onPressed, isNull, reason: 'empty field has nothing to save');
 
-    await tester.enterText(find.byType(TextField), '   ');
+    await tester.enterText(dialogField, '   ');
     await tester.pump();
     expect(confirm().onPressed, isNull, reason: 'whitespace only is still an empty tag');
 
-    await tester.enterText(find.byType(TextField), 'release');
+    await tester.enterText(dialogField, 'release');
     await tester.pump();
     expect(confirm().onPressed, isNotNull);
 
@@ -598,7 +628,7 @@ void main() {
     await pumpDetail(tester, 'a');
     await openAddTagDialog(tester);
 
-    await tester.enterText(find.byType(TextField), 'SPOTKANIE');
+    await tester.enterText(dialogField, 'SPOTKANIE');
     await tester.pump();
 
     expect(find.text(plL10n.detailAddTagDuplicate), findsOneWidget);
@@ -1286,5 +1316,92 @@ void main() {
     expect(tester.widget<WaveformBars>(find.byType(WaveformBars)).beat, isNull);
 
     await unmount(tester);
+  });
+
+  group('editable transcript and notes', () {
+    Future<void> doneWithTranscript(String text) async {
+      await insert('a');
+      await db.setTranscript('a', text, 'whisper-1');
+      await db.updateStatus('a', RecordingStatus.done);
+    }
+
+    Finder transcriptField() => find.byType(TextField);
+
+    testWidgets('typing into the transcript saves it after a pause', (tester) async {
+      await doneWithTranscript('Ala ma kota');
+      await pumpDetail(tester, 'a');
+
+      expect(tester.widget<TextField>(transcriptField()).controller!.text, 'Ala ma kota');
+      await tester.enterText(transcriptField(), 'Ala ma psa');
+      await tester.pump(const Duration(milliseconds: 100));
+      expect((await db.getRecording('a'))!.transcript, 'Ala ma kota',
+          reason: 'no write on every keystroke');
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      final saved = await tester.runAsync(() => db.getRecording('a'));
+      expect(saved!.transcript, 'Ala ma psa');
+      expect(saved.providerUsed, 'whisper-1');
+      await unmount(tester);
+    });
+
+    testWidgets('leaving the screen right after typing still saves', (tester) async {
+      await doneWithTranscript('Ala ma kota');
+      await pumpDetail(tester, 'a');
+
+      await tester.enterText(transcriptField(), 'ostatnie słowo');
+      await unmount(tester);
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+
+      expect((await tester.runAsync(() => db.getRecording('a')))!.transcript, 'ostatnie słowo');
+    });
+
+    testWidgets('"make a note" creates a note and opens it', (tester) async {
+      await doneWithTranscript('treść nagrania');
+      final service = _FakeNoteService(db);
+      await pumpDetail(tester, 'a', overrides: [noteServiceProvider.overrideWithValue(service)]);
+
+      await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pumpAndSettle();
+
+      expect(service.requested, ['a']);
+      expect(find.byType(NoteView), findsOneWidget);
+      expect(find.text('z: treść nagrania'), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('recording with a note offers "open note" instead of a new one', (tester) async {
+      await doneWithTranscript('x');
+      await db.insertNote(
+          id: 'n', recordingId: 'a', title: 'Istniejąca', content: 'c', now: DateTime(2026));
+      final service = _FakeNoteService(db);
+      await pumpDetail(tester, 'a', overrides: [noteServiceProvider.overrideWithValue(service)]);
+
+      expect(find.text(plL10n.detailMakeNote), findsNothing);
+      await tester.tap(find.text(plL10n.detailOpenNote));
+      await tester.pumpAndSettle();
+
+      expect(service.requested, isEmpty);
+      expect(find.byType(NoteView), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('failed note generation shows the reason', (tester) async {
+      await doneWithTranscript('x');
+      // Real service with no provider configured.
+      await pumpDetail(tester, 'a', overrides: [
+        noteServiceProvider.overrideWithValue(
+            NoteService(db: db, notesApi: NotesApi(Dio()), settings: _NoConfigSettings())),
+      ]);
+
+      await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump();
+
+      expect(find.text(plL10n.pipelineErrorNoConfig), findsOneWidget);
+      expect(find.text(plL10n.detailMakeNote), findsOneWidget, reason: 'button is usable again');
+      await unmount(tester);
+    });
   });
 }

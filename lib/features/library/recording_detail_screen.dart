@@ -16,7 +16,11 @@ import '../../core/models/recording_status.dart';
 import '../../core/models/tag_name.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
+import '../notes/note_view.dart';
+import '../notes/selected_note.dart';
+import '../shell/home_tab.dart';
 import 'library_styles.dart';
 import 'playback.dart';
 import 'recording_error.dart';
@@ -124,6 +128,15 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   double _rate = kPlaybackRates.first;
 
   bool get _playing => _playerState == PlayerState.playing;
+
+  /// Editable transcript, written back to the database as the user types. Captured database
+  /// for the same reason as in the note view: the final write happens during dispose.
+  late final AppDatabase _db;
+  late final SyncedText _transcript;
+  final _transcriptFocus = FocusNode();
+
+  /// Note generation in progress — the button turns into a spinner and ignores further taps.
+  bool _creatingNote = false;
 
   /// Total duration used for position calculations, bar partitioning, and seek clamping.
   ///
@@ -233,6 +246,17 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   @override
   void initState() {
     super.initState();
+    _db = ref.read(databaseProvider);
+    _transcript = SyncedText(
+      save: (text) => _db.updateTranscript(widget.recordingId, text),
+      onError: (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(
+            content: Text(AppLocalizations.of(context).detailTranscriptSaveError)));
+      },
+    );
+    // Focus decides whether the player collapses for the keyboard (see [_body]).
+    _transcriptFocus.addListener(() => setState(() {}));
     _ticker = createTicker((elapsed) {
       _tick = elapsed;
       _beat.value = elapsed;
@@ -269,6 +293,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     _shown.dispose();
     _beat.dispose();
     _player.dispose();
+    _transcript.dispose();
+    _transcriptFocus.dispose();
     super.dispose();
   }
 
@@ -449,6 +475,35 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
       }
     } catch (_) {
       messenger.showSnackBar(SnackBar(content: Text(l10n.detailRegenerateError)));
+    }
+  }
+
+  /// Opens a note. Wide layout switches to the notes tab with the note selected, narrow layout
+  /// pushes the note route.
+  void _openNote(String noteId) {
+    if (widget.chrome == DetailChrome.panel) {
+      ref.read(selectedNoteProvider.notifier).select(noteId);
+      ref.read(homeTabProvider.notifier).select(HomeTab.notes);
+      return;
+    }
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoteScreen(noteId: noteId)));
+  }
+
+  /// Generates a note from the transcript as it is NOW — the pending edit is written first,
+  /// so manual corrections (speaker names included) make it into the note.
+  Future<void> _makeNote() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final service = ref.read(noteServiceProvider);
+    setState(() => _creatingNote = true);
+    try {
+      await _transcript.flush();
+      final id = await service.createFromRecording(widget.recordingId);
+      if (mounted) _openNote(id);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));
+    } finally {
+      if (mounted) setState(() => _creatingNote = false);
     }
   }
 
@@ -639,13 +694,20 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   /// Common body content: player card, tags row, and transcript.
   Widget _body(RecordingWithTags item) {
     final gap = widget.chrome == DetailChrome.panel ? 20.0 : 16.0;
+    // With the on-screen keyboard up there is no room for the player card, tags AND a usable
+    // text field — on a phone the column would overflow. While the transcript is being typed
+    // into, it gets the whole height.
+    final typing =
+        _transcriptFocus.hasFocus && MediaQuery.viewInsetsOf(context).bottom > 0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _playerCard(item.recording),
-        SizedBox(height: gap),
-        _tagRow(item),
-        SizedBox(height: gap),
+        if (!typing) ...[
+          _playerCard(item.recording),
+          SizedBox(height: gap),
+          _tagRow(item),
+          SizedBox(height: gap),
+        ],
         Expanded(child: _content(item.recording)),
       ],
     );
@@ -965,6 +1027,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
     final transcript = r.transcript;
+    if (transcript != null) _transcript.syncFrom(transcript);
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -986,8 +1049,15 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                   color: scheme.onSurfaceVariant,
                 ),
               ),
-              const Spacer(),
-              if (transcript != null)
+              // The note button takes whatever the label leaves and ellipsizes its own text
+              // (TextButton.icon wraps it in Flexible) — on a narrow phone both still fit.
+              Expanded(
+                child: transcript == null
+                    ? const SizedBox.shrink()
+                    : Align(alignment: Alignment.centerRight, child: _noteButton(r)),
+              ),
+              if (transcript != null) ...[
+                const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(Symbols.content_copy_rounded,
                       fill: 1, size: 20, color: scheme.onSurfaceVariant),
@@ -995,8 +1065,12 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                   visualDensity: VisualDensity.compact,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () => _copyTranscript(transcript, message: l10n.detailCopied),
+                  // Field content, not the database value: the latest keystrokes may still be
+                  // waiting for their delayed save.
+                  onPressed: () =>
+                      _copyTranscript(_transcript.controller.text, message: l10n.detailCopied),
                 ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -1015,15 +1089,19 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                       ],
                     ),
                   )
-                : SingleChildScrollView(
-                    child: SelectableText(
-                      transcript,
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 26 / 16,
-                        color: scheme.onSurface,
-                      ),
+                : TextField(
+                    controller: _transcript.controller,
+                    focusNode: _transcriptFocus,
+                    expands: true,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                    textAlignVertical: TextAlignVertical.top,
+                    style: TextStyle(
+                      fontSize: 16,
+                      height: 26 / 16,
+                      color: scheme.onSurface,
                     ),
+                    decoration: InputDecoration.collapsed(hintText: l10n.detailTranscriptHint),
                   ),
           ),
           if (r.providerUsed != null) ...[
@@ -1033,6 +1111,33 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
           ],
         ],
       ),
+    );
+  }
+
+  /// "Make a note" or, once a note from this recording exists, "Open note". Regenerating
+  /// lives on the note itself, so one recording does not accumulate duplicate notes by accident.
+  Widget _noteButton(Recording r) {
+    final l10n = AppLocalizations.of(context);
+    final existing = ref
+        .watch(notesStreamProvider)
+        .value
+        ?.where((n) => n.recordingId == r.id)
+        .firstOrNull;
+    if (_creatingNote) {
+      return TextButton.icon(
+        onPressed: null,
+        icon: const SizedBox(
+            width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+        label: Text(l10n.detailNoteGenerating, maxLines: 1, overflow: TextOverflow.ellipsis),
+      );
+    }
+    return TextButton.icon(
+      style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+      onPressed: existing != null ? () => _openNote(existing.id) : _makeNote,
+      icon: Icon(existing != null ? Symbols.sticky_note_2_rounded : Symbols.note_add_rounded,
+          fill: 1, size: 18),
+      label: Text(existing != null ? l10n.detailOpenNote : l10n.detailMakeNote,
+          maxLines: 1, overflow: TextOverflow.ellipsis),
     );
   }
 }

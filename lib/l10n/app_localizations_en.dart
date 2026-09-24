@@ -358,4 +358,85 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Unknown error';
+
+  @override
+  String get navNotes => 'Notes';
+
+  @override
+  String get notesTitle => 'Notes';
+
+  @override
+  String get notesSearchHint => 'Search notes';
+
+  @override
+  String get notesEmpty =>
+      'No notes yet. Open a recording and use “Make a note”.';
+
+  @override
+  String get notesNoResults => 'No notes match your search.';
+
+  @override
+  String get noteUntitled => 'Untitled note';
+
+  @override
+  String get noteTitleHint => 'Title';
+
+  @override
+  String get noteContentHint => 'Note content (Markdown)';
+
+  @override
+  String get noteEditTooltip => 'Edit';
+
+  @override
+  String get notePreviewTooltip => 'Preview';
+
+  @override
+  String noteSourceLink(String title) {
+    return 'Source: $title';
+  }
+
+  @override
+  String get noteSourceDeleted => 'Source recording was deleted';
+
+  @override
+  String get noteDeleteTitle => 'Delete note?';
+
+  @override
+  String get noteDeleteMessage =>
+      'The note will be permanently deleted. The recording and transcript stay.';
+
+  @override
+  String get noteRegenerateTooltip => 'Regenerate from transcript';
+
+  @override
+  String get noteRegenerateTitle => 'Regenerate the note?';
+
+  @override
+  String get noteRegenerateMessage =>
+      'Content and title will be replaced with a new version from the current transcript. Your edits will be lost.';
+
+  @override
+  String get noteSaveError => 'Could not save the note.';
+
+  @override
+  String get noteDeleted => 'Note deleted.';
+
+  @override
+  String get detailMakeNote => 'Make a note';
+
+  @override
+  String get detailOpenNote => 'Open note';
+
+  @override
+  String get detailNoteGenerating => 'Creating note…';
+
+  @override
+  String get detailTranscriptHint => 'Transcript is empty';
+
+  @override
+  String get detailTranscriptSaveError => 'Could not save the transcript.';
+
+  @override
+  String get settingsSttModelHelp =>
+      'Speaker recognition only works with a model that supports it — e.g. gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq included) does not tell speakers apart.';
 }

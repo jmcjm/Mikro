@@ -355,4 +355,85 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Nieznany błąd';
+
+  @override
+  String get navNotes => 'Notatki';
+
+  @override
+  String get notesTitle => 'Notatki';
+
+  @override
+  String get notesSearchHint => 'Szukaj w notatkach';
+
+  @override
+  String get notesEmpty =>
+      'Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.';
+
+  @override
+  String get notesNoResults => 'Brak notatek pasujących do wyszukiwania.';
+
+  @override
+  String get noteUntitled => 'Notatka bez tytułu';
+
+  @override
+  String get noteTitleHint => 'Tytuł';
+
+  @override
+  String get noteContentHint => 'Treść notatki (Markdown)';
+
+  @override
+  String get noteEditTooltip => 'Edytuj';
+
+  @override
+  String get notePreviewTooltip => 'Podgląd';
+
+  @override
+  String noteSourceLink(String title) {
+    return 'Źródło: $title';
+  }
+
+  @override
+  String get noteSourceDeleted => 'Nagranie źródłowe zostało usunięte';
+
+  @override
+  String get noteDeleteTitle => 'Usunąć notatkę?';
+
+  @override
+  String get noteDeleteMessage =>
+      'Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.';
+
+  @override
+  String get noteRegenerateTooltip => 'Wygeneruj ponownie z transkryptu';
+
+  @override
+  String get noteRegenerateTitle => 'Wygenerować notatkę od nowa?';
+
+  @override
+  String get noteRegenerateMessage =>
+      'Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.';
+
+  @override
+  String get noteSaveError => 'Nie udało się zapisać notatki.';
+
+  @override
+  String get noteDeleted => 'Notatka usunięta.';
+
+  @override
+  String get detailMakeNote => 'Zrób notatkę';
+
+  @override
+  String get detailOpenNote => 'Otwórz notatkę';
+
+  @override
+  String get detailNoteGenerating => 'Tworzę notatkę…';
+
+  @override
+  String get detailTranscriptHint => 'Transkrypt jest pusty';
+
+  @override
+  String get detailTranscriptSaveError => 'Nie udało się zapisać transkryptu.';
+
+  @override
+  String get settingsSttModelHelp =>
+      'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.';
 }

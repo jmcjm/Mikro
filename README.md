@@ -42,6 +42,9 @@
 - AI-generated title and tags extracted from the transcript using LLM completion
 - Recordings library with playback, fuzzy search, and tag filtering
 - Manual tag editing and management in recording details
+- Editable transcripts — fix recognition mistakes or rename speakers in place, changes save automatically
+- Markdown notes generated from a transcript on demand: a separate, searchable and editable Notes tab, each note linked back to its source recording
+- Speaker diarization with models that support it (e.g. OpenAI `gpt-4o-transcribe-diarize`) — transcripts come out as `A: …` / `B: …` turns
 - Offline queue: recordings paused on network errors automatically resume when connectivity returns; auth and rate-limit errors are not retried endlessly
 - Multilingual interface (English and Polish), light/dark themes, and Material 3 Expressive design
 - Secure API key storage (Android Keystore / Linux Secret Service / libsecret)

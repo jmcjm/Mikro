@@ -229,7 +229,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           TextField(
             controller: _sttModel,
             style: _monoValueStyle(colors),
-            decoration: _fieldDecoration(l10n.settingsSttModel, colors),
+            decoration: _fieldDecoration(l10n.settingsSttModel, colors).copyWith(
+              helperText: l10n.settingsSttModelHelp,
+              helperMaxLines: 3,
+            ),
           ),
           const SizedBox(height: 10),
           TextField(
