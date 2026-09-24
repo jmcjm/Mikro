@@ -82,7 +82,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get detailBackTooltip => 'Back';
 
   @override
-  String get detailShareTooltip => 'Share transcript';
+  String get detailShareTooltip => 'Share';
 
   @override
   String get detailCopyTooltip => 'Copy transcript';
@@ -141,6 +141,39 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get detailRetryProcessing => 'Retry processing';
+
+  @override
+  String get detailShareTranscript => 'Transcript';
+
+  @override
+  String get detailShareAudio => 'Audio file';
+
+  @override
+  String get detailCopiedAudioPath =>
+      'Audio file path copied to the clipboard.';
+
+  @override
+  String get detailShareError => 'Couldn\'t share.';
+
+  @override
+  String get detailRegenerateTooltip => 'Regenerate';
+
+  @override
+  String get detailRegenerateTitle => 'Regenerate?';
+
+  @override
+  String get detailRegenerateMessage =>
+      'The transcript, title and all tags (manual ones too) will be removed and the recording processed from scratch.';
+
+  @override
+  String get detailRegenerateConfirm => 'Regenerate';
+
+  @override
+  String get detailRegenerateBusy =>
+      'This recording is being processed right now.';
+
+  @override
+  String get detailRegenerateError => 'Couldn\'t reset the recording.';
 
   @override
   String get detailRewindTooltip => 'Back 10 seconds';

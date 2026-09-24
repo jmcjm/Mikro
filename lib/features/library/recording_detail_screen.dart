@@ -343,7 +343,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _share(Recording recording) async {
+  Future<void> _shareTranscript(Recording recording) async {
     final transcript = recording.transcript;
     if (transcript == null) return;
     if (_hasNativeShareSheet) {
@@ -356,6 +356,100 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     if (!mounted) return;
     await _copyTranscript(transcript,
         message: AppLocalizations.of(context).detailCopiedTranscript);
+  }
+
+  /// Shares the original audio file. share_plus on Linux can only build a `mailto:` link, so there
+  /// is no way to hand over a file — the fallback copies its path, which pastes into a file
+  /// manager or a chat upload dialog.
+  Future<void> _shareAudio(Recording recording) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    if (!_hasNativeShareSheet) {
+      await Clipboard.setData(ClipboardData(text: recording.audioPath));
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(l10n.detailCopiedAudioPath)));
+      return;
+    }
+    try {
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(recording.audioPath, mimeType: 'audio/mp4')],
+        subject: 'Mikro — ${formatDateTime(recording.createdAt)}',
+      ));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(l10n.detailShareError)));
+    }
+  }
+
+  /// Share action with a choice of content. The audio file always exists, so the menu is available
+  /// in every state; the transcript entry appears only once there is a transcript.
+  Widget _shareMenu(
+    Recording r,
+    Widget Function(VoidCallback onPressed) anchor,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    return MenuAnchor(
+      menuChildren: [
+        if (r.transcript != null)
+          MenuItemButton(
+            leadingIcon: const Icon(Symbols.notes_rounded),
+            onPressed: () => _shareTranscript(r),
+            child: Text(l10n.detailShareTranscript),
+          ),
+        MenuItemButton(
+          leadingIcon: const Icon(Symbols.audio_file_rounded),
+          onPressed: () => _shareAudio(r),
+          child: Text(l10n.detailShareAudio),
+        ),
+      ],
+      builder: (context, controller, _) => anchor(
+        () => controller.isOpen ? controller.close() : controller.open(),
+      ),
+    );
+  }
+
+  /// Regeneration is offered only in terminal states: while a recording is queued or processed
+  /// the pipeline would reject it anyway (see [ProcessingPipeline.regenerate]).
+  bool _canRegenerate(Recording r) =>
+      r.status == RecordingStatus.done || r.status == RecordingStatus.error;
+
+  Future<void> _regenerate(Recording recording) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final l10n = AppLocalizations.of(context);
+        return AlertDialog(
+          title: Text(l10n.detailRegenerateTitle),
+          content: Text(l10n.detailRegenerateMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(l10n.detailCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(l10n.detailRegenerateConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    // Pipeline is read only after the mounted check: reading ref from a disposed state throws,
+    // and a cancelled dialog has no business constructing it.
+    if (confirmed != true || !mounted) return;
+    final pipeline = ref.read(pipelineProvider);
+    final l10n = AppLocalizations.of(context);
+
+    try {
+      final started = await pipeline.regenerate(recording.id);
+      if (!started) {
+        messenger.showSnackBar(SnackBar(content: Text(l10n.detailRegenerateBusy)));
+      }
+    } catch (_) {
+      messenger.showSnackBar(SnackBar(content: Text(l10n.detailRegenerateError)));
+    }
   }
 
   /// Adds manual tag from "+ tag" dialog. Tag name is already normalized.
@@ -439,12 +533,20 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
         ),
         actions: [
-          if (r.transcript != null)
+          if (_canRegenerate(r))
             IconButton(
+              icon: Icon(Symbols.autorenew_rounded, fill: 1, color: scheme.onSurfaceVariant),
+              tooltip: l10n.detailRegenerateTooltip,
+              onPressed: () => _regenerate(r),
+            ),
+          _shareMenu(
+            r,
+            (open) => IconButton(
               icon: Icon(Symbols.share_rounded, fill: 1, color: scheme.onSurfaceVariant),
               tooltip: l10n.detailShareTooltip,
-              onPressed: () => _share(r),
+              onPressed: open,
             ),
+          ),
           IconButton(
             icon: Icon(Symbols.delete_rounded, fill: 1, color: scheme.onSurfaceVariant),
             tooltip: l10n.detailDeleteTooltip,
@@ -508,14 +610,23 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
           ),
         ),
         const SizedBox(width: 16),
-        if (r.transcript != null) ...[
+        if (_canRegenerate(r)) ...[
           _PanelAction(
-            icon: Symbols.share_rounded,
-            tooltip: l10n.detailShareTooltip,
-            onTap: () => _share(r),
+            icon: Symbols.autorenew_rounded,
+            tooltip: l10n.detailRegenerateTooltip,
+            onTap: () => _regenerate(r),
           ),
           const SizedBox(width: 16),
         ],
+        _shareMenu(
+          r,
+          (open) => _PanelAction(
+            icon: Symbols.share_rounded,
+            tooltip: l10n.detailShareTooltip,
+            onTap: open,
+          ),
+        ),
+        const SizedBox(width: 16),
         _PanelAction(
           icon: Symbols.delete_rounded,
           tooltip: l10n.detailDeleteTooltip,

@@ -230,10 +230,10 @@ abstract class AppLocalizations {
   /// **'Wstecz'**
   String get detailBackTooltip;
 
-  /// Podpowiedz ikony udostepniania w szczegolach nagrania.
+  /// Podpowiedz ikony udostepniania w szczegolach nagrania; otwiera menu wyboru tresci.
   ///
   /// In pl, this message translates to:
-  /// **'Udostępnij transkrypt'**
+  /// **'Udostępnij'**
   String get detailShareTooltip;
 
   /// Podpowiedz ikony kopiowania w karcie transkryptu.
@@ -349,6 +349,66 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Ponów przetwarzanie'**
   String get detailRetryProcessing;
+
+  /// Pozycja menu udostepniania: tekst transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Transkrypt'**
+  String get detailShareTranscript;
+
+  /// Pozycja menu udostepniania: oryginalny plik nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Plik audio'**
+  String get detailShareAudio;
+
+  /// Pasek powiadomienia, gdy brak systemowego arkusza udostepniania i zamiast pliku audio kopiujemy jego sciezke.
+  ///
+  /// In pl, this message translates to:
+  /// **'Skopiowano ścieżkę pliku audio do schowka.'**
+  String get detailCopiedAudioPath;
+
+  /// Pasek powiadomienia, gdy udostepnienie (np. brak pliku audio) sie nie powiodlo.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się udostępnić.'**
+  String get detailShareError;
+
+  /// Podpowiedz ikony ponownego przetworzenia nagrania w szczegolach.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygeneruj ponownie'**
+  String get detailRegenerateTooltip;
+
+  /// Tytul okna potwierdzenia ponownego przetworzenia nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygenerować ponownie?'**
+  String get detailRegenerateTitle;
+
+  /// Tresc okna potwierdzenia ponownego przetworzenia nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Transkrypt, tytuł i wszystkie tagi (także dodane ręcznie) zostaną usunięte, a nagranie przetworzone od nowa.'**
+  String get detailRegenerateMessage;
+
+  /// Przycisk potwierdzenia w oknie ponownego przetworzenia nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Regeneruj'**
+  String get detailRegenerateConfirm;
+
+  /// Pasek powiadomienia, gdy regeneracja zostala odrzucona, bo nagranie jest w kolejce.
+  ///
+  /// In pl, this message translates to:
+  /// **'To nagranie jest właśnie przetwarzane.'**
+  String get detailRegenerateBusy;
+
+  /// Pasek powiadomienia, gdy reset nagrania w bazie sie nie powiodl.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zresetować nagrania.'**
+  String get detailRegenerateError;
 
   /// Podpowiedz przycisku replay_10 w wierszu transportu na karcie odtwarzacza.
   ///
