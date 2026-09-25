@@ -896,6 +896,24 @@ abstract class AppLocalizations {
   /// **'Model'**
   String get settingsModel;
 
+  /// Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Steruj temperaturą i top_p'**
+  String get settingsSampling;
+
+  /// Ostrzezenie pod przelacznikiem temperatury i top_p.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.'**
+  String get settingsSamplingHelp;
+
+  /// Etykieta pola temperatury modelu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Temperatura'**
+  String get settingsTemperature;
+
   /// Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie.
   ///
   /// In pl, this message translates to:

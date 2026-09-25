@@ -588,6 +588,18 @@
   "@settingsModel": {
     "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
   },
+  "settingsSampling": "Steruj temperaturą i top_p",
+  "@settingsSampling": {
+    "description": "Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek."
+  },
+  "settingsSamplingHelp": "Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.",
+  "@settingsSamplingHelp": {
+    "description": "Ostrzezenie pod przelacznikiem temperatury i top_p."
+  },
+  "settingsTemperature": "Temperatura",
+  "@settingsTemperature": {
+    "description": "Etykieta pola temperatury modelu."
+  },
   "settingsApiKeyInheritHelp": "Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.",
   "@settingsApiKeyInheritHelp": {
     "description": "Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie."

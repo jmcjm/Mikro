@@ -71,7 +71,6 @@ class NotesApi {
       config: config,
       system: '$_formatRules\n\n${styleInstructions(style, customStyle)}',
       user: transcript,
-      temperature: 0.2,
     );
     final note = parseNote(content);
     if (note == null) {

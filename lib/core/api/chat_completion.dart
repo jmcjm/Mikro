@@ -10,14 +10,17 @@ Future<String> chatCompletion(
   required ServiceConfig config,
   required String system,
   required String user,
-  double temperature = 0,
 }) async {
+  final sampling = config.sampling;
   try {
     final response = await dio.post<dynamic>(
       '${config.baseUrl}/chat/completions',
       data: {
         'model': config.model,
-        'temperature': temperature,
+        if (sampling != null) ...{
+          'temperature': sampling.temperature,
+          'top_p': sampling.topP,
+        },
         'messages': [
           {'role': 'system', 'content': system},
           {'role': 'user', 'content': user},

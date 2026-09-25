@@ -441,6 +441,16 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get settingsSampling => 'Steruj temperaturą i top_p';
+
+  @override
+  String get settingsSamplingHelp =>
+      'Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.';
+
+  @override
+  String get settingsTemperature => 'Temperatura';
+
+  @override
   String get settingsApiKeyInheritHelp =>
       'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
 

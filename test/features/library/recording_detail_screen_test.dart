@@ -66,6 +66,8 @@ class _NoConfigSettings implements SettingsRepository {
   @override
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
+  SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
+  @override
   NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
   @override
   Future<void> saveNoteStyle(NoteStyleSetting setting) async {}

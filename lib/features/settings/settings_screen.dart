@@ -66,14 +66,45 @@ class _TaskForm {
   final baseUrl = TextEditingController();
   final apiKey = TextEditingController();
   final model = TextEditingController();
+  final temperature = TextEditingController();
+  final topP = TextEditingController();
   ProviderPreset preset = ProviderPreset.groq;
   bool keyHidden = true;
+  bool samplingEnabled = false;
 
-  void load(ServiceConfig config) {
+  /// Transcription does not go through chat completions, so only titles/tags and notes
+  /// offer sampling control.
+  bool get hasSampling => task != ApiTask.stt;
+
+  void load(ServiceConfig config, SamplingParams samplingValues) {
     baseUrl.text = config.baseUrl;
     apiKey.text = config.apiKey;
     model.text = config.model;
     preset = ProviderPreset.of(config.baseUrl);
+    loadSampling(enabled: config.sampling != null, values: samplingValues);
+  }
+
+  void loadSampling({required bool enabled, required SamplingParams values}) {
+    samplingEnabled = enabled;
+    temperature.text = _formatNumber(values.temperature);
+    topP.text = _formatNumber(values.topP);
+  }
+
+  static String _formatNumber(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  /// Accepts a decimal comma as well; anything unparsable falls back to the task default
+  /// rather than blocking the save. Clamped to the range the OpenAI API accepts.
+  static double _parse(String text, double fallback, double max) =>
+      (double.tryParse(text.trim().replaceAll(',', '.')) ?? fallback).clamp(0, max).toDouble();
+
+  SamplingParams? get _samplingValue {
+    if (!hasSampling || !samplingEnabled) return null;
+    final defaults = SamplingParams.defaultFor(task);
+    return SamplingParams(
+      temperature: _parse(temperature.text, defaults.temperature, 2),
+      topP: _parse(topP.text, defaults.topP, 1),
+    );
   }
 
   /// Switching preset fills address and model; the key is left alone — it belongs to the
@@ -89,9 +120,12 @@ class _TaskForm {
         baseUrl: baseUrl.text.trim(),
         apiKey: apiKey.text.trim(),
         model: model.text.trim(),
+        sampling: _samplingValue,
       );
 
   void dispose() {
+    temperature.dispose();
+    topP.dispose();
     baseUrl.dispose();
     apiKey.dispose();
     model.dispose();
@@ -117,8 +151,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // Nothing stored at all (fresh install) -> start from the Groq preset, as before.
       if (config.baseUrl.isEmpty) {
         form.applyPreset(ProviderPreset.groq);
+        form.loadSampling(enabled: false, values: repo.samplingValues(form.task));
       } else {
-        form.load(config);
+        form.load(config, repo.samplingValues(form.task));
       }
     }
     final style = repo.loadNoteStyle();
@@ -275,9 +310,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           decoration: _fieldDecoration(l10n.settingsModel, colors)
               .copyWith(helperText: modelHelp, helperMaxLines: 3),
         ),
+        if (form.hasSampling) ...[
+          const SizedBox(height: 6),
+          _samplingControl(form, colors, l10n),
+        ],
         if (form.task == ApiTask.notes) ...[
           const SizedBox(height: 16),
           _noteStylePicker(colors, l10n),
+        ],
+      ],
+    );
+  }
+
+  /// Opt-in temperature and top_p. Off by default because some models (OpenAI's reasoning
+  /// family) reject any non-default value with HTTP 400; off means neither is sent.
+  Widget _samplingControl(_TaskForm form, ColorScheme colors, AppLocalizations l10n) {
+    final numberKeyboard = const TextInputType.numberWithOptions(decimal: true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          value: form.samplingEnabled,
+          onChanged: (on) => setState(() => form.samplingEnabled = on),
+          title: Text(
+            l10n.settingsSampling,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.onSurface),
+          ),
+          subtitle: Text(
+            l10n.settingsSamplingHelp,
+            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+          ),
+        ),
+        if (form.samplingEnabled) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: form.temperature,
+                  keyboardType: numberKeyboard,
+                  style: _monoValueStyle(colors),
+                  decoration: _fieldDecoration(l10n.settingsTemperature, colors)
+                      .copyWith(helperText: '0–2'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: form.topP,
+                  keyboardType: numberKeyboard,
+                  style: _monoValueStyle(colors),
+                  decoration:
+                      _fieldDecoration('top_p', colors).copyWith(helperText: '0–1'),
+                ),
+              ),
+            ],
+          ),
         ],
       ],
     );

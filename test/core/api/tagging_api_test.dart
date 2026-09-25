@@ -188,7 +188,7 @@ void main() {
 
     // --- P2: request guard (coordinator ruling) ---
 
-    test('GUARD: request carries API key, model, temperature, and both messages', () async {
+    test('GUARD: request carries API key, model, and both messages', () async {
       // The mock matches `data: Matchers.any`, so on its own it verifies NOTHING from the request.
       final dio = Dio();
       RequestOptions? sentRequest;
@@ -211,7 +211,9 @@ void main() {
 
       final body = sentRequest!.data as Map<String, dynamic>;
       expect(body['model'], config.model, reason: 'request must carry the selected tagging model');
-      expect(body['temperature'], 0, reason: 'tagging must be deterministic');
+      expect(body.containsKey('temperature'), isFalse,
+          reason: 'sampling is opt-in: reasoning models answer 400 to any temperature');
+      expect(body.containsKey('top_p'), isFalse);
 
       final messages = body['messages'] as List<dynamic>;
       expect(messages, hasLength(2), reason: 'system prompt and user transcript');
@@ -227,6 +229,31 @@ void main() {
       expect(userMessage['role'], 'user');
       expect(userMessage['content'], 'transkrypt do otagowania',
           reason: 'transcript must reach the model in its entirety');
+    });
+
+    test('sampling switched on: temperature and top_p go into the request', () async {
+      final dio = Dio();
+      Map<String, dynamic>? body;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        body = options.data as Map<String, dynamic>;
+        handler.next(options);
+      }));
+      DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
+          (server) => server.reply(200, chatReply('{"title":"T","tags":["praca"]}')),
+          data: Matchers.any);
+
+      await TaggingApi(dio).generateMeta(
+        transcript: 't',
+        config: const ServiceConfig(
+          baseUrl: 'https://api.test/v1',
+          apiKey: 'k',
+          model: 't',
+          sampling: SamplingParams(temperature: 0, topP: 0.9),
+        ),
+      );
+
+      expect(body!['temperature'], 0);
+      expect(body!['top_p'], 0.9);
     });
 
     // --- Cap 5 tags: prompt is a request to the model, code is a guarantee ---

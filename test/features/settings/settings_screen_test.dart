@@ -210,6 +210,30 @@ void main() {
     expect(fieldWith('sk-nowy'), findsOneWidget);
   });
 
+  testWidgets('sampling switch: only for tags and notes, off by default, saves values',
+      (tester) async {
+    final prefs = await pumpSettings(tester);
+
+    final switches = find.byType(SwitchListTile);
+    expect(switches, findsNWidgets(2), reason: 'transcription has no sampling control');
+    expect(find.text(plL10n.settingsTemperature), findsNothing, reason: 'off by default');
+
+    await tester.ensureVisible(switches.first);
+    await tester.tap(switches.first);
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.settingsTemperature), findsOneWidget);
+    await tester.enterText(fieldWith('0').first, '0,5');
+
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool('tags_sampling_enabled'), isTrue);
+    expect(prefs.getDouble('tags_temperature'), 0.5, reason: 'decimal comma accepted');
+    expect(prefs.getDouble('tags_top_p'), 1);
+    expect(prefs.getBool('notes_sampling_enabled'), isFalse);
+  });
+
   testWidgets('settings saved before the split fill all three sections', (tester) async {
     await pumpSettings(
       tester,

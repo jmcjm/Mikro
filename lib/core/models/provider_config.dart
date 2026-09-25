@@ -4,11 +4,33 @@ enum ApiTask { stt, tags, notes }
 
 /// Endpoint for one [ApiTask]: base URL, its API key and the model name.
 class ServiceConfig {
-  const ServiceConfig({required this.baseUrl, required this.apiKey, required this.model});
+  const ServiceConfig({
+    required this.baseUrl,
+    required this.apiKey,
+    required this.model,
+    this.sampling,
+  });
 
   final String baseUrl;
   final String apiKey;
   final String model;
+
+  /// Sampling parameters sent with chat requests, or `null` to send none and leave the
+  /// model's defaults. Opt-in because not every model accepts them: OpenAI's reasoning
+  /// models answer HTTP 400 to any temperature other than the default.
+  final SamplingParams? sampling;
+}
+
+class SamplingParams {
+  const SamplingParams({required this.temperature, required this.topP});
+
+  /// Defaults offered when the user turns sampling control on for [task]: deterministic
+  /// titles and tags, a little room for phrasing in notes.
+  factory SamplingParams.defaultFor(ApiTask task) =>
+      SamplingParams(temperature: task == ApiTask.notes ? 0.2 : 0, topP: 1);
+
+  final double temperature;
+  final double topP;
 }
 
 /// Wire format of a transcription request. Titles, tags and notes always go through
