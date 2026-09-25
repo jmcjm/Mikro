@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/db/database.dart';
 import '../../core/providers.dart';
+import '../../core/theme/accent_palette.dart';
 import '../../core/util/format.dart';
 import '../../l10n/app_localizations.dart';
 import '../library/library_styles.dart';
@@ -172,11 +173,19 @@ class NoteCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
+    // The note's colour is an outline, not a fill: a filled card in a saturated colour drowned
+    // the text and shouted over the rest of the list. The note view shows it as a dot.
+    final mark = AccentPalette.of(context).mark(note.color);
     final muted = selected ? scheme.onSecondaryContainer : scheme.onSurfaceVariant;
     final strong = selected ? scheme.onSecondaryContainer : scheme.onSurface;
     return Material(
       color: selected ? scheme.secondaryContainer : scheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: mark == null
+            ? BorderSide.none
+            : BorderSide(color: mark.withValues(alpha: 0.8), width: 2.5),
+      ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,

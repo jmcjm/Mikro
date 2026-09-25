@@ -593,6 +593,14 @@
   "@translationOriginal": {"description": "Chip pokazujacy oryginalny tekst zamiast tlumaczenia."},
   "translationDeleteTooltip": "Usuń tłumaczenie",
   "@translationDeleteTooltip": {"description": "Podpowiedz usuwania zapisanego tlumaczenia."},
+  "tagColorTitle": "Kolor tagu „{tag}”",
+  "@tagColorTitle": {"description": "Tytul dialogu wyboru koloru tagu.", "placeholders": {"tag": {"type": "String"}}},
+  "tagColorDefault": "Domyślny",
+  "noteColorTitle": "Kolor notatki",
+  "@noteColorTitle": {"description": "Tytul dialogu wyboru koloru notatki."},
+  "noteColorTooltip": "Kolor",
+  "@noteColorTooltip": {"description": "Podpowiedz przycisku koloru notatki."},
+  "@tagColorDefault": {"description": "Opcja przywracajaca domyslny kolor tagu."},
   "settingsTranslateSection": "TŁUMACZENIE",
   "@settingsTranslateSection": {
     "description": "Naglowek sekcji API tlumaczen transkrypcji i notatek."

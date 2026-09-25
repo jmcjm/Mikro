@@ -453,6 +453,20 @@ class AppLocalizationsPl extends AppLocalizations {
   String get translationDeleteTooltip => 'Usuń tłumaczenie';
 
   @override
+  String tagColorTitle(String tag) {
+    return 'Kolor tagu „$tag”';
+  }
+
+  @override
+  String get tagColorDefault => 'Domyślny';
+
+  @override
+  String get noteColorTitle => 'Kolor notatki';
+
+  @override
+  String get noteColorTooltip => 'Kolor';
+
+  @override
   String get settingsTranslateSection => 'TŁUMACZENIE';
 
   @override

@@ -22,6 +22,7 @@ import '../notes/note_view.dart';
 import '../notes/selected_note.dart';
 import '../shell/home_tab.dart';
 import '../translation/translation_widgets.dart';
+import 'color_picker_dialog.dart';
 import 'library_styles.dart';
 import 'playback.dart';
 import 'recording_error.dart';
@@ -745,12 +746,18 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   }
 
   /// Tag row from mockup: horizontally scrollable recording chips followed by trailing "+ tag" action button.
+  /// Tapping a chip picks its colour.
   Widget _tagRow(RecordingWithTags item) => HorizontalScrollable(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             for (final tag in item.tags) ...[
-              TagChip(label: tag, onDelete: () => _removeTag(item.recording.id, tag)),
+              TagChip(
+                label: tag,
+                color: ref.watch(tagColorsProvider).value?[tag],
+                onTap: () => showTagColorDialog(context, ref, tag),
+                onDelete: () => _removeTag(item.recording.id, tag),
+              ),
               const SizedBox(width: 6),
             ],
             AddTagChip(onTap: () => _addTag(item)),

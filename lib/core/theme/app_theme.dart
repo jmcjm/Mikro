@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'accent_palette.dart';
+
 /// Monospace font family bundled with the app (`pubspec.yaml`, `fonts` section). The design renders
 /// technical values in this font: endpoints, model names, timestamps, and recording parameters. The name must
 /// match `family:` in pubspec exactly — Flutter matches font families literally and falls back silently
@@ -299,5 +301,9 @@ ThemeData buildTheme({required AppPalette palette, required Brightness brightnes
     onInverseSurface: tokens.onInverseSurface,
   );
 
-  return ThemeData(useMaterial3: true, colorScheme: scheme);
+  return ThemeData(
+    useMaterial3: true,
+    colorScheme: scheme,
+    extensions: [AccentPalette.forTheme(palette, effective)],
+  );
 }

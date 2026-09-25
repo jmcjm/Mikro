@@ -161,12 +161,23 @@ void main() {
     await unmount(tester);
   });
 
-  testWidgets('note tags: shown and removable', (tester) async {
+  testWidgets('note tags: shown, coloured from the dialog, removable', (tester) async {
     await note('a', 'Standup', 'x');
     await db.addNoteTag('a', 'praca');
     await pump(tester, const NoteScreen(noteId: 'a'));
 
     expect(find.text('praca'), findsOneWidget);
+    await tester.tap(find.text('praca'));
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.tagColorTitle('praca')), findsOneWidget);
+
+    // Swatches: default first, then the palette; pick the first real colour.
+    await tester.tap(
+      find.descendant(of: find.byType(AlertDialog), matching: find.byType(InkResponse)).at(1),
+    );
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(await tester.runAsync(() => db.watchTagColors().first), {'praca': 0});
 
     await tester.tap(find.byTooltip(plL10n.detailRemoveTagTooltip));
     await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
@@ -191,6 +202,24 @@ void main() {
 
     expect(find.text('item'), findsOneWidget);
     expect(find.text('punkt'), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('note colour is picked from the note and stored', (tester) async {
+    await note('a', 'Standup', 'x');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byTooltip(plL10n.noteColorTooltip));
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.noteColorTitle), findsOneWidget);
+    // Swatches: default first, then the palette.
+    await tester.tap(find
+        .descendant(of: find.byType(AlertDialog), matching: find.byType(InkResponse))
+        .at(3));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+
+    expect((await tester.runAsync(() => db.getNote('a')))!.color, 2);
     await unmount(tester);
   });
 }

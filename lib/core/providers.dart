@@ -82,6 +82,10 @@ final noteTranslationsProvider = StreamProvider.family<List<Translation>, String
 final noteTagsProvider = StreamProvider<Map<String, List<String>>>(
     (ref) => ref.watch(databaseProvider).watchNoteTags());
 
+/// Colour index per tag name, shared by recordings and notes.
+final tagColorsProvider =
+    StreamProvider<Map<String, int>>((ref) => ref.watch(databaseProvider).watchTagColors());
+
 final recorderProvider = Provider<MikroRecorder>((ref) {
   final recorder = RecordPluginRecorder();
   ref.onDispose(recorder.dispose);

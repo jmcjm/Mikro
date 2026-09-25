@@ -920,6 +920,30 @@ abstract class AppLocalizations {
   /// **'Usuń tłumaczenie'**
   String get translationDeleteTooltip;
 
+  /// Tytul dialogu wyboru koloru tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor tagu „{tag}”'**
+  String tagColorTitle(String tag);
+
+  /// Opcja przywracajaca domyslny kolor tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Domyślny'**
+  String get tagColorDefault;
+
+  /// Tytul dialogu wyboru koloru notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor notatki'**
+  String get noteColorTitle;
+
+  /// Podpowiedz przycisku koloru notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor'**
+  String get noteColorTooltip;
+
   /// Naglowek sekcji API tlumaczen transkrypcji i notatek.
   ///
   /// In pl, this message translates to:

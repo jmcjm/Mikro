@@ -456,6 +456,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get translationDeleteTooltip => 'Delete translation';
 
   @override
+  String tagColorTitle(String tag) {
+    return 'Colour of “$tag”';
+  }
+
+  @override
+  String get tagColorDefault => 'Default';
+
+  @override
+  String get noteColorTitle => 'Note colour';
+
+  @override
+  String get noteColorTooltip => 'Colour';
+
+  @override
   String get settingsTranslateSection => 'TRANSLATION';
 
   @override

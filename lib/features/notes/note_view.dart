@@ -7,9 +7,11 @@ import '../../core/api/api_errors.dart';
 import '../../core/db/database.dart';
 import '../../core/notes/note_service.dart';
 import '../../core/providers.dart';
+import '../../core/theme/accent_palette.dart';
 import '../../core/util/format.dart';
 import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
+import '../library/color_picker_dialog.dart';
 import '../library/library_styles.dart';
 import '../library/recording_detail_screen.dart';
 import '../library/recording_error.dart';
@@ -264,6 +266,11 @@ class _NoteViewState extends ConsumerState<NoteView> {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return [
+      IconButton(
+        icon: Icon(Symbols.palette_rounded, fill: 1, color: scheme.onSurfaceVariant),
+        tooltip: l10n.noteColorTooltip,
+        onPressed: () => showNoteColorDialog(context, ref, note.id, note.color),
+      ),
       TranslateButton(busy: _translating, color: scheme.onSurfaceVariant, onPressed: _translate),
       if (note.recordingId != null)
         _regenerating
@@ -324,7 +331,14 @@ class _NoteViewState extends ConsumerState<NoteView> {
       spacing: 12,
       runSpacing: 4,
       children: [
-        Text(formatDateTime(note.updatedAt), style: muted),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (note.color != null) ...[AccentPalette.of(context).dot(note.color), const SizedBox(width: 8)],
+            // Flexible: in the wide layout this row shares its width with the action buttons.
+            Flexible(child: Text(formatDateTime(note.updatedAt), style: muted)),
+          ],
+        ),
         if (recordingId == null)
           Text(l10n.noteSourceDeleted, style: muted)
         else
@@ -360,15 +374,22 @@ class _NoteViewState extends ConsumerState<NoteView> {
     );
   }
 
-  /// Tags copied from the source recording, editable here independently of it.
+  /// Tags copied from the source recording, editable here independently of it. Tapping a
+  /// chip picks its colour.
   Widget _tagRow() {
     final tags = ref.watch(noteTagsProvider).value?[widget.noteId] ?? const <String>[];
+    final colors = ref.watch(tagColorsProvider).value ?? const {};
     return HorizontalScrollable(
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final tag in tags) ...[
-            TagChip(label: tag, onDelete: () => _db.removeNoteTag(widget.noteId, tag)),
+            TagChip(
+              label: tag,
+              color: colors[tag],
+              onTap: () => showTagColorDialog(context, ref, tag),
+              onDelete: () => _db.removeNoteTag(widget.noteId, tag),
+            ),
             const SizedBox(width: 6),
           ],
           AddTagChip(onTap: () => _addTag(tags)),
