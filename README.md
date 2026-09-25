@@ -15,7 +15,7 @@
 ## Download
 
 [<img src="docs/badges/badge_obtainium.png" alt="Get it on Obtainium" height="80px" align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://app/%7B%22id%22%3A%22pl.jmc.mikro%22%2C%22url%22%3A%22https%3A%2F%2Fgithub.com%2Fjmcjm%2Fmikro%22%2C%22author%22%3A%22jmcjm%22%2C%22name%22%3A%22Mikro%22%7D)
-[<img src="docs/badges/get-it-on-github.png" alt="Get it on Obtainium" height="80px" align="center">](https://github.com/jmcjm/mikro/releases/latest)
+[<img src="docs/badges/get-it-on-github.png" alt="Get it on GitHub" height="80px" align="center">](https://github.com/jmcjm/mikro/releases/latest)
 
 ## Screenshots
 
@@ -37,20 +37,37 @@
 
 ## Features
 
-- Microphone recording with live audio level visualization and amplitude waveform capture
-- Automatic background transcription immediately after recording completes
-- AI-generated title and tags extracted from the transcript using LLM completion
-- Recordings library with playback, fuzzy search, and tag filtering
-- Manual tag editing and management in recording details
-- Editable transcripts — fix recognition mistakes or rename speakers in place, changes save automatically
-- Markdown notes generated from a transcript on demand: a separate, searchable and editable Notes tab, each note linked back to its source recording
-- Transcription via OpenAI-compatible APIs (Groq, OpenAI, self-hosted), ElevenLabs Scribe or Gemini; titles, tags and notes via Groq, OpenAI, Gemini or any OpenAI-compatible server
-- Speaker diarization with ElevenLabs, Gemini and OpenAI `gpt-4o-transcribe-diarize` — multi-speaker transcripts come out as `A: …` / `B: …` turns
-- Note styles: detailed, concise, meeting minutes, or your own instructions for the AI
-- Offline queue: recordings paused on network errors automatically resume when connectivity returns; auth and rate-limit errors are not retried endlessly
-- Multilingual interface (English and Polish), light/dark themes, and Material 3 Expressive design
-- Separate provider, API key and model for transcription, titles/tags and notes (e.g. Whisper on Groq, notes on OpenAI); an empty key reuses the transcription key for the same provider
-- Secure API key storage (Android Keystore / Linux Secret Service / libsecret)
+### 🎙️ Recording & transcription
+
+- Recording with a live level meter
+- Automatic transcription in the background, with an AI-generated title and tags
+- Speaker diarization — multi-speaker transcripts come out as `A: …` / `B: …`
+- Editable transcripts; regenerate or share a recording anytime
+- Offline queue that resumes once the network is back
+
+### 📝 Notes & translation
+
+- Markdown notes from a transcript: detailed, concise, meeting minutes, casual or custom
+- Notes get their own tab, search, and tags
+- Translation of transcripts and notes into 22 languages
+
+### 📚 Library
+
+- Playback, fuzzy search and tag filtering
+- Colours for tags and notes
+
+### 🤖 AI providers
+
+- Transcription: Groq, OpenAI, ElevenLabs Scribe, Gemini or any OpenAI-compatible server
+- Titles, tags, notes and translation: Groq, OpenAI, Gemini or any OpenAI-compatible server
+- A separate provider, key and model for each task
+- Optional temperature and top_p, off by default
+- API keys kept in Android Keystore / Linux Secret Service
+
+### 🎨 Look & feel
+
+- Material 3 Expressive, English and Polish
+- Themes: Material 3, Dracula, Nord, Gruvbox, Catppuccin and Solarized
 
 ## Building
 
