@@ -96,4 +96,4 @@ enum ProviderPreset {
 
 /// How notes are written. Sent to the model as style instructions on top of the fixed format
 /// rules (Markdown, title heading, language of the transcript, no invented facts).
-enum NoteStyle { detailed, concise, meeting, custom }
+enum NoteStyle { detailed, concise, meeting, casual, custom }

@@ -962,6 +962,18 @@ abstract class AppLocalizations {
   /// **'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.'**
   String get settingsNoteStyleMeetingHelp;
 
+  /// Preset stylu notatek: luzny, z umiarkowana liczba emoji.
+  ///
+  /// In pl, this message translates to:
+  /// **'Luźna'**
+  String get settingsNoteStyleCasual;
+
+  /// Opis presetu luznego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.'**
+  String get settingsNoteStyleCasualHelp;
+
   /// Wlasny styl notatek z instrukcjami uzytkownika.
   ///
   /// In pl, this message translates to:

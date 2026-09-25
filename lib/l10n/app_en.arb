@@ -153,6 +153,8 @@
   "settingsNoteStyleConciseHelp": "A few bullet points with the essentials plus any tasks — readable in a minute.",
   "settingsNoteStyleMeeting": "Meeting minutes",
   "settingsNoteStyleMeetingHelp": "Participants, topics, decisions, action items (who, what, by when) and open questions.",
+  "settingsNoteStyleCasual": "Casual",
+  "settingsNoteStyleCasualHelp": "Relaxed and friendly, with a few well-placed emoji — not a wall of them.",
   "settingsNoteStyleCustom": "Custom",
   "settingsNoteStyleCustomLabel": "Instructions for the AI",
   "settingsNoteStyleCustomHint": "e.g. Write study notes: definitions, examples, and 3 review questions at the end.",

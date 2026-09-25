@@ -379,6 +379,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       (NoteStyle.detailed, l10n.settingsNoteStyleDetailed, l10n.settingsNoteStyleDetailedHelp),
       (NoteStyle.concise, l10n.settingsNoteStyleConcise, l10n.settingsNoteStyleConciseHelp),
       (NoteStyle.meeting, l10n.settingsNoteStyleMeeting, l10n.settingsNoteStyleMeetingHelp),
+      (NoteStyle.casual, l10n.settingsNoteStyleCasual, l10n.settingsNoteStyleCasualHelp),
       (NoteStyle.custom, l10n.settingsNoteStyleCustom, null),
     ];
     final help = options.firstWhere((o) => o.$1 == _noteStyle).$3;

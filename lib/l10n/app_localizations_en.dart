@@ -482,6 +482,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Participants, topics, decisions, action items (who, what, by when) and open questions.';
 
   @override
+  String get settingsNoteStyleCasual => 'Casual';
+
+  @override
+  String get settingsNoteStyleCasualHelp =>
+      'Relaxed and friendly, with a few well-placed emoji — not a wall of them.';
+
+  @override
   String get settingsNoteStyleCustom => 'Custom';
 
   @override

@@ -632,6 +632,14 @@
   "@settingsNoteStyleMeetingHelp": {
     "description": "Opis presetu protokolu."
   },
+  "settingsNoteStyleCasual": "Luźna",
+  "@settingsNoteStyleCasual": {
+    "description": "Preset stylu notatek: luzny, z umiarkowana liczba emoji."
+  },
+  "settingsNoteStyleCasualHelp": "Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.",
+  "@settingsNoteStyleCasualHelp": {
+    "description": "Opis presetu luznego."
+  },
   "settingsNoteStyleCustom": "Własna",
   "@settingsNoteStyleCustom": {
     "description": "Wlasny styl notatek z instrukcjami uzytkownika."

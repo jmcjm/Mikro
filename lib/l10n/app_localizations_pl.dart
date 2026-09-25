@@ -479,6 +479,13 @@ class AppLocalizationsPl extends AppLocalizations {
       'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.';
 
   @override
+  String get settingsNoteStyleCasual => 'Luźna';
+
+  @override
+  String get settingsNoteStyleCasualHelp =>
+      'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.';
+
+  @override
   String get settingsNoteStyleCustom => 'Własna';
 
   @override
