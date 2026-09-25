@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.0.0-alpha1" date="2026-09-25" type="development">
+      <description>
+        <p>Edytowalne transkrypty, notatki Markdown z wyszukiwaniem i stylami, rozpoznawanie rozmówców, osobne ustawienia API dla transkrypcji, tagów i notatek oraz dostawcy ElevenLabs i Gemini.</p>
+        <p xml:lang="en">Editable transcripts, searchable Markdown notes with styles, speaker recognition, separate API settings for transcription, tags and notes, and ElevenLabs and Gemini providers.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-09-24">
       <description>
         <p>Ponowne generowanie transkryptu, tytułu i tagów nagrania oraz udostępnianie pliku audio.</p>

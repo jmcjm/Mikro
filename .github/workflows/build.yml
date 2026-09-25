@@ -223,3 +223,6 @@ jobs:
             release-assets/Mikro-x86_64.AppImage
             release-assets/pl.jmc.mikro.flatpak
           generate_release_notes: true
+          # A tag with a pre-release suffix (2.0.0-alpha1, 2.1.0-rc1) is published as a
+          # pre-release, so GitHub "latest" and Obtainium's default stable track skip it.
+          prerelease: ${{ contains(github.ref_name, '-') }}
