@@ -180,6 +180,36 @@ void main() {
     expect(keys.values, {'api_key_stt': 'gsk', 'api_key_tags': '', 'api_key_notes': 'sk'});
   });
 
+  // The shell keeps a SettingsScreen alive in its IndexedStack, and onboarding pushes another
+  // one on top. A save in the pushed screen must reach the kept one, or the tab shows (and a
+  // later save there writes back) the state from before the save.
+  testWidgets('a save in one settings screen reloads the other live ones', (tester) async {
+    final keys = FakeKeyStore();
+    final prefs = await pumpSettings(tester, keys: keys);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).push(
+          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+        );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('OpenAI').first);
+    await tester.tap(find.text('OpenAI').first);
+    await tester.pumpAndSettle();
+    final keyFields = find.byWidgetPredicate((w) => w is TextField && w.obscureText);
+    await tester.enterText(keyFields.at(0), 'sk-nowy');
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('stt_base_url'), 'https://api.openai.com/v1');
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(fieldWith('https://api.openai.com/v1'), findsOneWidget);
+    expect(fieldWith('sk-nowy'), findsOneWidget);
+  });
+
   testWidgets('settings saved before the split fill all three sections', (tester) async {
     await pumpSettings(
       tester,

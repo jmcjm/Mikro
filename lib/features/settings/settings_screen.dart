@@ -129,11 +129,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _save() async {
     final repo = ref.read(settingsRepositoryProvider);
+    // Taken before the awaits: this screen may be popped mid-save, and the others still
+    // need to hear about it.
+    final revision = ref.read(settingsRevisionProvider.notifier);
     for (final form in _forms.values) {
       await repo.save(form.task, form.value);
     }
     await repo.saveNoteStyle(
         NoteStyleSetting(style: _noteStyle, custom: _noteStyleCustom.text.trim()));
+    revision.state++;
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context).settingsSaved)));
@@ -156,6 +160,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(settingsRevisionProvider, (_, _) => _load());
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
