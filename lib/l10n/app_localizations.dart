@@ -896,6 +896,36 @@ abstract class AppLocalizations {
   /// **'Model'**
   String get settingsModel;
 
+  /// Podpowiedz przycisku tlumaczenia transkrypcji i notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Przetłumacz'**
+  String get translateTooltip;
+
+  /// Tytul dialogu wyboru jezyka docelowego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Przetłumacz na'**
+  String get translatePickTitle;
+
+  /// Chip pokazujacy oryginalny tekst zamiast tlumaczenia.
+  ///
+  /// In pl, this message translates to:
+  /// **'Oryginał'**
+  String get translationOriginal;
+
+  /// Podpowiedz usuwania zapisanego tlumaczenia.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usuń tłumaczenie'**
+  String get translationDeleteTooltip;
+
+  /// Naglowek sekcji API tlumaczen transkrypcji i notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'TŁUMACZENIE'**
+  String get settingsTranslateSection;
+
   /// Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek.
   ///
   /// In pl, this message translates to:

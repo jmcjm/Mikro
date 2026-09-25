@@ -45,6 +45,7 @@ class SettingsRepository {
     ApiTask.stt => 'stt_model',
     ApiTask.tags => 'tag_model',
     ApiTask.notes => 'notes_model',
+    ApiTask.translate => 'translate_model',
   };
 
   static String apiKeyName(ApiTask task) => 'api_key_${task.name}';
@@ -70,14 +71,25 @@ class SettingsRepository {
   }
 
   /// Settings as stored, including incomplete ones — this is what the settings screen edits.
+  ///
+  /// Translation came after the per-task split, so an installation that never saved it
+  /// inherits the notes settings wholesale (address, key, model) instead of starting blank —
+  /// both are "a chat model working on a whole transcript".
   Future<ServiceConfig> raw(ApiTask task) async {
-    final baseUrl = _prefs.getString(baseUrlKey(task)) ?? _prefs.getString(legacyBaseUrlKey) ?? '';
+    final parent = task == ApiTask.translate ? await raw(ApiTask.notes) : null;
+    final baseUrl = _prefs.getString(baseUrlKey(task)) ??
+        parent?.baseUrl ??
+        _prefs.getString(legacyBaseUrlKey) ??
+        '';
     final model =
         _prefs.getString(modelKey(task)) ??
+        parent?.model ??
         (task == ApiTask.notes ? _prefs.getString(modelKey(ApiTask.tags)) : null) ??
         '';
-    final apiKey =
-        await _keyStore.read(apiKeyName(task)) ?? await _keyStore.read(legacyApiKeyName) ?? '';
+    final apiKey = await _keyStore.read(apiKeyName(task)) ??
+        parent?.apiKey ??
+        await _keyStore.read(legacyApiKeyName) ??
+        '';
     return ServiceConfig(
         baseUrl: baseUrl, apiKey: apiKey, model: model, sampling: _sampling(task));
   }

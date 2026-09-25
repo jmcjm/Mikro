@@ -139,6 +139,20 @@ void main() {
     expect(raw.model, 'm');
   });
 
+  test('translation inherits the notes settings until it has its own', () async {
+    final keys = FakeKeyStore();
+    final r = await repo({}, keys);
+    await r.save(ApiTask.notes, const ServiceConfig(baseUrl: _openai, apiKey: 'sk', model: 'gpt'));
+
+    final inherited = (await r.load(ApiTask.translate))!;
+    expect((inherited.baseUrl, inherited.apiKey, inherited.model), (_openai, 'sk', 'gpt'));
+
+    await r.save(
+        ApiTask.translate, const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'llama'));
+    final own = (await r.load(ApiTask.translate))!;
+    expect((own.baseUrl, own.apiKey, own.model), (_groq, 'gsk', 'llama'));
+  });
+
   test('sampling is off by default and round-trips per task when switched on', () async {
     final r = await repo({}, FakeKeyStore());
     expect((await r.raw(ApiTask.tags)).sampling, isNull, reason: 'off: nothing is sent');

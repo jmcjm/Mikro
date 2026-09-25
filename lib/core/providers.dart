@@ -7,12 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api/notes_api.dart';
 import 'api/tagging_api.dart';
 import 'api/transcription_api.dart';
+import 'api/translation_api.dart';
 import 'audio/mikro_recorder.dart';
 import 'db/database.dart';
 import 'notes/note_service.dart';
 import 'pipeline/processing_pipeline.dart';
 import 'search/search_service.dart';
 import 'settings/settings_repository.dart';
+import 'translation/translation_service.dart';
 
 final sharedPrefsProvider =
     Provider<SharedPreferences>((ref) => throw UnimplementedError('override in main'));
@@ -59,6 +61,22 @@ final noteServiceProvider = Provider<NoteService>((ref) => NoteService(
       notesApi: ref.watch(notesApiProvider),
       settings: ref.watch(settingsRepositoryProvider),
     ));
+
+final translationApiProvider =
+    Provider<TranslationApi>((ref) => TranslationApi(ref.watch(dioProvider)));
+
+final translationServiceProvider = Provider<TranslationService>((ref) => TranslationService(
+      db: ref.watch(databaseProvider),
+      api: ref.watch(translationApiProvider),
+      settings: ref.watch(settingsRepositoryProvider),
+      prefs: ref.watch(sharedPrefsProvider),
+    ));
+
+final recordingTranslationsProvider = StreamProvider.family<List<Translation>, String>(
+    (ref, recordingId) => ref.watch(databaseProvider).watchTranslations(recordingId: recordingId));
+
+final noteTranslationsProvider = StreamProvider.family<List<Translation>, String>(
+    (ref, noteId) => ref.watch(databaseProvider).watchTranslations(noteId: noteId));
 
 final recorderProvider = Provider<MikroRecorder>((ref) {
   final recorder = RecordPluginRecorder();

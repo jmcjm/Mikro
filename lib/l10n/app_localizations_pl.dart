@@ -441,6 +441,21 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get translateTooltip => 'Przetłumacz';
+
+  @override
+  String get translatePickTitle => 'Przetłumacz na';
+
+  @override
+  String get translationOriginal => 'Oryginał';
+
+  @override
+  String get translationDeleteTooltip => 'Usuń tłumaczenie';
+
+  @override
+  String get settingsTranslateSection => 'TŁUMACZENIE';
+
+  @override
   String get settingsSampling => 'Steruj temperaturą i top_p';
 
   @override

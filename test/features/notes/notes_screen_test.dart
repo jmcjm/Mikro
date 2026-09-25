@@ -160,4 +160,23 @@ void main() {
     expect(find.text(plL10n.notesEmpty), findsOneWidget);
     await unmount(tester);
   });
+
+  testWidgets('a stored translation is shown on request, rendered as Markdown', (tester) async {
+    await note('a', 'Plan', '- punkt');
+    await db.saveTranslation(
+      noteId: 'a',
+      language: 'en',
+      content: '# Plan\n\n- item',
+      now: DateTime(2026),
+    );
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    expect(find.text('item'), findsNothing);
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('item'), findsOneWidget);
+    expect(find.text('punkt'), findsNothing);
+    await unmount(tester);
+  });
 }

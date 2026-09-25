@@ -1,6 +1,6 @@
 /// The three jobs the app sends to an API. Each has its own endpoint, key and model, so e.g.
 /// transcription can run on ElevenLabs while notes use a stronger model elsewhere.
-enum ApiTask { stt, tags, notes }
+enum ApiTask { stt, tags, notes, translate }
 
 /// Endpoint for one [ApiTask]: base URL, its API key and the model name.
 class ServiceConfig {
@@ -53,11 +53,13 @@ enum ProviderPreset {
     ApiTask.tags: 'llama-3.1-8b-instant',
     // A title and five tags are fine on 8B; a structured summary of a whole recording is not.
     ApiTask.notes: 'llama-3.3-70b-versatile',
+    ApiTask.translate: 'llama-3.3-70b-versatile',
   }),
   openai('https://api.openai.com/v1', {
     ApiTask.stt: 'whisper-1',
     ApiTask.tags: 'gpt-4o-mini',
     ApiTask.notes: 'gpt-4o-mini',
+    ApiTask.translate: 'gpt-4o-mini',
   }),
   // Speech-to-text only: ElevenLabs has no chat completion API.
   elevenlabs('https://api.elevenlabs.io/v1', {ApiTask.stt: 'scribe_v2'}, SttProtocol.elevenlabs),
@@ -68,8 +70,9 @@ enum ProviderPreset {
     ApiTask.stt: 'gemini-3.8-flash',
     ApiTask.tags: 'gemini-3.5-flash-lite',
     ApiTask.notes: 'gemini-3.8-flash',
+    ApiTask.translate: 'gemini-3.8-flash',
   }, SttProtocol.gemini),
-  custom('', {ApiTask.stt: '', ApiTask.tags: '', ApiTask.notes: ''});
+  custom('', {ApiTask.stt: '', ApiTask.tags: '', ApiTask.notes: '', ApiTask.translate: ''});
 
   const ProviderPreset(this.baseUrl, this._models, [this.sttProtocol = SttProtocol.openai]);
 

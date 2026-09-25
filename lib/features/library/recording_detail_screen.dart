@@ -21,6 +21,7 @@ import '../../l10n/app_localizations.dart';
 import '../notes/note_view.dart';
 import '../notes/selected_note.dart';
 import '../shell/home_tab.dart';
+import '../translation/translation_widgets.dart';
 import 'library_styles.dart';
 import 'playback.dart';
 import 'recording_error.dart';
@@ -137,6 +138,11 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
 
   /// Note generation in progress — the button turns into a spinner and ignores further taps.
   bool _creatingNote = false;
+  bool _translating = false;
+
+  /// Language code of the translation shown in the transcript card; `null` shows the
+  /// editable original.
+  String? _shownLanguage;
 
   /// Total duration used for position calculations, bar partitioning, and seek clamping.
   ///
@@ -505,6 +511,31 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     } finally {
       if (mounted) setState(() => _creatingNote = false);
     }
+  }
+
+  /// Translates the transcript as it is NOW (pending edit written first) and switches the
+  /// card to the result.
+  Future<void> _translate() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context);
+    final service = ref.read(translationServiceProvider);
+    final language = await pickTranslationLanguage(context, last: service.lastLanguage);
+    if (language == null || !mounted) return;
+    setState(() => _translating = true);
+    try {
+      await _transcript.flush();
+      await service.translateRecording(widget.recordingId, language);
+      if (mounted) setState(() => _shownLanguage = language);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));
+    } finally {
+      if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  Future<void> _deleteTranslation(Translation t) async {
+    if (_shownLanguage == t.language) setState(() => _shownLanguage = null);
+    await ref.read(databaseProvider).deleteTranslation(t.id);
   }
 
   /// Adds manual tag from "+ tag" dialog. Tag name is already normalized.
@@ -1028,6 +1059,8 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     final l10n = AppLocalizations.of(context);
     final transcript = r.transcript;
     if (transcript != null) _transcript.syncFrom(transcript);
+    final translations = ref.watch(recordingTranslationsProvider(r.id)).value ?? const [];
+    final shown = translations.where((t) => t.language == _shownLanguage).firstOrNull;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1058,6 +1091,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
               ),
               if (transcript != null) ...[
                 const SizedBox(width: 8),
+                TranslateButton(
+                  compact: true,
+                  busy: _translating,
+                  color: scheme.onSurfaceVariant,
+                  onPressed: _translate,
+                ),
+                const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(Symbols.content_copy_rounded,
                       fill: 1, size: 20, color: scheme.onSurfaceVariant),
@@ -1067,13 +1107,20 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                   constraints: const BoxConstraints(),
                   // Field content, not the database value: the latest keystrokes may still be
                   // waiting for their delayed save.
-                  onPressed: () =>
-                      _copyTranscript(_transcript.controller.text, message: l10n.detailCopied),
+                  onPressed: () => _copyTranscript(shown?.content ?? _transcript.controller.text,
+                      message: l10n.detailCopied),
                 ),
               ],
             ],
           ),
           const SizedBox(height: 12),
+          if (transcript != null)
+            TranslationSwitcher(
+              translations: translations,
+              selected: shown?.language,
+              onSelect: (language) => setState(() => _shownLanguage = language),
+              onDelete: _deleteTranslation,
+            ),
           Expanded(
             child: transcript == null
                 ? Center(
@@ -1087,6 +1134,13 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
                           style: TextStyle(fontSize: 14, color: scheme.onSurfaceVariant),
                         ),
                       ],
+                    ),
+                  )
+                : shown != null
+                ? SingleChildScrollView(
+                    child: SelectableText(
+                      shown.content,
+                      style: TextStyle(fontSize: 16, height: 26 / 16, color: scheme.onSurface),
                     ),
                   )
                 : TextField(

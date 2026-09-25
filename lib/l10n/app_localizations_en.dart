@@ -444,6 +444,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get translateTooltip => 'Translate';
+
+  @override
+  String get translatePickTitle => 'Translate into';
+
+  @override
+  String get translationOriginal => 'Original';
+
+  @override
+  String get translationDeleteTooltip => 'Delete translation';
+
+  @override
+  String get settingsTranslateSection => 'TRANSLATION';
+
+  @override
   String get settingsSampling => 'Control temperature and top_p';
 
   @override

@@ -269,6 +269,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ApiTask.stt => (l10n.settingsSttSection, l10n.settingsSttModelHelp, null),
       ApiTask.tags => (l10n.settingsTagsSection, null, l10n.settingsApiKeyInheritHelp),
       ApiTask.notes => (l10n.settingsNotesSection, null, l10n.settingsApiKeyInheritHelp),
+      ApiTask.translate =>
+        (l10n.settingsTranslateSection, null, l10n.settingsApiKeyInheritHelp),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -74,21 +74,22 @@ void main() {
   testWidgets('provider section shows fields and Groq preset', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('Groq'), findsNWidgets(3));
-    expect(find.text('OpenAI'), findsNWidgets(3));
-    expect(find.text('Gemini'), findsNWidgets(3));
+    expect(find.text('Groq'), findsNWidgets(4));
+    expect(find.text('OpenAI'), findsNWidgets(4));
+    expect(find.text('Gemini'), findsNWidgets(4));
     expect(find.text('ElevenLabs'), findsOneWidget,
         reason: 'ElevenLabs has no chat API, so it is offered for transcription only');
-    expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(3));
+    expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(4));
     expect(find.text(plL10n.settingsSttSection), findsOneWidget);
     expect(find.text(plL10n.settingsTagsSection), findsOneWidget);
     expect(find.text(plL10n.settingsNotesSection), findsOneWidget);
+    expect(find.text(plL10n.settingsTranslateSection), findsOneWidget);
     // Every section has its own address, key and model.
-    expect(find.text(plL10n.settingsBaseUrl), findsNWidgets(3));
-    expect(find.text(plL10n.settingsApiKey), findsNWidgets(3));
-    expect(find.text(plL10n.settingsModel), findsNWidgets(3));
+    expect(find.text(plL10n.settingsBaseUrl), findsNWidgets(4));
+    expect(find.text(plL10n.settingsApiKey), findsNWidgets(4));
+    expect(find.text(plL10n.settingsModel), findsNWidgets(4));
     // Missing stored configuration -> screen starts on Groq preset.
-    expect(find.text('https://api.groq.com/openai/v1'), findsNWidgets(3));
+    expect(find.text('https://api.groq.com/openai/v1'), findsNWidgets(4));
   });
 
   testWidgets('API key is masked by default and can be revealed', (tester) async {
@@ -163,7 +164,7 @@ void main() {
     await tester.tap(find.text('OpenAI').at(2));
     await tester.pumpAndSettle();
     expect(fieldWith('https://api.openai.com/v1'), findsOneWidget);
-    expect(fieldWith('https://api.groq.com/openai/v1'), findsNWidgets(2));
+    expect(fieldWith('https://api.groq.com/openai/v1'), findsNWidgets(3));
 
     final keyFields = find.byWidgetPredicate((w) => w is TextField && w.obscureText);
     await tester.enterText(keyFields.at(0), 'gsk');
@@ -177,7 +178,12 @@ void main() {
     expect(prefs.getString('tags_base_url'), 'https://api.groq.com/openai/v1');
     expect(prefs.getString('notes_base_url'), 'https://api.openai.com/v1');
     expect(prefs.getString('notes_model'), 'gpt-4o-mini');
-    expect(keys.values, {'api_key_stt': 'gsk', 'api_key_tags': '', 'api_key_notes': 'sk'});
+    expect(keys.values, {
+      'api_key_stt': 'gsk',
+      'api_key_tags': '',
+      'api_key_notes': 'sk',
+      'api_key_translate': '',
+    });
   });
 
   // The shell keeps a SettingsScreen alive in its IndexedStack, and onboarding pushes another
@@ -215,7 +221,7 @@ void main() {
     final prefs = await pumpSettings(tester);
 
     final switches = find.byType(SwitchListTile);
-    expect(switches, findsNWidgets(2), reason: 'transcription has no sampling control');
+    expect(switches, findsNWidgets(3), reason: 'transcription has no sampling control; tags, notes and translation do');
     expect(find.text(plL10n.settingsTemperature), findsNothing, reason: 'off by default');
 
     await tester.ensureVisible(switches.first);
@@ -245,10 +251,10 @@ void main() {
       keys: FakeKeyStore()..values['api_key'] = 'stary',
     );
 
-    expect(fieldWith('http://localhost:8000/v1'), findsNWidgets(3));
-    expect(fieldWith('stary'), findsNWidgets(3));
+    expect(fieldWith('http://localhost:8000/v1'), findsNWidgets(4));
+    expect(fieldWith('stary'), findsNWidgets(4));
     expect(fieldWith('whisper-lokalny'), findsOneWidget);
-    expect(fieldWith('qwen'), findsNWidgets(2), reason: 'notes inherit the tagging model');
+    expect(fieldWith('qwen'), findsNWidgets(3), reason: "notes inherit the tagging model, translation inherits notes");
   });
 
   testWidgets('note style: presets describe themselves, custom takes instructions',

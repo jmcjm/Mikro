@@ -585,6 +585,18 @@
     "description": "Naglowek sekcji ustawien API dla notatek."
   },
   "settingsModel": "Model",
+  "translateTooltip": "Przetłumacz",
+  "@translateTooltip": {"description": "Podpowiedz przycisku tlumaczenia transkrypcji i notatki."},
+  "translatePickTitle": "Przetłumacz na",
+  "@translatePickTitle": {"description": "Tytul dialogu wyboru jezyka docelowego."},
+  "translationOriginal": "Oryginał",
+  "@translationOriginal": {"description": "Chip pokazujacy oryginalny tekst zamiast tlumaczenia."},
+  "translationDeleteTooltip": "Usuń tłumaczenie",
+  "@translationDeleteTooltip": {"description": "Podpowiedz usuwania zapisanego tlumaczenia."},
+  "settingsTranslateSection": "TŁUMACZENIE",
+  "@settingsTranslateSection": {
+    "description": "Naglowek sekcji API tlumaczen transkrypcji i notatek."
+  },
   "@settingsModel": {
     "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
   },

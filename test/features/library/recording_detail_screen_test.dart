@@ -13,6 +13,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import 'package:mikro/core/api/notes_api.dart';
 import 'package:mikro/core/api/tagging_api.dart';
 import 'package:mikro/core/api/transcription_api.dart';
+import 'package:mikro/core/api/translation_api.dart';
 import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/provider_config.dart';
@@ -22,11 +23,13 @@ import 'package:mikro/core/pipeline/processing_pipeline.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
 import 'package:mikro/core/theme/app_theme.dart';
+import 'package:mikro/core/translation/translation_service.dart';
 import 'package:mikro/features/library/library_styles.dart';
 import 'package:mikro/features/library/playback.dart';
 import 'package:mikro/features/library/recording_detail_screen.dart';
 import 'package:mikro/features/notes/note_view.dart';
 import 'package:mikro/l10n/app_localizations_en.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../support/l10n_harness.dart';
 
@@ -79,6 +82,21 @@ final dialogField =
     find.descendant(of: find.byType(AlertDialog), matching: find.byType(TextField));
 
 /// Note service that skips the model: writes a fixed note straight to the database.
+/// Stores a canned translation instead of calling a model.
+class _FakeTranslationService extends TranslationService {
+  _FakeTranslationService(AppDatabase db, SharedPreferences prefs)
+      : super(db: db, api: TranslationApi(Dio()), settings: _NoConfigSettings(), prefs: prefs);
+
+  final requested = <(String, String)>[];
+
+  @override
+  Future<void> translateRecording(String recordingId, String language) async {
+    requested.add((recordingId, language));
+    await db.saveTranslation(
+        recordingId: recordingId, language: language, content: 'Hello world', now: DateTime(2026));
+  }
+}
+
 class _FakeNoteService extends NoteService {
   _FakeNoteService(AppDatabase db)
       : super(db: db, notesApi: NotesApi(Dio()), settings: _NoConfigSettings());
@@ -1392,6 +1410,31 @@ void main() {
 
       expect(service.requested, isEmpty);
       expect(find.byType(NoteView), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('translate: pick a language, the card shows the translation, original is a tap away',
+        (tester) async {
+      await doneWithTranscript('Witaj świecie');
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final service = _FakeTranslationService(db, prefs);
+      await pumpDetail(tester, 'a',
+          overrides: [translationServiceProvider.overrideWithValue(service)]);
+
+      await tester.tap(find.byTooltip(plL10n.translateTooltip));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('English'));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pumpAndSettle();
+
+      expect(service.requested, [('a', 'en')]);
+      expect(find.text('Hello world'), findsOneWidget);
+      expect(transcriptField(), findsNothing, reason: 'a translation is read-only');
+
+      await tester.tap(find.text(plL10n.translationOriginal));
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(transcriptField()).controller!.text, 'Witaj świecie');
       await unmount(tester);
     });
 
