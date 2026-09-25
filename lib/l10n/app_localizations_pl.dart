@@ -441,6 +441,12 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get navQuickRecord => 'Zacznij nagrywać';
+
+  @override
+  String get navQuickRecordStop => 'Zatrzymaj nagrywanie';
+
+  @override
   String get translateTooltip => 'Przetłumacz';
 
   @override

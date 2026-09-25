@@ -8,6 +8,7 @@ import '../../core/settings/settings_repository.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../shell/home_tab.dart';
 
 /// Single theme choice card in the grid. The mockup displays six cards in a 2x3 layout
 /// and couples mode with palette — each card represents a (mode, palette) pair.
@@ -138,6 +139,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _noteStyleCustom = TextEditingController();
   var _loaded = false;
 
+  /// Theme section, for shortcuts that open Settings scrolled to it.
+  final _themeKey = GlobalKey();
+  var _themeScrollPending = false;
+
   @override
   void initState() {
     super.initState();
@@ -160,6 +165,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     _noteStyle = style.style;
     _noteStyleCustom.text = style.custom;
     if (mounted) setState(() => _loaded = true);
+    if (_themeScrollPending) _scrollToTheme();
+  }
+
+  /// Scrolls the theme section into view after the next frame, once it is laid out. Before
+  /// the form has loaded there is no section yet, so the request waits for [_load].
+  void _scrollToTheme() {
+    if (!_loaded) {
+      _themeScrollPending = true;
+      return;
+    }
+    _themeScrollPending = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _themeKey.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(target,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    });
   }
 
   Future<void> _save() async {
@@ -196,6 +218,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     ref.listen(settingsRevisionProvider, (_, _) => _load());
+    ref.listen(settingsThemeRequestProvider, (_, _) => _scrollToTheme());
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -247,7 +270,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               _taskSection(_forms[task]!, colors, l10n),
                               const SizedBox(height: 24),
                             ],
-                            _themeSection(colors, l10n),
+                            KeyedSubtree(key: _themeKey, child: _themeSection(colors, l10n)),
                           ],
                         ),
                       ),

@@ -585,6 +585,10 @@
     "description": "Naglowek sekcji ustawien API dla notatek."
   },
   "settingsModel": "Model",
+  "navQuickRecord": "Zacznij nagrywać",
+  "@navQuickRecord": {"description": "Podpowiedz przycisku szybkiego nagrywania w bocznej szynie."},
+  "navQuickRecordStop": "Zatrzymaj nagrywanie",
+  "@navQuickRecordStop": {"description": "Podpowiedz przycisku szybkiego nagrywania podczas nagrania."},
   "translateTooltip": "Przetłumacz",
   "@translateTooltip": {"description": "Podpowiedz przycisku tlumaczenia transkrypcji i notatki."},
   "translatePickTitle": "Przetłumacz na",

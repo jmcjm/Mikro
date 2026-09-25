@@ -444,6 +444,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get navQuickRecord => 'Start recording';
+
+  @override
+  String get navQuickRecordStop => 'Stop recording';
+
+  @override
   String get translateTooltip => 'Translate';
 
   @override

@@ -142,6 +142,8 @@
   "settingsTagsSection": "TITLES & TAGS",
   "settingsNotesSection": "NOTES",
   "settingsModel": "Model",
+  "navQuickRecord": "Start recording",
+  "navQuickRecordStop": "Stop recording",
   "translateTooltip": "Translate",
   "translatePickTitle": "Translate into",
   "translationOriginal": "Original",

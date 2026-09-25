@@ -896,6 +896,18 @@ abstract class AppLocalizations {
   /// **'Model'**
   String get settingsModel;
 
+  /// Podpowiedz przycisku szybkiego nagrywania w bocznej szynie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zacznij nagrywać'**
+  String get navQuickRecord;
+
+  /// Podpowiedz przycisku szybkiego nagrywania podczas nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zatrzymaj nagrywanie'**
+  String get navQuickRecordStop;
+
   /// Podpowiedz przycisku tlumaczenia transkrypcji i notatki.
   ///
   /// In pl, this message translates to:

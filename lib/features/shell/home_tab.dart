@@ -35,3 +35,8 @@ class HomeTabController extends Notifier<int> {
 }
 
 final homeTabProvider = NotifierProvider<HomeTabController, int>(HomeTabController.new);
+
+/// Bumped by shortcuts that open Settings at the theme section (the rail's palette button).
+/// A counter rather than a flag: the settings screen reacts to every change, so asking twice
+/// scrolls twice, and nothing has to reset it.
+final settingsThemeRequestProvider = StateProvider<int>((ref) => 0);
