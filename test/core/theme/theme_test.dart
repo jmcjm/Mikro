@@ -320,8 +320,83 @@ void main() {
     });
 
     test('palette names in preferences are a stable on-disk format', () {
-      expect(AppPalette.values.map((p) => p.name).toList(),
-          ['md3', 'dracula', 'nord', 'gruvbox']);
+      expect(AppPalette.values.map((p) => p.name).toList(), [
+        'md3',
+        'dracula',
+        'nord',
+        'gruvbox',
+        'catppuccinLatte',
+        'catppuccinFrappe',
+        'catppuccinMacchiato',
+        'catppuccinMocha',
+        'solarized',
+      ]);
+    });
+  });
+
+  group('Catppuccin and Solarized', () {
+    ColorScheme scheme(AppPalette p, Brightness b) =>
+        buildTheme(palette: p, brightness: b).colorScheme;
+
+    test('Catppuccin roles follow the style guide (Mocha)', () {
+      final s = scheme(AppPalette.catppuccinMocha, Brightness.dark);
+      expect(s.surface, const Color(0xFF1E1E2E), reason: 'base: background pane');
+      expect(s.surfaceContainerLow, const Color(0xFF181825), reason: 'mantle');
+      expect(s.surfaceContainer, const Color(0xFF11111B), reason: 'crust');
+      expect(s.onSurface, const Color(0xFFCDD6F4), reason: 'text: body copy');
+      expect(s.primary, const Color(0xFFCBA6F7), reason: 'mauve');
+      expect(s.onPrimary, const Color(0xFF1E1E2E), reason: 'base on accents');
+      expect(s.error, const Color(0xFFF38BA8), reason: 'red: errors');
+      expect(s.outline, const Color(0xFF6C7086), reason: 'overlay0: inactive border');
+    });
+
+    test('each flavour keeps its own brightness whatever is asked for', () {
+      for (final b in Brightness.values) {
+        expect(scheme(AppPalette.catppuccinLatte, b).brightness, Brightness.light);
+        for (final p in [
+          AppPalette.catppuccinFrappe,
+          AppPalette.catppuccinMacchiato,
+          AppPalette.catppuccinMocha,
+        ]) {
+          expect(scheme(p, b).brightness, Brightness.dark, reason: '$p');
+        }
+      }
+      expect(scheme(AppPalette.catppuccinLatte, Brightness.dark).surface,
+          const Color(0xFFEFF1F5));
+    });
+
+    test('Solarized has both variants on the canonical backgrounds', () {
+      final light = scheme(AppPalette.solarized, Brightness.light);
+      final dark = scheme(AppPalette.solarized, Brightness.dark);
+      expect(light.brightness, Brightness.light);
+      expect(dark.brightness, Brightness.dark);
+      expect(light.surface, const Color(0xFFFDF6E3), reason: 'base3');
+      expect(light.surfaceContainerLow, const Color(0xFFEEE8D5), reason: 'base2');
+      expect(dark.surface, const Color(0xFF002B36), reason: 'base03');
+      expect(dark.surfaceContainerLow, const Color(0xFF073642), reason: 'base02');
+      expect(light.primary, const Color(0xFF268BD2));
+      expect(dark.primary, const Color(0xFF268BD2));
+    });
+
+    test('text keeps readable contrast on every new palette', () {
+      double contrast(Color a, Color b) {
+        final la = a.computeLuminance(), lb = b.computeLuminance();
+        final (hi, lo) = la > lb ? (la, lb) : (lb, la);
+        return (hi + 0.05) / (lo + 0.05);
+      }
+
+      for (final p in [
+        AppPalette.catppuccinLatte,
+        AppPalette.catppuccinFrappe,
+        AppPalette.catppuccinMacchiato,
+        AppPalette.catppuccinMocha,
+        AppPalette.solarized,
+      ]) {
+        for (final b in Brightness.values) {
+          final s = scheme(p, b);
+          expect(contrast(s.onSurface, s.surface), greaterThanOrEqualTo(4.5), reason: '$p $b');
+        }
+      }
     });
   });
 }

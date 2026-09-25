@@ -46,12 +46,48 @@ Future<SharedPreferences> pumpSettings(
 void main() {
   // Screen is entirely layout, so analyze won't catch layout issues — only building tree
   // catches Row overflows or invalid constraints. Each test builds the screen.
-  testWidgets('theme section has six cards from mockup', (tester) async {
+  testWidgets('theme section has the mockup cards plus Catppuccin and Solarized', (tester) async {
     await pumpSettings(tester);
 
-    for (final label in ['Jasny', 'Ciemny', 'Dracula', 'Nord', 'Gruvbox', 'Systemowy']) {
-      expect(find.text(label), findsOneWidget, reason: 'missing card $label');
+    for (final label in [
+      'Jasny',
+      'Ciemny',
+      'Dracula',
+      'Nord',
+      'Gruvbox',
+      'Catppuccin Latte',
+      'Catppuccin Frappé',
+      'Catppuccin Macchiato',
+      'Catppuccin Mocha',
+      'Solarized Light',
+      'Solarized Dark',
+      'Systemowy',
+    ]) {
+      expect(find.text(label, skipOffstage: false), findsOneWidget, reason: 'missing card $label');
     }
+  });
+
+  testWidgets('cards per row follow the available width', (tester) async {
+    double top(String label) => tester.getTopLeft(find.text(label, skipOffstage: false)).dy;
+
+    await pumpSettings(tester); // 412 wide: three per row.
+    expect(top('Dracula'), top('Jasny'));
+    expect(top('Nord'), greaterThan(top('Jasny')));
+
+    await tester.binding.setSurfaceSize(const Size(900, 892));
+    await tester.pumpAndSettle();
+    expect(top('Nord'), top('Jasny'), reason: 'a wider screen fits more cards in a row');
+  });
+
+  testWidgets('a one-line card is centred next to a two-line one in its row', (tester) async {
+    await pumpSettings(tester);
+    await tester.binding.setSurfaceSize(const Size(900, 892));
+    await tester.pumpAndSettle();
+    final oneLine = find.text('Gruvbox', skipOffstage: false);
+    final twoLines = find.text('Catppuccin Latte', skipOffstage: false);
+    expect(tester.getTopLeft(oneLine).dy, tester.getTopLeft(find.text('Jasny', skipOffstage: false)).dy);
+    expect(tester.getCenter(oneLine).dy, closeTo(tester.getCenter(twoLines).dy, 1),
+        reason: 'the shorter content sits in the middle of the stretched card');
   });
 
   testWidgets('selecting card saves mode and palette to preferences', (tester) async {

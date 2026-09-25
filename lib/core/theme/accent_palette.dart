@@ -43,12 +43,41 @@ class AccentPalette extends ThemeExtension<AccentPalette> {
     Color(0xFF8EC07C), Color(0xFF83A598), Color(0xFFB16286), Color(0xFFD3869B),
   ]);
 
+  // Catppuccin: red, peach, yellow, green, teal, blue, mauve, pink of each flavour.
+  static const _latte = AccentPalette([
+    Color(0xFFD20F39), Color(0xFFFE640B), Color(0xFFDF8E1D), Color(0xFF40A02B),
+    Color(0xFF179299), Color(0xFF1E66F5), Color(0xFF8839EF), Color(0xFFEA76CB),
+  ]);
+  static const _frappe = AccentPalette([
+    Color(0xFFE78284), Color(0xFFEF9F76), Color(0xFFE5C890), Color(0xFFA6D189),
+    Color(0xFF81C8BE), Color(0xFF8CAAEE), Color(0xFFCA9EE6), Color(0xFFF4B8E4),
+  ]);
+  static const _macchiato = AccentPalette([
+    Color(0xFFED8796), Color(0xFFF5A97F), Color(0xFFEED49F), Color(0xFFA6DA95),
+    Color(0xFF8BD5CA), Color(0xFF8AADF4), Color(0xFFC6A0F6), Color(0xFFF5BDE6),
+  ]);
+  static const _mocha = AccentPalette([
+    Color(0xFFF38BA8), Color(0xFFFAB387), Color(0xFFF9E2AF), Color(0xFFA6E3A1),
+    Color(0xFF94E2D5), Color(0xFF89B4FA), Color(0xFFCBA6F7), Color(0xFFF5C2E7),
+  ]);
+  // Solarized accents are designed to work on both backgrounds, so one set serves both modes.
+  // Cyan for teal, violet for purple, magenta for pink.
+  static const _solarized = AccentPalette([
+    Color(0xFFDC322F), Color(0xFFCB4B16), Color(0xFFB58900), Color(0xFF859900),
+    Color(0xFF2AA198), Color(0xFF268BD2), Color(0xFF6C71C4), Color(0xFFD33682),
+  ]);
+
   static AccentPalette forTheme(AppPalette palette, Brightness brightness) =>
       switch (palette) {
         AppPalette.md3 => brightness == Brightness.light ? _md3Light : _md3Dark,
         AppPalette.dracula => _dracula,
         AppPalette.nord => _nord,
         AppPalette.gruvbox => _gruvbox,
+        AppPalette.catppuccinLatte => _latte,
+        AppPalette.catppuccinFrappe => _frappe,
+        AppPalette.catppuccinMacchiato => _macchiato,
+        AppPalette.catppuccinMocha => _mocha,
+        AppPalette.solarized => _solarized,
       };
 
   /// Palette of the surrounding theme; the light baseline when a theme without the extension

@@ -34,8 +34,8 @@ class _ThemeChoice {
       mode == ThemeMode.light ? Brightness.light : Brightness.dark;
 }
 
-/// Dracula, Nord, and Gruvbox are proper names — they remain identical across languages and do not
-/// need ARB entries. Only the other three labels are localized, so the list is built
+/// Dracula, Nord, Gruvbox, Catppuccin and Solarized are proper names — they remain identical across
+/// languages and do not need ARB entries. Only the other three labels are localized, so the list is built
 /// at build time rather than declared as a constant.
 List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
       _ThemeChoice(
@@ -44,6 +44,19 @@ List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
       _ThemeChoice(label: 'Dracula', mode: ThemeMode.dark, palette: AppPalette.dracula),
       _ThemeChoice(label: 'Nord', mode: ThemeMode.dark, palette: AppPalette.nord),
       _ThemeChoice(label: 'Gruvbox', mode: ThemeMode.dark, palette: AppPalette.gruvbox),
+      _ThemeChoice(
+          label: 'Catppuccin Latte', mode: ThemeMode.light, palette: AppPalette.catppuccinLatte),
+      _ThemeChoice(
+          label: 'Catppuccin Frappé', mode: ThemeMode.dark, palette: AppPalette.catppuccinFrappe),
+      _ThemeChoice(
+          label: 'Catppuccin Macchiato',
+          mode: ThemeMode.dark,
+          palette: AppPalette.catppuccinMacchiato),
+      _ThemeChoice(
+          label: 'Catppuccin Mocha', mode: ThemeMode.dark, palette: AppPalette.catppuccinMocha),
+      _ThemeChoice(
+          label: 'Solarized Light', mode: ThemeMode.light, palette: AppPalette.solarized),
+      _ThemeChoice(label: 'Solarized Dark', mode: ThemeMode.dark, palette: AppPalette.solarized),
       _ThemeChoice(
         label: l10n.settingsThemeSystem,
         mode: ThemeMode.system,
@@ -571,26 +584,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         _sectionLabel(l10n.settingsThemeSection, colors),
         const SizedBox(height: 10),
-        for (var row = 0; row < choices.length; row += 3) ...[
-          if (row > 0) const SizedBox(height: 10),
-          Row(
+        LayoutBuilder(builder: (context, constraints) {
+          final columns = _themeColumns(constraints.maxWidth);
+          return Column(
             children: [
-              for (final choice in choices.skip(row).take(3)) ...[
-                if (choice != choices[row]) const SizedBox(width: 10),
-                Expanded(
-                  child: _themeCard(
-                    choice,
-                    colors,
-                    selected: choice.mode == mode && choice.palette == palette,
+              for (var row = 0; row < choices.length; row += columns) ...[
+                if (row > 0) const SizedBox(height: _themeGap),
+                // IntrinsicHeight: a two-line name makes its card taller, and the rest of the
+                // row follows so the grid stays even.
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = row; i < row + columns; i++) ...[
+                        if (i > row) const SizedBox(width: _themeGap),
+                        // The last row is padded with empty slots so its cards keep the
+                        // same width as the ones above.
+                        Expanded(
+                          child: i < choices.length
+                              ? _themeCard(
+                                  choices[i],
+                                  colors,
+                                  selected: choices[i].mode == mode &&
+                                      choices[i].palette == palette,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ],
-          ),
-        ],
+          );
+        }),
       ],
     );
   }
+
+  static const _themeGap = 10.0;
+
+  /// Narrowest a theme card may get: three swatch dots plus padding, and room for a name
+  /// such as "Macchiato" on one line.
+  static const _themeCardMinWidth = 104.0;
+
+  /// As many cards per row as fit at [_themeCardMinWidth], never fewer than two.
+  static int _themeColumns(double width) =>
+      ((width + _themeGap) / (_themeCardMinWidth + _themeGap)).floor().clamp(2, 12);
 
   Widget _themeCard(_ThemeChoice choice, ColorScheme colors, {required bool selected}) =>
       InkWell(
@@ -606,8 +646,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               width: selected ? 2 : 1,
             ),
           ),
+          // Centred: cards in a row share the height of the tallest one (a two-line name).
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (choice.icon case final icon?)
                 Icon(icon, fill: 1, size: 16, color: colors.onSurfaceVariant)
@@ -616,6 +658,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 8),
               Text(
                 choice.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
