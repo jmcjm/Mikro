@@ -86,4 +86,44 @@ void main() {
       throwsA(isA<MikroApiException>().having((e) => e.kind, 'kind', ApiErrorKind.noContent)),
     );
   });
+
+  group('style', () {
+    Future<String> systemPromptFor(NoteStyle style, [String custom = '']) async {
+      final dio = Dio();
+      Object? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
+        sent = o.data;
+        h.next(o);
+      }));
+      DioAdapter(dio: dio).onPost('https://api.test/v1/chat/completions',
+          (server) => server.reply(200, reply('# T\n\nx')),
+          data: Matchers.any);
+      await NotesApi(dio)
+          .generate(transcript: 't', config: config, style: style, customStyle: custom);
+      return ((sent! as Map)['messages'] as List).first['content'] as String;
+    }
+
+    test('every style keeps the fixed format rules', () async {
+      for (final style in NoteStyle.values) {
+        final prompt = await systemPromptFor(style, 'Pisz wierszem.');
+        expect(prompt, contains('level-1 heading'), reason: style.name);
+        expect(prompt, contains('same language as the transcript'), reason: style.name);
+      }
+    });
+
+    test('presets differ from each other', () async {
+      final prompts = {for (final s in NoteStyle.values) await systemPromptFor(s, 'Własne.')};
+      expect(prompts, hasLength(NoteStyle.values.length));
+    });
+
+    test('custom instructions are passed through verbatim', () async {
+      final prompt = await systemPromptFor(NoteStyle.custom, '  Pisz jak do studenta.  ');
+      expect(prompt, contains('Pisz jak do studenta.'));
+    });
+
+    test('empty custom instructions fall back to the detailed style', () {
+      expect(NotesApi.styleInstructions(NoteStyle.custom, '   '),
+          NotesApi.styleInstructions(NoteStyle.detailed, ''));
+    });
+  });
 }

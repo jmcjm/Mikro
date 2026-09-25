@@ -83,4 +83,32 @@ class SettingsRepository {
     await _prefs.setString(modelKey(task), config.model);
     await _keyStore.write(apiKeyName(task), config.apiKey);
   }
+
+  static const noteStyleKey = 'notes_style';
+  static const noteStyleCustomKey = 'notes_style_custom';
+
+  /// Chosen note style and the user's own instructions (kept even while a preset is selected,
+  /// so switching back to "custom" does not lose them). Unknown stored values — a newer
+  /// version's style after a downgrade — read as the default.
+  NoteStyleSetting loadNoteStyle() {
+    final name = _prefs.getString(noteStyleKey);
+    return NoteStyleSetting(
+      style: NoteStyle.values.asNameMap()[name] ?? NoteStyle.detailed,
+      custom: _prefs.getString(noteStyleCustomKey) ?? '',
+    );
+  }
+
+  Future<void> saveNoteStyle(NoteStyleSetting setting) async {
+    await _prefs.setString(noteStyleKey, setting.style.name);
+    await _prefs.setString(noteStyleCustomKey, setting.custom);
+  }
+}
+
+class NoteStyleSetting {
+  const NoteStyleSetting({required this.style, this.custom = ''});
+
+  final NoteStyle style;
+
+  /// Free-form instructions used when [style] is [NoteStyle.custom].
+  final String custom;
 }

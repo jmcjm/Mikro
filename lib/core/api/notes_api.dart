@@ -20,25 +20,56 @@ class NotesApi {
 
   // English prompt for the same reason as in TaggingApi: the note language must follow the
   // transcript, not the instruction.
-  static const _systemPrompt =
-      'You turn a transcript of a voice recording into clean, well-structured notes in '
-      'Markdown. Write in the same language as the transcript. Start with a single level-1 '
-      'heading ("# ...") that is a short, specific title. Then organise the content with '
-      'level-2 headings, bullet points and short paragraphs; use bold for key terms. If the '
-      'transcript contains decisions, tasks or deadlines, list them in a separate section with '
-      'task checkboxes ("- [ ] ..."). If it has speaker labels, attribute points to speakers '
-      'where it matters. Keep every fact from the transcript that carries information, drop '
-      'filler words and repetitions, and never add information that is not in the transcript. '
-      'Return only the Markdown, without code fences or commentary.';
+  //
+  // Split in two. The format rules are fixed — the app depends on them (the leading heading
+  // becomes the note title, fences would break rendering), so no style may override them. The
+  // style part is what the user picks in settings, custom text included.
+  static const _formatRules =
+      'You turn a transcript of a voice recording into notes in Markdown. Write in the same '
+      'language as the transcript. Start with a single level-1 heading ("# ...") that is a '
+      'short, specific title. If the transcript has speaker labels, attribute points to '
+      'speakers where it matters. Never add information that is not in the transcript. Return '
+      'only the Markdown, without code fences or commentary.';
+
+  static const _styles = {
+    NoteStyle.detailed:
+        'Style: detailed, well-structured notes. Organise the content with level-2 headings, '
+        'bullet points and short paragraphs; use bold for key terms. Keep every fact that '
+        'carries information, drop filler words and repetitions. If the transcript contains '
+        'decisions, tasks or deadlines, list them in a separate section with task checkboxes '
+        '("- [ ] ...").',
+    NoteStyle.concise:
+        'Style: a concise summary. At most a few short bullet points with the essentials, '
+        'then, only if there are any, a short list of tasks as checkboxes ("- [ ] ..."). No '
+        'sub-headings, no background detail — something readable in under a minute.',
+    NoteStyle.meeting:
+        'Style: meeting minutes. Sections, in this order and only when the transcript has '
+        'material for them: participants, topics discussed (a short summary per topic), '
+        'decisions, action items as checkboxes ("- [ ] owner — task — deadline", with owner and '
+        'deadline only when stated), open questions.',
+  };
+
+  /// Style part of the system prompt. Custom instructions that are empty fall back to the
+  /// detailed style — an empty instruction would leave the model with no guidance on shape.
+  static String styleInstructions(NoteStyle style, String custom) {
+    if (style == NoteStyle.custom) {
+      final text = custom.trim();
+      if (text.isNotEmpty) return 'Style instructions from the user: $text';
+      return _styles[NoteStyle.detailed]!;
+    }
+    return _styles[style]!;
+  }
 
   Future<GeneratedNote> generate({
     required String transcript,
     required ServiceConfig config,
+    NoteStyle style = NoteStyle.detailed,
+    String customStyle = '',
   }) async {
     final content = await chatCompletion(
       _dio,
       config: config,
-      system: _systemPrompt,
+      system: '$_formatRules\n\n${styleInstructions(style, customStyle)}',
       user: transcript,
       temperature: 0.2,
     );

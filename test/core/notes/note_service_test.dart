@@ -18,6 +18,11 @@ class _Settings implements SettingsRepository {
   Future<void> save(ApiTask task, ServiceConfig config) async {}
   @override
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
+  NoteStyleSetting style = const NoteStyleSetting(style: NoteStyle.detailed);
+  @override
+  NoteStyleSetting loadNoteStyle() => style;
+  @override
+  Future<void> saveNoteStyle(NoteStyleSetting setting) async => style = setting;
 }
 
 const _config = ServiceConfig(
@@ -140,5 +145,23 @@ void main() {
     );
     await expectLater(service().regenerate('n'), throwsA(isA<MikroApiException>()));
     expect((await db.getNote('n'))!.content, 'c');
+  });
+
+  test('chosen note style reaches the model', () async {
+    await db.setTranscript('r', 'tekst', 'whisper-x');
+    Object? sent;
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
+      sent = o.data;
+      h.next(o);
+    }));
+    modelReplies('# T\n\nx');
+    final settings = _Settings(_config)
+      ..style = const NoteStyleSetting(style: NoteStyle.custom, custom: 'Tylko haiku.');
+
+    await NoteService(db: db, notesApi: NotesApi(dio), settings: settings, clock: () => now)
+        .createFromRecording('r');
+
+    final system = ((sent! as Map)['messages'] as List).first['content'] as String;
+    expect(system, contains('Tylko haiku.'));
   });
 }

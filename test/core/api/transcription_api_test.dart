@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
@@ -172,9 +173,140 @@ void main() {
           {'speaker': 'A', 'text': '   '},
           'śmieć',
         ]),
-        '?: kto to?',
+        'kto to?',
+        reason: 'a single speaker gets no label',
       );
       expect(TranscriptionApi.formatDiarizedSegments('nie lista'), isNull);
     });
+  });
+
+  group('ElevenLabs', () {
+    const eleven = ServiceConfig(
+      baseUrl: 'https://api.elevenlabs.io/v1',
+      apiKey: 'xi',
+      model: 'scribe_v2',
+    );
+
+    Map<String, dynamic> word(String text, String speaker, [String type = 'word']) =>
+        {'text': text, 'type': type, 'speaker_id': speaker, 'start': 0.0, 'end': 0.1};
+
+    test('sends scribe request with diarization and xi-api-key', () async {
+      RequestOptions? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        sent = options;
+        handler.next(options);
+      }));
+      adapter.onPost('https://api.elevenlabs.io/v1/speech-to-text',
+          (server) => server.reply(200, {'text': 'hej', 'words': []}),
+          data: Matchers.any);
+
+      expect(await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: eleven), 'hej',
+          reason: 'no usable words -> plain text');
+
+      expect(sent!.headers['xi-api-key'], 'xi');
+      expect(sent!.headers.containsKey('Authorization'), isFalse,
+          reason: 'ElevenLabs key must not go out as a Bearer token');
+      final fields = {for (final f in (sent!.data as FormData).fields) f.key: f.value};
+      expect(fields['model_id'], 'scribe_v2');
+      expect(fields['diarize'], 'true');
+      expect(fields['timestamps_granularity'], 'word');
+    });
+
+    test('words become labelled turns in order of appearance', () async {
+      adapter.onPost('https://api.elevenlabs.io/v1/speech-to-text',
+          (server) => server.reply(200, {
+                'text': 'Cześć, jak leci? Dobrze.',
+                'words': [
+                  word('Cześć,', 'speaker_1'),
+                  word(' ', 'speaker_1', 'spacing'),
+                  word('jak', 'speaker_1'),
+                  word(' ', 'speaker_1', 'spacing'),
+                  word('leci?', 'speaker_1'),
+                  word(' ', 'speaker_1', 'spacing'),
+                  word('(śmiech)', 'speaker_1', 'audio_event'),
+                  word('Dobrze.', 'speaker_0'),
+                ],
+              }),
+          data: Matchers.any);
+
+      expect(
+        await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: eleven),
+        'A: Cześć, jak leci?\n\nB: Dobrze.',
+        reason: 'speaker_1 spoke first, so it is A; audio events are dropped',
+      );
+    });
+
+    test('single speaker is not labelled', () {
+      expect(
+        TranscriptionApi.formatElevenLabsWords([
+          word('Kupić', 'speaker_0'),
+          word(' ', 'speaker_0', 'spacing'),
+          word('mleko.', 'speaker_0'),
+        ]),
+        'Kupić mleko.',
+      );
+    });
+  });
+
+  group('Gemini', () {
+    const gemini = ServiceConfig(
+      baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
+      apiKey: 'AIza',
+      model: 'gemini-3.8-flash',
+    );
+    const native =
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent';
+
+    test('calls native generateContent with inline audio and goog key', () async {
+      RequestOptions? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        sent = options;
+        handler.next(options);
+      }));
+      adapter.onPost(
+          native,
+          (server) => server.reply(200, {
+                'candidates': [
+                  {
+                    'content': {
+                      'parts': [
+                        {'text': 'A: Cześć.\n\n'},
+                        {'text': 'B: Hej.'},
+                      ],
+                    },
+                  },
+                ],
+              }),
+          data: Matchers.any);
+
+      final text = await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: gemini);
+
+      expect(text, 'A: Cześć.\n\nB: Hej.');
+      expect(sent!.headers['x-goog-api-key'], 'AIza');
+      final parts = ((sent!.data as Map)['contents'] as List).single['parts'] as List;
+      final inline = parts.last['inline_data'] as Map;
+      expect(inline['mime_type'], 'audio/m4a');
+      expect(base64Decode(inline['data'] as String), [1, 2, 3],
+          reason: 'the recording itself travels base64-encoded in the request');
+    });
+
+    test('response without candidates -> noTranscript', () async {
+      adapter.onPost(native, (server) => server.reply(200, {'candidates': []}),
+          data: Matchers.any);
+      await expectLater(
+        TranscriptionApi(dio).transcribe(audioPath: audioPath, config: gemini),
+        throwsA(isA<MikroApiException>()
+            .having((e) => e.kind, 'kind', ApiErrorKind.noTranscript)),
+      );
+    });
+  });
+
+  test('upload limit follows the provider', () {
+    ServiceConfig at(String url) => ServiceConfig(baseUrl: url, apiKey: 'k', model: 'm');
+    expect(uploadLimitFor(at('https://api.groq.com/openai/v1')), maxUploadBytes);
+    expect(uploadLimitFor(at('http://localhost:8000/v1')), maxUploadBytes);
+    expect(uploadLimitFor(at('https://generativelanguage.googleapis.com/v1beta/openai')),
+        geminiMaxUploadBytes);
+    expect(uploadLimitFor(at('https://api.elevenlabs.io/v1')), greaterThan(maxUploadBytes));
   });
 }

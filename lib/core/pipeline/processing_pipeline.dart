@@ -9,8 +9,6 @@ import '../models/provider_config.dart';
 import '../models/recording_status.dart';
 import '../settings/settings_repository.dart';
 
-const maxUploadBytes = 25 * 1024 * 1024;
-
 /// Error kinds stored in the `errorKind` column outside the [ApiErrorKind] domain. The column holds
 /// error kinds rather than ready-made sentences: the message is assembled by the UI in the user's
 /// active language at view time, not the locale present at failure time. Values are part of the
@@ -168,7 +166,7 @@ class ProcessingPipeline {
           return;
         }
         final size = await File(recording.audioPath).length();
-        if (size > maxUploadBytes) {
+        if (size > uploadLimitFor(stt)) {
           await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindSizeLimit);
           return;
         }

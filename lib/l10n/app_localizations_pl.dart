@@ -337,7 +337,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get pipelineErrorSizeLimit =>
-      'Nagranie przekracza limit 25 MB — za długie do transkrypcji.';
+      'Nagranie jest za duże dla wybranego dostawcy transkrypcji (OpenAI i Groq: 25 MB, Gemini: 14 MB). Wybierz innego dostawcę, np. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -426,7 +426,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsSttModelHelp =>
-      'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.';
+      'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.';
 
   @override
   String get settingsSttSection => 'TRANSKRYPCJA';
@@ -443,4 +443,42 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get settingsApiKeyInheritHelp =>
       'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
+
+  @override
+  String get settingsNoteStyle => 'Styl notatek';
+
+  @override
+  String get settingsNoteStyleDetailed => 'Szczegółowa';
+
+  @override
+  String get settingsNoteStyleDetailedHelp =>
+      'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.';
+
+  @override
+  String get settingsNoteStyleConcise => 'Zwięzła';
+
+  @override
+  String get settingsNoteStyleConciseHelp =>
+      'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.';
+
+  @override
+  String get settingsNoteStyleMeeting => 'Protokół spotkania';
+
+  @override
+  String get settingsNoteStyleMeetingHelp =>
+      'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.';
+
+  @override
+  String get settingsNoteStyleCustom => 'Własna';
+
+  @override
+  String get settingsNoteStyleCustomLabel => 'Instrukcje dla AI';
+
+  @override
+  String get settingsNoteStyleCustomHint =>
+      'np. Pisz jak notatki do nauki: definicje, przykłady, na końcu 3 pytania kontrolne.';
+
+  @override
+  String get settingsNoteStyleCustomHelp =>
+      'Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.';
 }

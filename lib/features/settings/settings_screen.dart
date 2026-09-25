@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/provider_config.dart';
 import '../../core/providers.dart';
+import '../../core/settings/settings_repository.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
 import '../../l10n/app_localizations.dart';
@@ -99,6 +100,8 @@ class _TaskForm {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _forms = {for (final task in ApiTask.values) task: _TaskForm(task)};
+  var _noteStyle = NoteStyle.detailed;
+  final _noteStyleCustom = TextEditingController();
   var _loaded = false;
 
   @override
@@ -118,6 +121,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         form.load(config);
       }
     }
+    final style = repo.loadNoteStyle();
+    _noteStyle = style.style;
+    _noteStyleCustom.text = style.custom;
     if (mounted) setState(() => _loaded = true);
   }
 
@@ -126,6 +132,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (final form in _forms.values) {
       await repo.save(form.task, form.value);
     }
+    await repo.saveNoteStyle(
+        NoteStyleSetting(style: _noteStyle, custom: _noteStyleCustom.text.trim()));
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context).settingsSaved)));
@@ -142,6 +150,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (final form in _forms.values) {
       form.dispose();
     }
+    _noteStyleCustom.dispose();
     super.dispose();
   }
 
@@ -261,6 +270,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           decoration: _fieldDecoration(l10n.settingsModel, colors)
               .copyWith(helperText: modelHelp, helperMaxLines: 3),
         ),
+        if (form.task == ApiTask.notes) ...[
+          const SizedBox(height: 16),
+          _noteStylePicker(colors, l10n),
+        ],
+      ],
+    );
+  }
+
+  /// Note style: three presets and "custom", whose text goes to the model as instructions.
+  /// The custom text stays stored while a preset is selected, so trying a preset costs nothing.
+  Widget _noteStylePicker(ColorScheme colors, AppLocalizations l10n) {
+    final options = [
+      (NoteStyle.detailed, l10n.settingsNoteStyleDetailed, l10n.settingsNoteStyleDetailedHelp),
+      (NoteStyle.concise, l10n.settingsNoteStyleConcise, l10n.settingsNoteStyleConciseHelp),
+      (NoteStyle.meeting, l10n.settingsNoteStyleMeeting, l10n.settingsNoteStyleMeetingHelp),
+      (NoteStyle.custom, l10n.settingsNoteStyleCustom, null),
+    ];
+    final help = options.firstWhere((o) => o.$1 == _noteStyle).$3;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Text(
+            l10n.settingsNoteStyle,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.onSurface),
+          ),
+        ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final (style, label, _) in options)
+              ChoiceChip(
+                label: Text(label),
+                selected: _noteStyle == style,
+                onSelected: (_) => setState(() => _noteStyle = style),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_noteStyle == NoteStyle.custom)
+          TextField(
+            controller: _noteStyleCustom,
+            minLines: 3,
+            maxLines: 8,
+            keyboardType: TextInputType.multiline,
+            style: TextStyle(fontSize: 15, color: colors.onSurface),
+            decoration: _fieldDecoration(l10n.settingsNoteStyleCustomLabel, colors).copyWith(
+              hintText: l10n.settingsNoteStyleCustomHint,
+              hintMaxLines: 3,
+              helperText: l10n.settingsNoteStyleCustomHelp,
+              helperMaxLines: 3,
+              alignLabelWithHint: true,
+            ),
+          )
+        else if (help != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(help, style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant)),
+          ),
       ],
     );
   }
@@ -270,10 +340,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   /// with selected segment receiving full 28 dp rounding on all corners.
   Widget _providerConnectedButtonGroup(
       _TaskForm form, ColorScheme colors, AppLocalizations l10n) {
+    // Provider names are proper names and stay untranslated; only "custom" is localized.
     final segments = [
-      (preset: ProviderPreset.groq, label: 'Groq'),
-      (preset: ProviderPreset.openai, label: 'OpenAI'),
-      (preset: ProviderPreset.custom, label: l10n.settingsProviderCustom),
+      for (final preset in ProviderPreset.forTask(form.task))
+        (
+          preset: preset,
+          label: switch (preset) {
+            ProviderPreset.groq => 'Groq',
+            ProviderPreset.openai => 'OpenAI',
+            ProviderPreset.elevenlabs => 'ElevenLabs',
+            ProviderPreset.gemini => 'Gemini',
+            ProviderPreset.custom => l10n.settingsProviderCustom,
+          },
+        ),
     ];
 
     return SizedBox(
@@ -337,14 +416,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         child: InkWell(
           borderRadius: radius,
           onTap: () => setState(() => form.applyPreset(preset)),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0.1,
-                color: isSelected ? colors.onPrimary : colors.onSurface,
+          // Transcription offers five providers: on a phone a segment is ~70 dp, so a long
+          // name scales down instead of wrapping or clipping.
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Center(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    letterSpacing: 0.1,
+                    color: isSelected ? colors.onPrimary : colors.onSurface,
+                  ),
+                ),
               ),
             ),
           ),

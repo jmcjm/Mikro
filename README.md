@@ -44,7 +44,9 @@
 - Manual tag editing and management in recording details
 - Editable transcripts — fix recognition mistakes or rename speakers in place, changes save automatically
 - Markdown notes generated from a transcript on demand: a separate, searchable and editable Notes tab, each note linked back to its source recording
-- Speaker diarization with models that support it (e.g. OpenAI `gpt-4o-transcribe-diarize`) — transcripts come out as `A: …` / `B: …` turns
+- Transcription via OpenAI-compatible APIs (Groq, OpenAI, self-hosted), ElevenLabs Scribe or Gemini; titles, tags and notes via Groq, OpenAI, Gemini or any OpenAI-compatible server
+- Speaker diarization with ElevenLabs, Gemini and OpenAI `gpt-4o-transcribe-diarize` — multi-speaker transcripts come out as `A: …` / `B: …` turns
+- Note styles: detailed, concise, meeting minutes, or your own instructions for the AI
 - Offline queue: recordings paused on network errors automatically resume when connectivity returns; auth and rate-limit errors are not retried endlessly
 - Multilingual interface (English and Polish), light/dark themes, and Material 3 Expressive design
 - Separate provider, API key and model for transcription, titles/tags and notes (e.g. Whisper on Groq, notes on OpenAI); an empty key reuses the transcription key for the same provider

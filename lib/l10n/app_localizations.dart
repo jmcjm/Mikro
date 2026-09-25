@@ -707,7 +707,7 @@ abstract class AppLocalizations {
   /// Blad przetwarzania: plik audio jest wiekszy niz limit wysylki.
   ///
   /// In pl, this message translates to:
-  /// **'Nagranie przekracza limit 25 MB — za długie do transkrypcji.'**
+  /// **'Nagranie jest za duże dla wybranego dostawcy transkrypcji (OpenAI i Groq: 25 MB, Gemini: 14 MB). Wybierz innego dostawcę, np. ElevenLabs.'**
   String get pipelineErrorSizeLimit;
 
   /// Blad przetwarzania spoza domeny API.
@@ -869,7 +869,7 @@ abstract class AppLocalizations {
   /// Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu.
   ///
   /// In pl, this message translates to:
-  /// **'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.'**
+  /// **'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.'**
   String get settingsSttModelHelp;
 
   /// Naglowek sekcji ustawien API dla transkrypcji (STT).
@@ -901,6 +901,72 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.'**
   String get settingsApiKeyInheritHelp;
+
+  /// Etykieta wyboru stylu notatek w sekcji Notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Styl notatek'**
+  String get settingsNoteStyle;
+
+  /// Preset stylu notatek: szczegolowe, ustrukturyzowane.
+  ///
+  /// In pl, this message translates to:
+  /// **'Szczegółowa'**
+  String get settingsNoteStyleDetailed;
+
+  /// Opis presetu szczegolowego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.'**
+  String get settingsNoteStyleDetailedHelp;
+
+  /// Preset stylu notatek: krotkie podsumowanie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zwięzła'**
+  String get settingsNoteStyleConcise;
+
+  /// Opis presetu zwiezlego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.'**
+  String get settingsNoteStyleConciseHelp;
+
+  /// Preset stylu notatek: protokol ze spotkania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Protokół spotkania'**
+  String get settingsNoteStyleMeeting;
+
+  /// Opis presetu protokolu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.'**
+  String get settingsNoteStyleMeetingHelp;
+
+  /// Wlasny styl notatek z instrukcjami uzytkownika.
+  ///
+  /// In pl, this message translates to:
+  /// **'Własna'**
+  String get settingsNoteStyleCustom;
+
+  /// Etykieta pola z wlasnymi instrukcjami stylu notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Instrukcje dla AI'**
+  String get settingsNoteStyleCustomLabel;
+
+  /// Przyklad w pustym polu instrukcji stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'np. Pisz jak notatki do nauki: definicje, przykłady, na końcu 3 pytania kontrolne.'**
+  String get settingsNoteStyleCustomHint;
+
+  /// Podpowiedz pod polem instrukcji: czego nie trzeba pisac.
+  ///
+  /// In pl, this message translates to:
+  /// **'Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.'**
+  String get settingsNoteStyleCustomHelp;
 }
 
 class _AppLocalizationsDelegate

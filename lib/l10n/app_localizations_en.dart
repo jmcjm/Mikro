@@ -340,7 +340,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pipelineErrorSizeLimit =>
-      'The recording is over the 25 MB limit — too long to transcribe.';
+      'The recording is too large for the selected transcription provider (OpenAI and Groq: 25 MB, Gemini: 14 MB). Choose another provider, e.g. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -429,7 +429,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsSttModelHelp =>
-      'Speaker recognition only works with a model that supports it — e.g. gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq included) does not tell speakers apart.';
+      'Speakers are recognised by ElevenLabs, Gemini and gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) does not tell speakers apart.';
 
   @override
   String get settingsSttSection => 'TRANSCRIPTION';
@@ -446,4 +446,42 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsApiKeyInheritHelp =>
       'Leave empty to use the Transcription key when the address is the same.';
+
+  @override
+  String get settingsNoteStyle => 'Note style';
+
+  @override
+  String get settingsNoteStyleDetailed => 'Detailed';
+
+  @override
+  String get settingsNoteStyleDetailedHelp =>
+      'Headings, bullet points and bold; keeps every relevant fact, tasks as a checklist.';
+
+  @override
+  String get settingsNoteStyleConcise => 'Concise';
+
+  @override
+  String get settingsNoteStyleConciseHelp =>
+      'A few bullet points with the essentials plus any tasks — readable in a minute.';
+
+  @override
+  String get settingsNoteStyleMeeting => 'Meeting minutes';
+
+  @override
+  String get settingsNoteStyleMeetingHelp =>
+      'Participants, topics, decisions, action items (who, what, by when) and open questions.';
+
+  @override
+  String get settingsNoteStyleCustom => 'Custom';
+
+  @override
+  String get settingsNoteStyleCustomLabel => 'Instructions for the AI';
+
+  @override
+  String get settingsNoteStyleCustomHint =>
+      'e.g. Write study notes: definitions, examples, and 3 review questions at the end.';
+
+  @override
+  String get settingsNoteStyleCustomHelp =>
+      'The app enforces the format (Markdown, title, transcript language) itself — describe only style and structure here.';
 }

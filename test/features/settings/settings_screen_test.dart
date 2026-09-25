@@ -76,6 +76,9 @@ void main() {
 
     expect(find.text('Groq'), findsNWidgets(3));
     expect(find.text('OpenAI'), findsNWidgets(3));
+    expect(find.text('Gemini'), findsNWidgets(3));
+    expect(find.text('ElevenLabs'), findsOneWidget,
+        reason: 'ElevenLabs has no chat API, so it is offered for transcription only');
     expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(3));
     expect(find.text(plL10n.settingsSttSection), findsOneWidget);
     expect(find.text(plL10n.settingsTagsSection), findsOneWidget);
@@ -192,5 +195,51 @@ void main() {
     expect(fieldWith('stary'), findsNWidgets(3));
     expect(fieldWith('whisper-lokalny'), findsOneWidget);
     expect(fieldWith('qwen'), findsNWidgets(2), reason: 'notes inherit the tagging model');
+  });
+
+  testWidgets('note style: presets describe themselves, custom takes instructions',
+      (tester) async {
+    final prefs = await pumpSettings(tester);
+
+    await tester.ensureVisible(find.text(plL10n.settingsNoteStyleDetailed));
+    expect(find.text(plL10n.settingsNoteStyleDetailedHelp), findsOneWidget);
+
+    await tester.tap(find.text(plL10n.settingsNoteStyleMeeting));
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.settingsNoteStyleMeetingHelp), findsOneWidget);
+
+    await tester.tap(find.text(plL10n.settingsNoteStyleCustom));
+    await tester.pumpAndSettle();
+    final instructions = find.widgetWithText(TextField, plL10n.settingsNoteStyleCustomLabel);
+    expect(instructions, findsOneWidget);
+    await tester.enterText(instructions, 'Pisz jak do studenta.');
+
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getString('notes_style'), 'custom');
+    expect(prefs.getString('notes_style_custom'), 'Pisz jak do studenta.');
+  });
+
+  testWidgets('five transcription providers fit a narrow phone', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(360, 892));
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        keyStoreProvider.overrideWithValue(FakeKeyStore()),
+      ],
+      child: localizedApp(const SettingsScreen()),
+    ));
+    await tester.pumpAndSettle();
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    // A RenderFlex overflow would have failed the pump above.
+    await tester.tap(find.text('ElevenLabs'));
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(TextField, 'https://api.elevenlabs.io/v1'), findsOneWidget);
+    expect(find.widgetWithText(TextField, 'scribe_v2'), findsOneWidget);
   });
 }

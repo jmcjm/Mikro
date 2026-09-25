@@ -37,7 +37,13 @@ class NoteService {
     final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
-    final generated = await notesApi.generate(transcript: transcript, config: config);
+    final style = settings.loadNoteStyle();
+    final generated = await notesApi.generate(
+      transcript: transcript,
+      config: config,
+      style: style.style,
+      customStyle: style.custom,
+    );
     final id = const Uuid().v4();
     await db.insertNote(
       id: id,
@@ -62,7 +68,13 @@ class NoteService {
     final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
-    final generated = await notesApi.generate(transcript: transcript, config: config);
+    final style = settings.loadNoteStyle();
+    final generated = await notesApi.generate(
+      transcript: transcript,
+      config: config,
+      style: style.style,
+      customStyle: style.custom,
+    );
     await db.updateNote(
       noteId,
       title: generated.title ?? note.title,
