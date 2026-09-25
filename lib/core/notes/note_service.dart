@@ -52,6 +52,7 @@ class NoteService {
       content: generated.content,
       now: _clock(),
     );
+    await db.copyRecordingTagsToNote(recordingId, id);
     return id;
   }
 

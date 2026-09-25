@@ -161,6 +161,20 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('note tags: shown and removable', (tester) async {
+    await note('a', 'Standup', 'x');
+    await db.addNoteTag('a', 'praca');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    expect(find.text('praca'), findsOneWidget);
+
+    await tester.tap(find.byTooltip(plL10n.detailRemoveTagTooltip));
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pumpAndSettle();
+    expect(find.text('praca'), findsNothing);
+    await unmount(tester);
+  });
+
   testWidgets('a stored translation is shown on request, rendered as Markdown', (tester) async {
     await note('a', 'Plan', '- punkt');
     await db.saveTranslation(

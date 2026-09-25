@@ -78,6 +78,10 @@ final recordingTranslationsProvider = StreamProvider.family<List<Translation>, S
 final noteTranslationsProvider = StreamProvider.family<List<Translation>, String>(
     (ref, noteId) => ref.watch(databaseProvider).watchTranslations(noteId: noteId));
 
+/// Tag names per note id.
+final noteTagsProvider = StreamProvider<Map<String, List<String>>>(
+    (ref) => ref.watch(databaseProvider).watchNoteTags());
+
 final recorderProvider = Provider<MikroRecorder>((ref) {
   final recorder = RecordPluginRecorder();
   ref.onDispose(recorder.dispose);
@@ -114,5 +118,9 @@ final noteSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final filteredNotesProvider = Provider<List<Note>>((ref) {
   final all = ref.watch(notesStreamProvider).value ?? [];
-  return ref.watch(searchServiceProvider).searchNotes(all, query: ref.watch(noteSearchQueryProvider));
+  return ref.watch(searchServiceProvider).searchNotes(
+        all,
+        query: ref.watch(noteSearchQueryProvider),
+        tags: ref.watch(noteTagsProvider).value ?? const {},
+      );
 });

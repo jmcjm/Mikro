@@ -156,6 +156,15 @@ class _NoteViewState extends ConsumerState<NoteView> {
     await _db.deleteTranslation(t.id);
   }
 
+  Future<void> _addTag(List<String> existing) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AddTagDialog(existing: existing),
+    );
+    if (name == null) return;
+    await _db.addNoteTag(widget.noteId, name);
+  }
+
   Future<bool> _confirm(String title, String message, String action) async {
     final result = await showDialog<bool>(
       context: context,
@@ -215,6 +224,8 @@ class _NoteViewState extends ConsumerState<NoteView> {
             ),
             const SizedBox(height: 8),
             _titleField(fontSize: 28),
+            const SizedBox(height: 8),
+            _tagRow(),
             const SizedBox(height: 12),
             Expanded(child: _bodyWithTranslations(note)),
           ],
@@ -239,6 +250,8 @@ class _NoteViewState extends ConsumerState<NoteView> {
             _meta(note),
             const SizedBox(height: 4),
             _titleField(fontSize: 24),
+            const SizedBox(height: 8),
+            _tagRow(),
             const SizedBox(height: 12),
             Expanded(child: _bodyWithTranslations(note)),
           ],
@@ -344,6 +357,23 @@ class _NoteViewState extends ConsumerState<NoteView> {
         color: scheme.onSurface,
       ),
       decoration: InputDecoration.collapsed(hintText: AppLocalizations.of(context).noteTitleHint),
+    );
+  }
+
+  /// Tags copied from the source recording, editable here independently of it.
+  Widget _tagRow() {
+    final tags = ref.watch(noteTagsProvider).value?[widget.noteId] ?? const <String>[];
+    return HorizontalScrollable(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final tag in tags) ...[
+            TagChip(label: tag, onDelete: () => _db.removeNoteTag(widget.noteId, tag)),
+            const SizedBox(width: 6),
+          ],
+          AddTagChip(onTap: () => _addTag(tags)),
+        ],
+      ),
     );
   }
 

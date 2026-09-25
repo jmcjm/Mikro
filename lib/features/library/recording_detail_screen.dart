@@ -543,7 +543,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     final db = ref.read(databaseProvider);
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => _AddTagDialog(existing: item.tags),
+      builder: (_) => AddTagDialog(existing: item.tags),
     );
     if (name == null || !mounted) return;
     await _writeTags(() => db.addTag(item.recording.id, name));
@@ -1554,18 +1554,19 @@ class _BarThumbShape extends SliderComponentShape {
   }
 }
 
-/// Dialog for manual tag entry with duplicate prevention against existing tags.
-class _AddTagDialog extends StatefulWidget {
-  const _AddTagDialog({required this.existing});
+/// Dialog for manual tag entry with duplicate prevention against existing tags. Shared by
+/// recordings and notes.
+class AddTagDialog extends StatefulWidget {
+  const AddTagDialog({super.key, required this.existing});
 
   /// Tags currently assigned to the recording.
   final List<String> existing;
 
   @override
-  State<_AddTagDialog> createState() => _AddTagDialogState();
+  State<AddTagDialog> createState() => _AddTagDialogState();
 }
 
-class _AddTagDialogState extends State<_AddTagDialog> {
+class _AddTagDialogState extends State<AddTagDialog> {
   final _controller = TextEditingController();
 
   @override

@@ -95,6 +95,16 @@ void main() {
     );
   });
 
+  test('a new note gets a copy of the recording tags', () async {
+    await db.setTranscript('r', 'tekst', 'whisper-x');
+    await db.setTags('r', ['praca', 'mikro']);
+    modelReplies('# T\n\nx');
+
+    final id = await service().createFromRecording('r');
+
+    expect((await db.watchNoteTags().first)[id], ['mikro', 'praca']);
+  });
+
   test('falls back to the recording title when the model gives none', () async {
     await db.setTranscript('r', 'tekst', 'whisper-x');
     await db.setTitle('r', 'Tytuł nagrania');
