@@ -35,9 +35,9 @@ class FakeRecorder implements MikroRecorder {
 
 class FakeKeyStore implements KeyStore {
   @override
-  Future<String?> read() async => null;
+  Future<String?> read(String name) async => null;
   @override
-  Future<void> write(String value) async {}
+  Future<void> write(String name, String value) async {}
 }
 
 /// Recording performs real disk operations, and `testWidgets` runs

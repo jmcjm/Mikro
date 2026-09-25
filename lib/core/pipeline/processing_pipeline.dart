@@ -5,10 +5,9 @@ import '../api/api_errors.dart';
 import '../api/tagging_api.dart';
 import '../api/transcription_api.dart';
 import '../db/database.dart';
+import '../models/provider_config.dart';
 import '../models/recording_status.dart';
 import '../settings/settings_repository.dart';
-
-const maxUploadBytes = 25 * 1024 * 1024;
 
 /// Error kinds stored in the `errorKind` column outside the [ApiErrorKind] domain. The column holds
 /// error kinds rather than ready-made sentences: the message is assembled by the UI in the user's
@@ -157,27 +156,33 @@ class ProcessingPipeline {
       final recording = await db.getRecording(id);
       if (recording == null || recording.status == RecordingStatus.done) return;
 
-      final config = await settings.load();
-      if (config == null) {
-        await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindNoConfig);
-        return;
-      }
-
+      // Each step loads its own endpoint, and only when it actually runs: a recording that
+      // already has a transcript does not need transcription settings to get its tags.
       var transcript = recording.transcript;
       if (transcript == null) {
+        final stt = await settings.load(ApiTask.stt);
+        if (stt == null) {
+          await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindNoConfig);
+          return;
+        }
         final size = await File(recording.audioPath).length();
-        if (size > maxUploadBytes) {
+        if (size > uploadLimitFor(stt)) {
           await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindSizeLimit);
           return;
         }
         await db.updateStatus(id, RecordingStatus.transcribing);
-        transcript = await transcriptionApi.transcribe(audioPath: recording.audioPath, config: config);
-        await db.setTranscript(id, transcript, config.sttModel);
+        transcript = await transcriptionApi.transcribe(audioPath: recording.audioPath, config: stt);
+        await db.setTranscript(id, transcript, stt.model);
+      }
+      final tags = await settings.load(ApiTask.tags);
+      if (tags == null) {
+        await db.updateStatus(id, RecordingStatus.error, errorKind: errorKindNoConfig);
+        return;
       }
       await db.updateStatus(id, RecordingStatus.tagging);
       // Title and tags are generated in a single model call and saved together — only after
       // both succeed does the recording advance to `done`.
-      final meta = await taggingApi.generateMeta(transcript: transcript, config: config);
+      final meta = await taggingApi.generateMeta(transcript: transcript, config: tags);
       await db.setTitle(id, meta.title);
       await db.setTags(id, meta.tags);
       await db.updateStatus(id, RecordingStatus.done);

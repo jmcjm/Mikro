@@ -476,12 +476,6 @@ abstract class AppLocalizations {
   /// **'Ustawienia'**
   String get settingsTitle;
 
-  /// Naglowek sekcji z wyborem dostawcy API; wersalikami jak w makiecie.
-  ///
-  /// In pl, this message translates to:
-  /// **'PROVIDER'**
-  String get settingsProviderSection;
-
   /// Naglowek sekcji z wyborem motywu; wersalikami jak w makiecie.
   ///
   /// In pl, this message translates to:
@@ -517,18 +511,6 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Ukryj klucz'**
   String get settingsHideKey;
-
-  /// Etykieta pola z nazwa modelu transkrypcji.
-  ///
-  /// In pl, this message translates to:
-  /// **'Model STT'**
-  String get settingsSttModel;
-
-  /// Etykieta pola z nazwa modelu tagujacego.
-  ///
-  /// In pl, this message translates to:
-  /// **'Model tagowania'**
-  String get settingsTagModel;
 
   /// Przycisk zapisu ustawien.
   ///
@@ -719,13 +701,13 @@ abstract class AppLocalizations {
   /// Blad przetwarzania: nagranie czeka, bo dostawca nie jest jeszcze skonfigurowany.
   ///
   /// In pl, this message translates to:
-  /// **'Brak konfiguracji API — ustaw klucz w Ustawieniach.'**
+  /// **'Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).'**
   String get pipelineErrorNoConfig;
 
   /// Blad przetwarzania: plik audio jest wiekszy niz limit wysylki.
   ///
   /// In pl, this message translates to:
-  /// **'Nagranie przekracza limit 25 MB — za długie do transkrypcji.'**
+  /// **'Nagranie jest za duże dla wybranego dostawcy transkrypcji (OpenAI i Groq: 25 MB, Gemini: 14 MB). Wybierz innego dostawcę, np. ElevenLabs.'**
   String get pipelineErrorSizeLimit;
 
   /// Blad przetwarzania spoza domeny API.
@@ -739,6 +721,252 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Nieznany błąd'**
   String get errorUnknown;
+
+  /// Zakladka nawigacji z lista notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki'**
+  String get navNotes;
+
+  /// Naglowek ekranu listy notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki'**
+  String get notesTitle;
+
+  /// Podpowiedz pola wyszukiwania notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Szukaj w notatkach'**
+  String get notesSearchHint;
+
+  /// Pusta lista notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.'**
+  String get notesEmpty;
+
+  /// Wyszukiwanie notatek bez wynikow.
+  ///
+  /// In pl, this message translates to:
+  /// **'Brak notatek pasujących do wyszukiwania.'**
+  String get notesNoResults;
+
+  /// Tytul zastepczy notatki bez tytulu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka bez tytułu'**
+  String get noteUntitled;
+
+  /// Podpowiedz pola tytulu w edytorze notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tytuł'**
+  String get noteTitleHint;
+
+  /// Podpowiedz pola tresci w trybie edycji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Treść notatki (Markdown)'**
+  String get noteContentHint;
+
+  /// Przelacza notatke w tryb edycji Markdown.
+  ///
+  /// In pl, this message translates to:
+  /// **'Edytuj'**
+  String get noteEditTooltip;
+
+  /// Przelacza notatke w tryb podgladu sformatowanego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Podgląd'**
+  String get notePreviewTooltip;
+
+  /// Link z notatki do nagrania, z ktorego powstala.
+  ///
+  /// In pl, this message translates to:
+  /// **'Źródło: {title}'**
+  String noteSourceLink(String title);
+
+  /// Notatka, ktorej nagranie usunieto.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagranie źródłowe zostało usunięte'**
+  String get noteSourceDeleted;
+
+  /// Tytul dialogu usuwania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usunąć notatkę?'**
+  String get noteDeleteTitle;
+
+  /// Tresc dialogu usuwania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.'**
+  String get noteDeleteMessage;
+
+  /// Podpowiedz przycisku regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygeneruj ponownie z transkryptu'**
+  String get noteRegenerateTooltip;
+
+  /// Tytul dialogu regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wygenerować notatkę od nowa?'**
+  String get noteRegenerateTitle;
+
+  /// Tresc dialogu regeneracji notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.'**
+  String get noteRegenerateMessage;
+
+  /// Blad zapisu notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zapisać notatki.'**
+  String get noteSaveError;
+
+  /// Ekran notatki, ktora zniknela z bazy.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatka usunięta.'**
+  String get noteDeleted;
+
+  /// Przycisk tworzacy notatke Markdown z transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zrób notatkę'**
+  String get detailMakeNote;
+
+  /// Przycisk otwierajacy istniejaca notatke z tego nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Otwórz notatkę'**
+  String get detailOpenNote;
+
+  /// Stan przycisku podczas generowania notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tworzę notatkę…'**
+  String get detailNoteGenerating;
+
+  /// Podpowiedz pustego, edytowalnego pola transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Transkrypt jest pusty'**
+  String get detailTranscriptHint;
+
+  /// Blad zapisu edytowanego transkryptu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie udało się zapisać transkryptu.'**
+  String get detailTranscriptSaveError;
+
+  /// Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.'**
+  String get settingsSttModelHelp;
+
+  /// Naglowek sekcji ustawien API dla transkrypcji (STT).
+  ///
+  /// In pl, this message translates to:
+  /// **'TRANSKRYPCJA'**
+  String get settingsSttSection;
+
+  /// Naglowek sekcji ustawien API dla tytulow i tagow.
+  ///
+  /// In pl, this message translates to:
+  /// **'TYTUŁY I TAGI'**
+  String get settingsTagsSection;
+
+  /// Naglowek sekcji ustawien API dla notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'NOTATKI'**
+  String get settingsNotesSection;
+
+  /// Etykieta pola nazwy modelu w kazdej sekcji API.
+  ///
+  /// In pl, this message translates to:
+  /// **'Model'**
+  String get settingsModel;
+
+  /// Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.'**
+  String get settingsApiKeyInheritHelp;
+
+  /// Etykieta wyboru stylu notatek w sekcji Notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Styl notatek'**
+  String get settingsNoteStyle;
+
+  /// Preset stylu notatek: szczegolowe, ustrukturyzowane.
+  ///
+  /// In pl, this message translates to:
+  /// **'Szczegółowa'**
+  String get settingsNoteStyleDetailed;
+
+  /// Opis presetu szczegolowego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.'**
+  String get settingsNoteStyleDetailedHelp;
+
+  /// Preset stylu notatek: krotkie podsumowanie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zwięzła'**
+  String get settingsNoteStyleConcise;
+
+  /// Opis presetu zwiezlego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.'**
+  String get settingsNoteStyleConciseHelp;
+
+  /// Preset stylu notatek: protokol ze spotkania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Protokół spotkania'**
+  String get settingsNoteStyleMeeting;
+
+  /// Opis presetu protokolu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.'**
+  String get settingsNoteStyleMeetingHelp;
+
+  /// Wlasny styl notatek z instrukcjami uzytkownika.
+  ///
+  /// In pl, this message translates to:
+  /// **'Własna'**
+  String get settingsNoteStyleCustom;
+
+  /// Etykieta pola z wlasnymi instrukcjami stylu notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Instrukcje dla AI'**
+  String get settingsNoteStyleCustomLabel;
+
+  /// Przyklad w pustym polu instrukcji stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'np. Pisz jak notatki do nauki: definicje, przykłady, na końcu 3 pytania kontrolne.'**
+  String get settingsNoteStyleCustomHint;
+
+  /// Podpowiedz pod polem instrukcji: czego nie trzeba pisac.
+  ///
+  /// In pl, this message translates to:
+  /// **'Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.'**
+  String get settingsNoteStyleCustomHelp;
 }
 
 class _AppLocalizationsDelegate

@@ -279,10 +279,6 @@
   "@settingsTitle": {
     "description": "Naglowek ekranu ustawien."
   },
-  "settingsProviderSection": "PROVIDER",
-  "@settingsProviderSection": {
-    "description": "Naglowek sekcji z wyborem dostawcy API; wersalikami jak w makiecie."
-  },
   "settingsThemeSection": "MOTYW",
   "@settingsThemeSection": {
     "description": "Naglowek sekcji z wyborem motywu; wersalikami jak w makiecie."
@@ -306,14 +302,6 @@
   "settingsHideKey": "Ukryj klucz",
   "@settingsHideKey": {
     "description": "Podpowiedz ikony ukrywajacej klucz API."
-  },
-  "settingsSttModel": "Model STT",
-  "@settingsSttModel": {
-    "description": "Etykieta pola z nazwa modelu transkrypcji."
-  },
-  "settingsTagModel": "Model tagowania",
-  "@settingsTagModel": {
-    "description": "Etykieta pola z nazwa modelu tagujacego."
   },
   "settingsSave": "Zapisz",
   "@settingsSave": {
@@ -455,11 +443,11 @@
   "@apiErrorBadTags": {
     "description": "Blad przetwarzania: model dwa razy z rzedu oddal liste tagow nie do sparsowania."
   },
-  "pipelineErrorNoConfig": "Brak konfiguracji API — ustaw klucz w Ustawieniach.",
+  "pipelineErrorNoConfig": "Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).",
   "@pipelineErrorNoConfig": {
     "description": "Blad przetwarzania: nagranie czeka, bo dostawca nie jest jeszcze skonfigurowany."
   },
-  "pipelineErrorSizeLimit": "Nagranie przekracza limit 25 MB — za długie do transkrypcji.",
+  "pipelineErrorSizeLimit": "Nagranie jest za duże dla wybranego dostawcy transkrypcji (OpenAI i Groq: 25 MB, Gemini: 14 MB). Wybierz innego dostawcę, np. ElevenLabs.",
   "@pipelineErrorSizeLimit": {
     "description": "Blad przetwarzania: plik audio jest wiekszy niz limit wysylki."
   },
@@ -477,5 +465,175 @@
   "errorUnknown": "Nieznany błąd",
   "@errorUnknown": {
     "description": "Ostatnia deska ratunku, gdy nagranie ma status bledu, ale baza nie zna jego rodzaju."
+  },
+
+  "navNotes": "Notatki",
+  "@navNotes": {
+    "description": "Zakladka nawigacji z lista notatek."
+  },
+  "notesTitle": "Notatki",
+  "@notesTitle": {
+    "description": "Naglowek ekranu listy notatek."
+  },
+  "notesSearchHint": "Szukaj w notatkach",
+  "@notesSearchHint": {
+    "description": "Podpowiedz pola wyszukiwania notatek."
+  },
+  "notesEmpty": "Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.",
+  "@notesEmpty": {
+    "description": "Pusta lista notatek."
+  },
+  "notesNoResults": "Brak notatek pasujących do wyszukiwania.",
+  "@notesNoResults": {
+    "description": "Wyszukiwanie notatek bez wynikow."
+  },
+  "noteUntitled": "Notatka bez tytułu",
+  "@noteUntitled": {
+    "description": "Tytul zastepczy notatki bez tytulu."
+  },
+  "noteTitleHint": "Tytuł",
+  "@noteTitleHint": {
+    "description": "Podpowiedz pola tytulu w edytorze notatki."
+  },
+  "noteContentHint": "Treść notatki (Markdown)",
+  "@noteContentHint": {
+    "description": "Podpowiedz pola tresci w trybie edycji notatki."
+  },
+  "noteEditTooltip": "Edytuj",
+  "@noteEditTooltip": {
+    "description": "Przelacza notatke w tryb edycji Markdown."
+  },
+  "notePreviewTooltip": "Podgląd",
+  "@notePreviewTooltip": {
+    "description": "Przelacza notatke w tryb podgladu sformatowanego."
+  },
+  "noteSourceLink": "Źródło: {title}",
+  "@noteSourceLink": {
+    "description": "Link z notatki do nagrania, z ktorego powstala.",
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "noteSourceDeleted": "Nagranie źródłowe zostało usunięte",
+  "@noteSourceDeleted": {
+    "description": "Notatka, ktorej nagranie usunieto."
+  },
+  "noteDeleteTitle": "Usunąć notatkę?",
+  "@noteDeleteTitle": {
+    "description": "Tytul dialogu usuwania notatki."
+  },
+  "noteDeleteMessage": "Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.",
+  "@noteDeleteMessage": {
+    "description": "Tresc dialogu usuwania notatki."
+  },
+  "noteRegenerateTooltip": "Wygeneruj ponownie z transkryptu",
+  "@noteRegenerateTooltip": {
+    "description": "Podpowiedz przycisku regeneracji notatki."
+  },
+  "noteRegenerateTitle": "Wygenerować notatkę od nowa?",
+  "@noteRegenerateTitle": {
+    "description": "Tytul dialogu regeneracji notatki."
+  },
+  "noteRegenerateMessage": "Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.",
+  "@noteRegenerateMessage": {
+    "description": "Tresc dialogu regeneracji notatki."
+  },
+  "noteSaveError": "Nie udało się zapisać notatki.",
+  "@noteSaveError": {
+    "description": "Blad zapisu notatki."
+  },
+  "noteDeleted": "Notatka usunięta.",
+  "@noteDeleted": {
+    "description": "Ekran notatki, ktora zniknela z bazy."
+  },
+  "detailMakeNote": "Zrób notatkę",
+  "@detailMakeNote": {
+    "description": "Przycisk tworzacy notatke Markdown z transkryptu."
+  },
+  "detailOpenNote": "Otwórz notatkę",
+  "@detailOpenNote": {
+    "description": "Przycisk otwierajacy istniejaca notatke z tego nagrania."
+  },
+  "detailNoteGenerating": "Tworzę notatkę…",
+  "@detailNoteGenerating": {
+    "description": "Stan przycisku podczas generowania notatki."
+  },
+  "detailTranscriptHint": "Transkrypt jest pusty",
+  "@detailTranscriptHint": {
+    "description": "Podpowiedz pustego, edytowalnego pola transkryptu."
+  },
+  "detailTranscriptSaveError": "Nie udało się zapisać transkryptu.",
+  "@detailTranscriptSaveError": {
+    "description": "Blad zapisu edytowanego transkryptu."
+  },
+  "settingsSttModelHelp": "Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.",
+  "@settingsSttModelHelp": {
+    "description": "Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu."
+  },
+  "settingsSttSection": "TRANSKRYPCJA",
+  "@settingsSttSection": {
+    "description": "Naglowek sekcji ustawien API dla transkrypcji (STT)."
+  },
+  "settingsTagsSection": "TYTUŁY I TAGI",
+  "@settingsTagsSection": {
+    "description": "Naglowek sekcji ustawien API dla tytulow i tagow."
+  },
+  "settingsNotesSection": "NOTATKI",
+  "@settingsNotesSection": {
+    "description": "Naglowek sekcji ustawien API dla notatek."
+  },
+  "settingsModel": "Model",
+  "@settingsModel": {
+    "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
+  },
+  "settingsApiKeyInheritHelp": "Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.",
+  "@settingsApiKeyInheritHelp": {
+    "description": "Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie."
+  },
+  "settingsNoteStyle": "Styl notatek",
+  "@settingsNoteStyle": {
+    "description": "Etykieta wyboru stylu notatek w sekcji Notatki."
+  },
+  "settingsNoteStyleDetailed": "Szczegółowa",
+  "@settingsNoteStyleDetailed": {
+    "description": "Preset stylu notatek: szczegolowe, ustrukturyzowane."
+  },
+  "settingsNoteStyleDetailedHelp": "Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.",
+  "@settingsNoteStyleDetailedHelp": {
+    "description": "Opis presetu szczegolowego."
+  },
+  "settingsNoteStyleConcise": "Zwięzła",
+  "@settingsNoteStyleConcise": {
+    "description": "Preset stylu notatek: krotkie podsumowanie."
+  },
+  "settingsNoteStyleConciseHelp": "Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.",
+  "@settingsNoteStyleConciseHelp": {
+    "description": "Opis presetu zwiezlego."
+  },
+  "settingsNoteStyleMeeting": "Protokół spotkania",
+  "@settingsNoteStyleMeeting": {
+    "description": "Preset stylu notatek: protokol ze spotkania."
+  },
+  "settingsNoteStyleMeetingHelp": "Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.",
+  "@settingsNoteStyleMeetingHelp": {
+    "description": "Opis presetu protokolu."
+  },
+  "settingsNoteStyleCustom": "Własna",
+  "@settingsNoteStyleCustom": {
+    "description": "Wlasny styl notatek z instrukcjami uzytkownika."
+  },
+  "settingsNoteStyleCustomLabel": "Instrukcje dla AI",
+  "@settingsNoteStyleCustomLabel": {
+    "description": "Etykieta pola z wlasnymi instrukcjami stylu notatek."
+  },
+  "settingsNoteStyleCustomHint": "np. Pisz jak notatki do nauki: definicje, przykłady, na końcu 3 pytania kontrolne.",
+  "@settingsNoteStyleCustomHint": {
+    "description": "Przyklad w pustym polu instrukcji stylu."
+  },
+  "settingsNoteStyleCustomHelp": "Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.",
+  "@settingsNoteStyleCustomHelp": {
+    "description": "Podpowiedz pod polem instrukcji: czego nie trzeba pisac."
   }
 }

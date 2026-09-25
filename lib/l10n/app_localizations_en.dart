@@ -211,9 +211,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
-  String get settingsProviderSection => 'PROVIDER';
-
-  @override
   String get settingsThemeSection => 'THEME';
 
   @override
@@ -230,12 +227,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsHideKey => 'Hide key';
-
-  @override
-  String get settingsSttModel => 'STT model';
-
-  @override
-  String get settingsTagModel => 'Tagging model';
 
   @override
   String get settingsSave => 'Save';
@@ -345,11 +336,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pipelineErrorNoConfig =>
-      'No API configuration — set the key in Settings.';
+      'No API configuration — fill in the address and key in the matching Settings section (transcription, tags or notes).';
 
   @override
   String get pipelineErrorSizeLimit =>
-      'The recording is over the 25 MB limit — too long to transcribe.';
+      'The recording is too large for the selected transcription provider (OpenAI and Groq: 25 MB, Gemini: 14 MB). Choose another provider, e.g. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -358,4 +349,139 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Unknown error';
+
+  @override
+  String get navNotes => 'Notes';
+
+  @override
+  String get notesTitle => 'Notes';
+
+  @override
+  String get notesSearchHint => 'Search notes';
+
+  @override
+  String get notesEmpty =>
+      'No notes yet. Open a recording and use “Make a note”.';
+
+  @override
+  String get notesNoResults => 'No notes match your search.';
+
+  @override
+  String get noteUntitled => 'Untitled note';
+
+  @override
+  String get noteTitleHint => 'Title';
+
+  @override
+  String get noteContentHint => 'Note content (Markdown)';
+
+  @override
+  String get noteEditTooltip => 'Edit';
+
+  @override
+  String get notePreviewTooltip => 'Preview';
+
+  @override
+  String noteSourceLink(String title) {
+    return 'Source: $title';
+  }
+
+  @override
+  String get noteSourceDeleted => 'Source recording was deleted';
+
+  @override
+  String get noteDeleteTitle => 'Delete note?';
+
+  @override
+  String get noteDeleteMessage =>
+      'The note will be permanently deleted. The recording and transcript stay.';
+
+  @override
+  String get noteRegenerateTooltip => 'Regenerate from transcript';
+
+  @override
+  String get noteRegenerateTitle => 'Regenerate the note?';
+
+  @override
+  String get noteRegenerateMessage =>
+      'Content and title will be replaced with a new version from the current transcript. Your edits will be lost.';
+
+  @override
+  String get noteSaveError => 'Could not save the note.';
+
+  @override
+  String get noteDeleted => 'Note deleted.';
+
+  @override
+  String get detailMakeNote => 'Make a note';
+
+  @override
+  String get detailOpenNote => 'Open note';
+
+  @override
+  String get detailNoteGenerating => 'Creating note…';
+
+  @override
+  String get detailTranscriptHint => 'Transcript is empty';
+
+  @override
+  String get detailTranscriptSaveError => 'Could not save the transcript.';
+
+  @override
+  String get settingsSttModelHelp =>
+      'Speakers are recognised by ElevenLabs, Gemini and gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) does not tell speakers apart.';
+
+  @override
+  String get settingsSttSection => 'TRANSCRIPTION';
+
+  @override
+  String get settingsTagsSection => 'TITLES & TAGS';
+
+  @override
+  String get settingsNotesSection => 'NOTES';
+
+  @override
+  String get settingsModel => 'Model';
+
+  @override
+  String get settingsApiKeyInheritHelp =>
+      'Leave empty to use the Transcription key when the address is the same.';
+
+  @override
+  String get settingsNoteStyle => 'Note style';
+
+  @override
+  String get settingsNoteStyleDetailed => 'Detailed';
+
+  @override
+  String get settingsNoteStyleDetailedHelp =>
+      'Headings, bullet points and bold; keeps every relevant fact, tasks as a checklist.';
+
+  @override
+  String get settingsNoteStyleConcise => 'Concise';
+
+  @override
+  String get settingsNoteStyleConciseHelp =>
+      'A few bullet points with the essentials plus any tasks — readable in a minute.';
+
+  @override
+  String get settingsNoteStyleMeeting => 'Meeting minutes';
+
+  @override
+  String get settingsNoteStyleMeetingHelp =>
+      'Participants, topics, decisions, action items (who, what, by when) and open questions.';
+
+  @override
+  String get settingsNoteStyleCustom => 'Custom';
+
+  @override
+  String get settingsNoteStyleCustomLabel => 'Instructions for the AI';
+
+  @override
+  String get settingsNoteStyleCustomHint =>
+      'e.g. Write study notes: definitions, examples, and 3 review questions at the end.';
+
+  @override
+  String get settingsNoteStyleCustomHelp =>
+      'The app enforces the format (Markdown, title, transcript language) itself — describe only style and structure here.';
 }

@@ -42,9 +42,9 @@ class StubRecorder implements MikroRecorder {
 // flutter_secure_storage platform channel.
 class FakeKeyStore implements KeyStore {
   @override
-  Future<String?> read() async => null;
+  Future<String?> read(String name) async => null;
   @override
-  Future<void> write(String value) async {}
+  Future<void> write(String name, String value) async {}
 }
 
 /// Welcome step animates in loop (blob from design), so pumpAndSettle would never return.

@@ -69,21 +69,30 @@ class SearchService {
     if (tag != null) {
       items = items.where((r) => r.tags.contains(tag)).toList();
     }
+    return _rank(items, query, (item) => [
+          item.recording.transcript ?? '',
+          item.tags.join(' '),
+          item.recording.title ?? '',
+        ]);
+  }
+
+  /// Same matching as recordings, over note title and Markdown body. Markdown syntax needs no
+  /// stripping: `#`, `*` and `-` are token separators anyway.
+  List<Note> searchNotes(List<Note> all, {String query = ''}) =>
+      _rank(all, query, (note) => [note.title, note.content]);
+
+  List<T> _rank<T>(List<T> items, String query, List<String> Function(T) fieldsOf) {
     final normalizedQuery = _normalize(query.trim());
     if (normalizedQuery.isEmpty) return items;
     final queryTokens = _tokenize(normalizedQuery);
     if (queryTokens.isEmpty) return items;
 
-    final scored = <(int, RecordingWithTags, int)>[];
+    final scored = <(int, T, int)>[];
     for (var index = 0; index < items.length; index++) {
       final item = items[index];
-      final fields = [
-        _normalize(item.recording.transcript ?? ''),
-        _normalize(item.tags.join(' ')),
-        _normalize(item.recording.title ?? ''),
-      ].where((field) => field.isNotEmpty).toList();
+      final fields =
+          fieldsOf(item).map(_normalize).where((field) => field.isNotEmpty).toList();
       if (fields.isEmpty) continue;
-
       // Two strategies because they capture different scenarios. tokenSetRatio on the whole field handles
       // queries broader than the text (some query words absent), but completely misses single-word typos:
       // token intersection becomes empty and compares a short string against the entire sorted transcript.

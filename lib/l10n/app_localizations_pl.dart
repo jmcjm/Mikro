@@ -210,9 +210,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsTitle => 'Ustawienia';
 
   @override
-  String get settingsProviderSection => 'PROVIDER';
-
-  @override
   String get settingsThemeSection => 'MOTYW';
 
   @override
@@ -229,12 +226,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsHideKey => 'Ukryj klucz';
-
-  @override
-  String get settingsSttModel => 'Model STT';
-
-  @override
-  String get settingsTagModel => 'Model tagowania';
 
   @override
   String get settingsSave => 'Zapisz';
@@ -342,11 +333,11 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get pipelineErrorNoConfig =>
-      'Brak konfiguracji API — ustaw klucz w Ustawieniach.';
+      'Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).';
 
   @override
   String get pipelineErrorSizeLimit =>
-      'Nagranie przekracza limit 25 MB — za długie do transkrypcji.';
+      'Nagranie jest za duże dla wybranego dostawcy transkrypcji (OpenAI i Groq: 25 MB, Gemini: 14 MB). Wybierz innego dostawcę, np. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -355,4 +346,139 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get errorUnknown => 'Nieznany błąd';
+
+  @override
+  String get navNotes => 'Notatki';
+
+  @override
+  String get notesTitle => 'Notatki';
+
+  @override
+  String get notesSearchHint => 'Szukaj w notatkach';
+
+  @override
+  String get notesEmpty =>
+      'Brak notatek. Otwórz nagranie i użyj „Zrób notatkę”.';
+
+  @override
+  String get notesNoResults => 'Brak notatek pasujących do wyszukiwania.';
+
+  @override
+  String get noteUntitled => 'Notatka bez tytułu';
+
+  @override
+  String get noteTitleHint => 'Tytuł';
+
+  @override
+  String get noteContentHint => 'Treść notatki (Markdown)';
+
+  @override
+  String get noteEditTooltip => 'Edytuj';
+
+  @override
+  String get notePreviewTooltip => 'Podgląd';
+
+  @override
+  String noteSourceLink(String title) {
+    return 'Źródło: $title';
+  }
+
+  @override
+  String get noteSourceDeleted => 'Nagranie źródłowe zostało usunięte';
+
+  @override
+  String get noteDeleteTitle => 'Usunąć notatkę?';
+
+  @override
+  String get noteDeleteMessage =>
+      'Notatka zostanie trwale usunięta. Nagranie i transkrypt zostają.';
+
+  @override
+  String get noteRegenerateTooltip => 'Wygeneruj ponownie z transkryptu';
+
+  @override
+  String get noteRegenerateTitle => 'Wygenerować notatkę od nowa?';
+
+  @override
+  String get noteRegenerateMessage =>
+      'Treść i tytuł zostaną zastąpione nową wersją z aktualnego transkryptu. Twoje zmiany przepadną.';
+
+  @override
+  String get noteSaveError => 'Nie udało się zapisać notatki.';
+
+  @override
+  String get noteDeleted => 'Notatka usunięta.';
+
+  @override
+  String get detailMakeNote => 'Zrób notatkę';
+
+  @override
+  String get detailOpenNote => 'Otwórz notatkę';
+
+  @override
+  String get detailNoteGenerating => 'Tworzę notatkę…';
+
+  @override
+  String get detailTranscriptHint => 'Transkrypt jest pusty';
+
+  @override
+  String get detailTranscriptSaveError => 'Nie udało się zapisać transkryptu.';
+
+  @override
+  String get settingsSttModelHelp =>
+      'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.';
+
+  @override
+  String get settingsSttSection => 'TRANSKRYPCJA';
+
+  @override
+  String get settingsTagsSection => 'TYTUŁY I TAGI';
+
+  @override
+  String get settingsNotesSection => 'NOTATKI';
+
+  @override
+  String get settingsModel => 'Model';
+
+  @override
+  String get settingsApiKeyInheritHelp =>
+      'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
+
+  @override
+  String get settingsNoteStyle => 'Styl notatek';
+
+  @override
+  String get settingsNoteStyleDetailed => 'Szczegółowa';
+
+  @override
+  String get settingsNoteStyleDetailedHelp =>
+      'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.';
+
+  @override
+  String get settingsNoteStyleConcise => 'Zwięzła';
+
+  @override
+  String get settingsNoteStyleConciseHelp =>
+      'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.';
+
+  @override
+  String get settingsNoteStyleMeeting => 'Protokół spotkania';
+
+  @override
+  String get settingsNoteStyleMeetingHelp =>
+      'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.';
+
+  @override
+  String get settingsNoteStyleCustom => 'Własna';
+
+  @override
+  String get settingsNoteStyleCustomLabel => 'Instrukcje dla AI';
+
+  @override
+  String get settingsNoteStyleCustomHint =>
+      'np. Pisz jak notatki do nauki: definicje, przykłady, na końcu 3 pytania kontrolne.';
+
+  @override
+  String get settingsNoteStyleCustomHelp =>
+      'Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.';
 }
