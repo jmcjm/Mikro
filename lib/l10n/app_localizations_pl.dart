@@ -210,9 +210,6 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsTitle => 'Ustawienia';
 
   @override
-  String get settingsProviderSection => 'PROVIDER';
-
-  @override
   String get settingsThemeSection => 'MOTYW';
 
   @override
@@ -229,12 +226,6 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get settingsHideKey => 'Ukryj klucz';
-
-  @override
-  String get settingsSttModel => 'Model STT';
-
-  @override
-  String get settingsTagModel => 'Model tagowania';
 
   @override
   String get settingsSave => 'Zapisz';
@@ -342,7 +333,7 @@ class AppLocalizationsPl extends AppLocalizations {
 
   @override
   String get pipelineErrorNoConfig =>
-      'Brak konfiguracji API — ustaw klucz w Ustawieniach.';
+      'Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).';
 
   @override
   String get pipelineErrorSizeLimit =>
@@ -436,4 +427,20 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get settingsSttModelHelp =>
       'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.';
+
+  @override
+  String get settingsSttSection => 'TRANSKRYPCJA';
+
+  @override
+  String get settingsTagsSection => 'TYTUŁY I TAGI';
+
+  @override
+  String get settingsNotesSection => 'NOTATKI';
+
+  @override
+  String get settingsModel => 'Model';
+
+  @override
+  String get settingsApiKeyInheritHelp =>
+      'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
 }

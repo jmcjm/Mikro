@@ -47,6 +47,7 @@
 - Speaker diarization with models that support it (e.g. OpenAI `gpt-4o-transcribe-diarize`) — transcripts come out as `A: …` / `B: …` turns
 - Offline queue: recordings paused on network errors automatically resume when connectivity returns; auth and rate-limit errors are not retried endlessly
 - Multilingual interface (English and Polish), light/dark themes, and Material 3 Expressive design
+- Separate provider, API key and model for transcription, titles/tags and notes (e.g. Whisper on Groq, notes on OpenAI); an empty key reuses the transcription key for the same provider
 - Secure API key storage (Android Keystore / Linux Secret Service / libsecret)
 
 ## Building

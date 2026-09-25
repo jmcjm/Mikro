@@ -6,7 +6,7 @@ import 'package:mikro/core/api/tagging_api.dart';
 import 'package:mikro/core/models/provider_config.dart';
 
 void main() {
-  const config = ProviderConfig(baseUrl: 'https://api.test/v1', apiKey: 'k', sttModel: 's', tagModel: 't');
+  const config = ServiceConfig(baseUrl: 'https://api.test/v1', apiKey: 'k', model: 't');
 
   group('parseMeta', () {
     test('clean JSON object: title and tags', () {
@@ -210,7 +210,7 @@ void main() {
           reason: 'API key must be sent in the Authorization header');
 
       final body = sentRequest!.data as Map<String, dynamic>;
-      expect(body['model'], config.tagModel, reason: 'request must carry the selected tagging model');
+      expect(body['model'], config.model, reason: 'request must carry the selected tagging model');
       expect(body['temperature'], 0, reason: 'tagging must be deterministic');
 
       final messages = body['messages'] as List<dynamic>;
@@ -311,5 +311,32 @@ void main() {
       expect(systemPrompt, contains('${TaggingApi.maxTitleChars}'),
           reason: 'title length limit must also be a request to the model, not just code truncation');
     });
+  });
+
+  test('long transcript is sent whole, not clipped', () async {
+    final dio = Dio();
+    final adapter = DioAdapter(dio: dio);
+    Object? sent;
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
+      sent = o.data;
+      h.next(o);
+    }));
+    adapter.onPost(
+      'https://api.test/v1/chat/completions',
+      (server) => server.reply(200, {
+        'choices': [
+          {
+            'message': {'content': '{"title": "t", "tags": []}'}
+          }
+        ]
+      }),
+      data: Matchers.any,
+    );
+    final transcript = 'słowo ' * 5000; // 30 000 characters, well past the old 8000 cap
+
+    await TaggingApi(dio).generateMeta(transcript: transcript, config: config);
+
+    final messages = (sent! as Map)['messages'] as List;
+    expect(messages.last['content'], transcript);
   });
 }

@@ -16,10 +16,10 @@ class _FakeKeyStore implements KeyStore {
   String? value;
 
   @override
-  Future<String?> read() async => value;
+  Future<String?> read(String name) async => value;
 
   @override
-  Future<void> write(String v) async => value = v;
+  Future<void> write(String name, String v) async => value = v;
 }
 
 /// Phone frame size from mockup — settings screen overflows on default 800x600.
@@ -84,13 +84,14 @@ void main() {
       await pumpSettings(tester);
 
       final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
-      for (final label in ['Base URL', 'Model STT', 'Model tagowania']) {
-        final field = fields.firstWhere(
-          (candidate) => candidate.decoration?.labelText == label,
-          orElse: () => fail('missing field $label'),
-        );
-        expect(field.style?.fontFamily, monoFontFamily, reason: 'field $label is not mono');
-        expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'field $label');
+      // Address and model repeat in each of the three API sections (STT, tags, notes).
+      for (final label in ['Base URL', 'Model']) {
+        final matching = fields.where((c) => c.decoration?.labelText == label).toList();
+        expect(matching, hasLength(3), reason: 'field $label in every API section');
+        for (final field in matching) {
+          expect(field.style?.fontFamily, monoFontFamily, reason: 'field $label is not mono');
+          expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'field $label');
+        }
       }
     });
   });

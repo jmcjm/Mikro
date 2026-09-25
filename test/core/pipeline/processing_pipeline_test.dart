@@ -12,15 +12,21 @@ import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/pipeline/processing_pipeline.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
 
-const _config = ProviderConfig(baseUrl: 'https://x', apiKey: 'k', sttModel: 's', tagModel: 't');
+const _config = ServiceConfig(baseUrl: 'https://x', apiKey: 'k', model: 's');
 
 class FakeSettings implements SettingsRepository {
   FakeSettings(this.config);
-  ProviderConfig? config;
+
+  /// Default for every task; [perTask] overrides it for individual ones.
+  ServiceConfig? config;
+  final perTask = <ApiTask, ServiceConfig?>{};
   @override
-  Future<ProviderConfig?> load() async => config;
+  Future<ServiceConfig?> load(ApiTask task) async =>
+      perTask.containsKey(task) ? perTask[task] : config;
   @override
-  Future<void> save(ProviderConfig config) async {}
+  Future<void> save(ApiTask task, ServiceConfig config) async {}
+  @override
+  Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
 }
 
 /// Fakes `SettingsRepository` whose key store is temporarily unavailable —
@@ -28,20 +34,24 @@ class FakeSettings implements SettingsRepository {
 class ThrowingSettings implements SettingsRepository {
   bool shouldThrow = true;
   @override
-  Future<ProviderConfig?> load() async {
+  Future<ServiceConfig?> load(ApiTask task) async {
     if (shouldThrow) throw StateError('magazyn kluczy niedostepny');
     return _config;
   }
   @override
-  Future<void> save(ProviderConfig config) async {}
+  Future<void> save(ApiTask task, ServiceConfig config) async {}
+  @override
+  Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
 }
 
 class FakeTranscription implements TranscriptionApi {
   Object? error;
   int calls = 0;
+  ServiceConfig? usedConfig;
   @override
-  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+  Future<String> transcribe({required String audioPath, required ServiceConfig config}) async {
     calls++;
+    usedConfig = config;
     if (error != null) throw error!;
     return 'transkrypt testowy';
   }
@@ -50,9 +60,11 @@ class FakeTranscription implements TranscriptionApi {
 class FakeTagging implements TaggingApi {
   Object? error;
   String? title = 'Standup i release';
+  ServiceConfig? usedConfig;
   @override
   Future<RecordingMeta> generateMeta(
-      {required String transcript, required ProviderConfig config}) async {
+      {required String transcript, required ServiceConfig config}) async {
+    usedConfig = config;
     if (error != null) throw error!;
     return RecordingMeta(title: title, tags: const ['praca', 'notatki']);
   }
@@ -66,7 +78,7 @@ class DelayedTranscription implements TranscriptionApi {
   final gate = Completer<void>();
   int calls = 0;
   @override
-  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+  Future<String> transcribe({required String audioPath, required ServiceConfig config}) async {
     calls++;
     if (!started.isCompleted) started.complete();
     await gate.future;
@@ -80,7 +92,7 @@ class CountingFailingTagging implements TaggingApi {
   int calls = 0;
   @override
   Future<RecordingMeta> generateMeta(
-      {required String transcript, required ProviderConfig config}) async {
+      {required String transcript, required ServiceConfig config}) async {
     calls++;
     throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
   }
@@ -93,7 +105,7 @@ class StatusProbingTranscription implements TranscriptionApi {
   final String recordingId;
   RecordingStatus? statusDuringCall;
   @override
-  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+  Future<String> transcribe({required String audioPath, required ServiceConfig config}) async {
     statusDuringCall = (await db.getRecording(recordingId))?.status;
     return 'transkrypt testowy';
   }
@@ -106,7 +118,7 @@ class StatusProbingTagging implements TaggingApi {
   RecordingStatus? statusDuringCall;
   @override
   Future<RecordingMeta> generateMeta(
-      {required String transcript, required ProviderConfig config}) async {
+      {required String transcript, required ServiceConfig config}) async {
     statusDuringCall = (await db.getRecording(recordingId))?.status;
     return const RecordingMeta(title: 'Standup', tags: ['praca']);
   }
@@ -119,7 +131,7 @@ class ConcurrencyTrackingTranscription implements TranscriptionApi {
   int maxActive = 0;
   int calls = 0;
   @override
-  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
+  Future<String> transcribe({required String audioPath, required ServiceConfig config}) async {
     calls++;
     active++;
     if (active > maxActive) maxActive = active;
@@ -137,7 +149,7 @@ class DatabaseKillingTagging implements TaggingApi {
   final AppDatabase db;
   @override
   Future<RecordingMeta> generateMeta(
-      {required String transcript, required ProviderConfig config}) async {
+      {required String transcript, required ServiceConfig config}) async {
     await db.close();
     throw MikroApiException(ApiErrorKind.server, 'HTTP 500');
   }
@@ -618,6 +630,44 @@ void main() {
     await guarded.idle;
 
     expect(delayed.calls, 1);
+    expect((await db.getRecording('a'))!.status, RecordingStatus.done);
+  });
+
+  test('transcription and tagging each use their own endpoint', () async {
+    const sttConfig = ServiceConfig(baseUrl: 'https://groq', apiKey: 'g', model: 'whisper');
+    const tagsConfig = ServiceConfig(baseUrl: 'https://openai', apiKey: 'o', model: 'gpt');
+    settings.perTask[ApiTask.stt] = sttConfig;
+    settings.perTask[ApiTask.tags] = tagsConfig;
+    await insert('a');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+
+    expect(stt.usedConfig, same(sttConfig));
+    expect(tagger.usedConfig, same(tagsConfig));
+    expect((await db.getRecording('a'))!.providerUsed, 'whisper',
+        reason: 'model caption names the transcription model');
+  });
+
+  test('missing tagging config keeps the transcript and stops with noConfig', () async {
+    settings.perTask[ApiTask.tags] = null;
+    await insert('a');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+
+    final r = await db.getRecording('a');
+    expect(r!.transcript, 'transkrypt testowy', reason: 'paid transcription is not thrown away');
+    expect(r.status, RecordingStatus.error);
+    expect(r.errorKind, errorKindNoConfig);
+  });
+
+  test('existing transcript needs no transcription config to get tags', () async {
+    settings.perTask[ApiTask.stt] = null;
+    await insert('a');
+    await db.setTranscript('a', 'gotowy', 'whisper');
+    pipeline.enqueue('a');
+    await pipeline.idle;
+
+    expect(stt.calls, 0);
     expect((await db.getRecording('a'))!.status, RecordingStatus.done);
   });
 }

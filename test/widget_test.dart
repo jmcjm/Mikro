@@ -36,9 +36,9 @@ class FakeRecorder implements MikroRecorder {
 // the key store, the test would hit the flutter_secure_storage platform channel.
 class FakeKeyStore implements KeyStore {
   @override
-  Future<String?> read() async => null;
+  Future<String?> read(String name) async => null;
   @override
-  Future<void> write(String value) async {}
+  Future<void> write(String name, String value) async {}
 }
 
 void main() {

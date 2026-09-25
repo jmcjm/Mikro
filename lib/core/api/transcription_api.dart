@@ -14,11 +14,11 @@ class TranscriptionApi {
   /// free of a toggle that would silently do nothing for every other model.
   static bool supportsDiarization(String model) => model.toLowerCase().contains('diarize');
 
-  Future<String> transcribe({required String audioPath, required ProviderConfig config}) async {
-    final diarize = supportsDiarization(config.sttModel);
+  Future<String> transcribe({required String audioPath, required ServiceConfig config}) async {
+    final diarize = supportsDiarization(config.model);
     try {
       final form = FormData.fromMap({
-        'model': config.sttModel,
+        'model': config.model,
         'file': await MultipartFile.fromFile(audioPath),
         if (diarize) ...{
           'response_format': 'diarized_json',

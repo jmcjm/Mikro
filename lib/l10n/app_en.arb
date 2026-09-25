@@ -69,15 +69,12 @@
   "statusError": "Error",
 
   "settingsTitle": "Settings",
-  "settingsProviderSection": "PROVIDER",
   "settingsThemeSection": "THEME",
   "settingsProviderCustom": "Custom",
   "settingsBaseUrl": "Base URL",
   "settingsApiKey": "API key",
   "settingsShowKey": "Show key",
   "settingsHideKey": "Hide key",
-  "settingsSttModel": "STT model",
-  "settingsTagModel": "Tagging model",
   "settingsSave": "Save",
   "settingsSaved": "Settings saved.",
   "settingsThemeLight": "Light",
@@ -111,7 +108,7 @@
   "apiErrorNoContent": "API response carried no message content.",
   "apiErrorNoTranscript": "API response had no text field.",
   "apiErrorBadTags": "The model returned no usable tags.",
-  "pipelineErrorNoConfig": "No API configuration — set the key in Settings.",
+  "pipelineErrorNoConfig": "No API configuration — fill in the address and key in the matching Settings section (transcription, tags or notes).",
   "pipelineErrorSizeLimit": "The recording is over the 25 MB limit — too long to transcribe.",
   "pipelineErrorUnexpected": "Unexpected error: {detail}",
   "errorUnknown": "Unknown error",
@@ -140,5 +137,10 @@
   "detailNoteGenerating": "Creating note…",
   "detailTranscriptHint": "Transcript is empty",
   "detailTranscriptSaveError": "Could not save the transcript.",
-  "settingsSttModelHelp": "Speaker recognition only works with a model that supports it — e.g. gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq included) does not tell speakers apart."
+  "settingsSttModelHelp": "Speaker recognition only works with a model that supports it — e.g. gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq included) does not tell speakers apart.",
+  "settingsSttSection": "TRANSCRIPTION",
+  "settingsTagsSection": "TITLES & TAGS",
+  "settingsNotesSection": "NOTES",
+  "settingsModel": "Model",
+  "settingsApiKeyInheritHelp": "Leave empty to use the Transcription key when the address is the same."
 }

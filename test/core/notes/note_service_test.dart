@@ -11,19 +11,20 @@ import 'package:mikro/core/settings/settings_repository.dart';
 
 class _Settings implements SettingsRepository {
   _Settings(this.config);
-  final ProviderConfig? config;
+  final ServiceConfig? config;
   @override
-  Future<ProviderConfig?> load() async => config;
+  Future<ServiceConfig?> load(ApiTask task) async => config;
   @override
-  Future<void> save(ProviderConfig config) async {}
+  Future<void> save(ApiTask task, ServiceConfig config) async {}
+  @override
+  Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
 }
 
-const _config = ProviderConfig(
+const _config = ServiceConfig(
   baseUrl: 'https://api.test/v1',
   apiKey: 'k',
-  sttModel: 'whisper-x',
-  tagModel: 'llm-x',
-);
+    model: 'llm-x',
+  );
 
 void main() {
   late AppDatabase db;
@@ -44,7 +45,7 @@ void main() {
   });
   tearDown(() => db.close());
 
-  NoteService service({ProviderConfig? config = _config}) =>
+  NoteService service({ServiceConfig? config = _config}) =>
       NoteService(db: db, notesApi: NotesApi(dio), settings: _Settings(config), clock: () => now);
 
   void modelReplies(String content) => adapter.onPost(

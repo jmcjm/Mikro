@@ -211,9 +211,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsTitle => 'Settings';
 
   @override
-  String get settingsProviderSection => 'PROVIDER';
-
-  @override
   String get settingsThemeSection => 'THEME';
 
   @override
@@ -230,12 +227,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsHideKey => 'Hide key';
-
-  @override
-  String get settingsSttModel => 'STT model';
-
-  @override
-  String get settingsTagModel => 'Tagging model';
 
   @override
   String get settingsSave => 'Save';
@@ -345,7 +336,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pipelineErrorNoConfig =>
-      'No API configuration — set the key in Settings.';
+      'No API configuration — fill in the address and key in the matching Settings section (transcription, tags or notes).';
 
   @override
   String get pipelineErrorSizeLimit =>
@@ -439,4 +430,20 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsSttModelHelp =>
       'Speaker recognition only works with a model that supports it — e.g. gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq included) does not tell speakers apart.';
+
+  @override
+  String get settingsSttSection => 'TRANSCRIPTION';
+
+  @override
+  String get settingsTagsSection => 'TITLES & TAGS';
+
+  @override
+  String get settingsNotesSection => 'NOTES';
+
+  @override
+  String get settingsModel => 'Model';
+
+  @override
+  String get settingsApiKeyInheritHelp =>
+      'Leave empty to use the Transcription key when the address is the same.';
 }

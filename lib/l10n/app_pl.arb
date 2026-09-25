@@ -279,10 +279,6 @@
   "@settingsTitle": {
     "description": "Naglowek ekranu ustawien."
   },
-  "settingsProviderSection": "PROVIDER",
-  "@settingsProviderSection": {
-    "description": "Naglowek sekcji z wyborem dostawcy API; wersalikami jak w makiecie."
-  },
   "settingsThemeSection": "MOTYW",
   "@settingsThemeSection": {
     "description": "Naglowek sekcji z wyborem motywu; wersalikami jak w makiecie."
@@ -306,14 +302,6 @@
   "settingsHideKey": "Ukryj klucz",
   "@settingsHideKey": {
     "description": "Podpowiedz ikony ukrywajacej klucz API."
-  },
-  "settingsSttModel": "Model STT",
-  "@settingsSttModel": {
-    "description": "Etykieta pola z nazwa modelu transkrypcji."
-  },
-  "settingsTagModel": "Model tagowania",
-  "@settingsTagModel": {
-    "description": "Etykieta pola z nazwa modelu tagujacego."
   },
   "settingsSave": "Zapisz",
   "@settingsSave": {
@@ -455,7 +443,7 @@
   "@apiErrorBadTags": {
     "description": "Blad przetwarzania: model dwa razy z rzedu oddal liste tagow nie do sparsowania."
   },
-  "pipelineErrorNoConfig": "Brak konfiguracji API — ustaw klucz w Ustawieniach.",
+  "pipelineErrorNoConfig": "Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).",
   "@pipelineErrorNoConfig": {
     "description": "Blad przetwarzania: nagranie czeka, bo dostawca nie jest jeszcze skonfigurowany."
   },
@@ -583,5 +571,25 @@
   "settingsSttModelHelp": "Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.",
   "@settingsSttModelHelp": {
     "description": "Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu."
+  },
+  "settingsSttSection": "TRANSKRYPCJA",
+  "@settingsSttSection": {
+    "description": "Naglowek sekcji ustawien API dla transkrypcji (STT)."
+  },
+  "settingsTagsSection": "TYTUŁY I TAGI",
+  "@settingsTagsSection": {
+    "description": "Naglowek sekcji ustawien API dla tytulow i tagow."
+  },
+  "settingsNotesSection": "NOTATKI",
+  "@settingsNotesSection": {
+    "description": "Naglowek sekcji ustawien API dla notatek."
+  },
+  "settingsModel": "Model",
+  "@settingsModel": {
+    "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
+  },
+  "settingsApiKeyInheritHelp": "Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.",
+  "@settingsApiKeyInheritHelp": {
+    "description": "Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie."
   }
 }

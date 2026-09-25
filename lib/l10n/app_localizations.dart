@@ -476,12 +476,6 @@ abstract class AppLocalizations {
   /// **'Ustawienia'**
   String get settingsTitle;
 
-  /// Naglowek sekcji z wyborem dostawcy API; wersalikami jak w makiecie.
-  ///
-  /// In pl, this message translates to:
-  /// **'PROVIDER'**
-  String get settingsProviderSection;
-
   /// Naglowek sekcji z wyborem motywu; wersalikami jak w makiecie.
   ///
   /// In pl, this message translates to:
@@ -517,18 +511,6 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Ukryj klucz'**
   String get settingsHideKey;
-
-  /// Etykieta pola z nazwa modelu transkrypcji.
-  ///
-  /// In pl, this message translates to:
-  /// **'Model STT'**
-  String get settingsSttModel;
-
-  /// Etykieta pola z nazwa modelu tagujacego.
-  ///
-  /// In pl, this message translates to:
-  /// **'Model tagowania'**
-  String get settingsTagModel;
 
   /// Przycisk zapisu ustawien.
   ///
@@ -719,7 +701,7 @@ abstract class AppLocalizations {
   /// Blad przetwarzania: nagranie czeka, bo dostawca nie jest jeszcze skonfigurowany.
   ///
   /// In pl, this message translates to:
-  /// **'Brak konfiguracji API — ustaw klucz w Ustawieniach.'**
+  /// **'Brak konfiguracji API — uzupełnij adres i klucz w odpowiedniej sekcji Ustawień (transkrypcja, tagi lub notatki).'**
   String get pipelineErrorNoConfig;
 
   /// Blad przetwarzania: plik audio jest wiekszy niz limit wysylki.
@@ -889,6 +871,36 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Rozpoznawanie rozmówców działa tylko z modelem, który je obsługuje — np. gpt-4o-transcribe-diarize (OpenAI). Whisper (także w Groq) nie rozróżnia mówców.'**
   String get settingsSttModelHelp;
+
+  /// Naglowek sekcji ustawien API dla transkrypcji (STT).
+  ///
+  /// In pl, this message translates to:
+  /// **'TRANSKRYPCJA'**
+  String get settingsSttSection;
+
+  /// Naglowek sekcji ustawien API dla tytulow i tagow.
+  ///
+  /// In pl, this message translates to:
+  /// **'TYTUŁY I TAGI'**
+  String get settingsTagsSection;
+
+  /// Naglowek sekcji ustawien API dla notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'NOTATKI'**
+  String get settingsNotesSection;
+
+  /// Etykieta pola nazwy modelu w kazdej sekcji API.
+  ///
+  /// In pl, this message translates to:
+  /// **'Model'**
+  String get settingsModel;
+
+  /// Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.'**
+  String get settingsApiKeyInheritHelp;
 }
 
 class _AppLocalizationsDelegate

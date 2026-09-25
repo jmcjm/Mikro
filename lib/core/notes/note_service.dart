@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../api/api_errors.dart';
 import '../api/notes_api.dart';
 import '../db/database.dart';
+import '../models/provider_config.dart';
 import '../settings/settings_repository.dart';
 
 /// Raised when there is no provider configured — the UI points the user to settings instead of
@@ -33,7 +34,7 @@ class NoteService {
     if (recording == null || transcript == null || transcript.trim().isEmpty) {
       throw MikroApiException(ApiErrorKind.noTranscript, 'no transcript to summarise');
     }
-    final config = await settings.load();
+    final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
     final generated = await notesApi.generate(transcript: transcript, config: config);
@@ -58,7 +59,7 @@ class NoteService {
     if (note == null || transcript == null || transcript.trim().isEmpty) {
       throw MikroApiException(ApiErrorKind.noTranscript, 'no source transcript');
     }
-    final config = await settings.load();
+    final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
     final generated = await notesApi.generate(transcript: transcript, config: config);

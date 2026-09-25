@@ -18,12 +18,6 @@ class NotesApi {
 
   final Dio _dio;
 
-  /// Far above the tagging limit: tags only need the gist, a note is supposed to cover the whole
-  /// recording. The cap only guards against pathological input — context windows and per-minute
-  /// token quotas of small models are the practical limit, and exceeding them surfaces as an
-  /// ordinary API error.
-  static const _maxTranscriptChars = 48000;
-
   // English prompt for the same reason as in TaggingApi: the note language must follow the
   // transcript, not the instruction.
   static const _systemPrompt =
@@ -39,16 +33,13 @@ class NotesApi {
 
   Future<GeneratedNote> generate({
     required String transcript,
-    required ProviderConfig config,
+    required ServiceConfig config,
   }) async {
-    final clipped = transcript.length > _maxTranscriptChars
-        ? transcript.substring(0, _maxTranscriptChars)
-        : transcript;
     final content = await chatCompletion(
       _dio,
       config: config,
       system: _systemPrompt,
-      user: clipped,
+      user: transcript,
       temperature: 0.2,
     );
     final note = parseNote(content);

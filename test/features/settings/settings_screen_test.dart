@@ -10,28 +10,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../support/l10n_harness.dart';
 
 class FakeKeyStore implements KeyStore {
-  String? value;
+  final values = <String, String>{};
 
   @override
-  Future<String?> read() async => value;
+  Future<String?> read(String name) async => values[name];
 
   @override
-  Future<void> write(String v) async => value = v;
+  Future<void> write(String name, String v) async => values[name] = v;
 }
 
 /// Phone frame dimensions from mockup. Default test surface (800x600) is shorter than
 /// designed screen, so theme section fell below viewport and tapping card missed.
 const _designFrame = Size(412, 892);
 
-Future<SharedPreferences> pumpSettings(WidgetTester tester) async {
+Future<SharedPreferences> pumpSettings(
+  WidgetTester tester, {
+  Map<String, Object> initial = const {},
+  FakeKeyStore? keys,
+}) async {
   await tester.binding.setSurfaceSize(_designFrame);
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues(initial);
   final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(ProviderScope(
     overrides: [
       sharedPrefsProvider.overrideWithValue(prefs),
-      keyStoreProvider.overrideWithValue(FakeKeyStore()),
+      keyStoreProvider.overrideWithValue(keys ?? FakeKeyStore()),
     ],
     child: localizedApp(const SettingsScreen()),
   ));
@@ -70,15 +74,18 @@ void main() {
   testWidgets('provider section shows fields and Groq preset', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('Groq'), findsOneWidget);
-    expect(find.text('OpenAI'), findsOneWidget);
-    expect(find.text(plL10n.settingsProviderCustom), findsOneWidget);
-    expect(find.text(plL10n.settingsBaseUrl), findsOneWidget);
-    expect(find.text(plL10n.settingsApiKey), findsOneWidget);
-    expect(find.text(plL10n.settingsSttModel), findsOneWidget);
-    expect(find.text(plL10n.settingsTagModel), findsOneWidget);
+    expect(find.text('Groq'), findsNWidgets(3));
+    expect(find.text('OpenAI'), findsNWidgets(3));
+    expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(3));
+    expect(find.text(plL10n.settingsSttSection), findsOneWidget);
+    expect(find.text(plL10n.settingsTagsSection), findsOneWidget);
+    expect(find.text(plL10n.settingsNotesSection), findsOneWidget);
+    // Every section has its own address, key and model.
+    expect(find.text(plL10n.settingsBaseUrl), findsNWidgets(3));
+    expect(find.text(plL10n.settingsApiKey), findsNWidgets(3));
+    expect(find.text(plL10n.settingsModel), findsNWidgets(3));
     // Missing stored configuration -> screen starts on Groq preset.
-    expect(find.text('https://api.groq.com/openai/v1'), findsOneWidget);
+    expect(find.text('https://api.groq.com/openai/v1'), findsNWidgets(3));
   });
 
   testWidgets('API key is masked by default and can be revealed', (tester) async {
@@ -89,8 +96,8 @@ void main() {
         );
 
     expect(keyField().obscureText, isTrue);
-    await tester.ensureVisible(find.byTooltip(plL10n.settingsShowKey));
-    await tester.tap(find.byTooltip(plL10n.settingsShowKey));
+    await tester.ensureVisible(find.byTooltip(plL10n.settingsShowKey).first);
+    await tester.tap(find.byTooltip(plL10n.settingsShowKey).first);
     await tester.pumpAndSettle();
     expect(keyField().obscureText, isFalse);
   });
@@ -138,5 +145,52 @@ void main() {
   testWidgets('does not show back button when opened at root (canPop = false)', (tester) async {
     await pumpSettings(tester);
     expect(find.byIcon(Symbols.arrow_back_rounded), findsNothing);
+  });
+
+  /// Text field by its current content — the three sections share labels.
+  Finder fieldWith(String text) =>
+      find.byWidgetPredicate((w) => w is TextField && w.controller?.text == text);
+
+  testWidgets('sections are independent and save separately', (tester) async {
+    final keys = FakeKeyStore();
+    final prefs = await pumpSettings(tester, keys: keys);
+
+    // Switch only the notes section to OpenAI: it is the third "OpenAI" segment.
+    await tester.ensureVisible(find.text('OpenAI').at(2));
+    await tester.tap(find.text('OpenAI').at(2));
+    await tester.pumpAndSettle();
+    expect(fieldWith('https://api.openai.com/v1'), findsOneWidget);
+    expect(fieldWith('https://api.groq.com/openai/v1'), findsNWidgets(2));
+
+    final keyFields = find.byWidgetPredicate((w) => w is TextField && w.obscureText);
+    await tester.enterText(keyFields.at(0), 'gsk');
+    await tester.enterText(keyFields.at(2), 'sk');
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getString('stt_base_url'), 'https://api.groq.com/openai/v1');
+    expect(prefs.getString('stt_model'), 'whisper-large-v3-turbo');
+    expect(prefs.getString('tags_base_url'), 'https://api.groq.com/openai/v1');
+    expect(prefs.getString('notes_base_url'), 'https://api.openai.com/v1');
+    expect(prefs.getString('notes_model'), 'gpt-4o-mini');
+    expect(keys.values, {'api_key_stt': 'gsk', 'api_key_tags': '', 'api_key_notes': 'sk'});
+  });
+
+  testWidgets('settings saved before the split fill all three sections', (tester) async {
+    await pumpSettings(
+      tester,
+      initial: {
+        'base_url': 'http://localhost:8000/v1',
+        'stt_model': 'whisper-lokalny',
+        'tag_model': 'qwen',
+      },
+      keys: FakeKeyStore()..values['api_key'] = 'stary',
+    );
+
+    expect(fieldWith('http://localhost:8000/v1'), findsNWidgets(3));
+    expect(fieldWith('stary'), findsNWidgets(3));
+    expect(fieldWith('whisper-lokalny'), findsOneWidget);
+    expect(fieldWith('qwen'), findsNWidgets(2), reason: 'notes inherit the tagging model');
   });
 }

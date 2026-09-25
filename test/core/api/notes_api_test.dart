@@ -14,11 +14,10 @@ Map<String, dynamic> reply(String content) => {
 };
 
 void main() {
-  const config = ProviderConfig(
+  const config = ServiceConfig(
     baseUrl: 'https://api.test/v1',
     apiKey: 'k',
-    sttModel: 'whisper-x',
-    tagModel: 'llm-x',
+    model: 'llm-x',
   );
 
   group('parseNote', () {

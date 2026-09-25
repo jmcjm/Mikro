@@ -60,9 +60,11 @@ class _FakeDbError {
 
 class _NoConfigSettings implements SettingsRepository {
   @override
-  Future<ProviderConfig?> load() async => null;
+  Future<ServiceConfig?> load(ApiTask task) async => null;
   @override
-  Future<void> save(ProviderConfig config) async {}
+  Future<void> save(ApiTask task, ServiceConfig config) async {}
+  @override
+  Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
 }
 
 /// Text field of the add-tag dialog. The transcript is a TextField too, so a bare

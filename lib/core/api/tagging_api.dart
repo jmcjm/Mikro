@@ -24,8 +24,6 @@ class TaggingApi {
 
   final Dio _dio;
 
-  static const _maxTranscriptChars = 8000;
-
   /// Upper limit of tags accepted FROM THE MODEL: the same number is passed to the prompt and trims
   /// the parsed result. It does not limit the recording as a whole — tags added manually
   /// in details view are saved directly to the database bypassing this path and are not capped.
@@ -54,7 +52,7 @@ class TaggingApi {
       'specific. No other text.';
 
   Future<RecordingMeta> generateMeta(
-      {required String transcript, required ProviderConfig config}) async {
+      {required String transcript, required ServiceConfig config}) async {
     for (var attempt = 0; attempt < 2; attempt++) {
       final content = await _chat(transcript, config);
       final meta = parseMeta(content);
@@ -63,12 +61,12 @@ class TaggingApi {
     throw MikroApiException(ApiErrorKind.badTags, 'meta object unparsable');
   }
 
-  Future<String> _chat(String transcript, ProviderConfig config) {
-    final clipped = transcript.length > _maxTranscriptChars
-        ? transcript.substring(0, _maxTranscriptChars)
-        : transcript;
-    return chatCompletion(_dio, config: config, system: _systemPrompt, user: clipped);
-  }
+  /// The whole transcript goes to the model. It used to be clipped to 8000 characters, which
+  /// labelled long recordings by their first minutes only. The real limit is the model's context
+  /// window and the provider's token quota — exceeding them is an ordinary API error
+  /// (`tooLarge` / `rateLimit`) that the recording shows, not a silent truncation.
+  Future<String> _chat(String transcript, ServiceConfig config) =>
+      chatCompletion(_dio, config: config, system: _systemPrompt, user: transcript);
 
   /// Extracts the `{"title": ..., "tags": [...]}` object from model output.
   ///

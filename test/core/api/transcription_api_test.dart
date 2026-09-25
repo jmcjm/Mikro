@@ -8,11 +8,10 @@ import 'package:mikro/core/api/transcription_api.dart';
 import 'package:mikro/core/models/provider_config.dart';
 
 void main() {
-  const config = ProviderConfig(
+  const config = ServiceConfig(
     baseUrl: 'https://api.test/v1',
     apiKey: 'k',
-    sttModel: 'whisper-x',
-    tagModel: 'llm-x',
+    model: 'whisper-x',
   );
   late Dio dio;
   late DioAdapter adapter;
@@ -93,18 +92,17 @@ void main() {
 
     final form = sentRequest!.data as FormData;
     final formFields = {for (final f in form.fields) f.key: f.value};
-    expect(formFields['model'], config.sttModel,
+    expect(formFields['model'], config.model,
         reason: 'multipart must carry the selected STT model in the model field');
     expect(form.files.map((f) => f.key), contains('file'),
         reason: 'multipart must carry the recording in the file field');
   });
 
   group('diarization', () {
-    const diarizeConfig = ProviderConfig(
+    const diarizeConfig = ServiceConfig(
       baseUrl: 'https://api.test/v1',
       apiKey: 'k',
-      sttModel: 'gpt-4o-transcribe-diarize',
-      tagModel: 'llm-x',
+      model: 'gpt-4o-transcribe-diarize',
     );
 
     test('only models named "diarize" ask for speakers', () {

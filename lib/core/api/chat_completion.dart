@@ -7,7 +7,7 @@ import 'api_errors.dart';
 /// Returns the raw `choices[0].message.content`; parsing it is the caller's business.
 Future<String> chatCompletion(
   Dio dio, {
-  required ProviderConfig config,
+  required ServiceConfig config,
   required String system,
   required String user,
   double temperature = 0,
@@ -16,7 +16,7 @@ Future<String> chatCompletion(
     final response = await dio.post<dynamic>(
       '${config.baseUrl}/chat/completions',
       data: {
-        'model': config.tagModel,
+        'model': config.model,
         'temperature': temperature,
         'messages': [
           {'role': 'system', 'content': system},

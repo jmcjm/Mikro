@@ -57,53 +57,75 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
+/// Editable settings of one [ApiTask]: preset, address, key and model.
+class _TaskForm {
+  _TaskForm(this.task);
+
+  final ApiTask task;
+  final baseUrl = TextEditingController();
+  final apiKey = TextEditingController();
+  final model = TextEditingController();
+  ProviderPreset preset = ProviderPreset.groq;
+  bool keyHidden = true;
+
+  void load(ServiceConfig config) {
+    baseUrl.text = config.baseUrl;
+    apiKey.text = config.apiKey;
+    model.text = config.model;
+    preset = ProviderPreset.of(config.baseUrl);
+  }
+
+  /// Switching preset fills address and model; the key is left alone — it belongs to the
+  /// user, and clearing it on a misclick would be worse than a stale value.
+  void applyPreset(ProviderPreset next) {
+    preset = next;
+    if (next == ProviderPreset.custom) return;
+    baseUrl.text = next.baseUrl;
+    model.text = next.model(task);
+  }
+
+  ServiceConfig get value => ServiceConfig(
+        baseUrl: baseUrl.text.trim(),
+        apiKey: apiKey.text.trim(),
+        model: model.text.trim(),
+      );
+
+  void dispose() {
+    baseUrl.dispose();
+    apiKey.dispose();
+    model.dispose();
+  }
+}
+
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  final _baseUrl = TextEditingController();
-  final _apiKey = TextEditingController();
-  final _sttModel = TextEditingController();
-  final _tagModel = TextEditingController();
-  ProviderPreset _preset = ProviderPreset.groq;
+  final _forms = {for (final task in ApiTask.values) task: _TaskForm(task)};
   var _loaded = false;
-  var _apiKeyHidden = true;
 
   @override
   void initState() {
     super.initState();
-    ref.read(settingsRepositoryProvider).load().then((config) {
-      if (!mounted) return;
-      if (config != null) {
-        _baseUrl.text = config.baseUrl;
-        _apiKey.text = config.apiKey;
-        _sttModel.text = config.sttModel;
-        _tagModel.text = config.tagModel;
-        _preset = ProviderPreset.values.firstWhere(
-          (p) => p.baseUrl == config.baseUrl,
-          orElse: () => ProviderPreset.custom,
-        );
-      } else {
-        _applyPreset(ProviderPreset.groq);
-      }
-      setState(() => _loaded = true);
-    });
+    _load();
   }
 
-  void _applyPreset(ProviderPreset preset) {
-    _preset = preset;
-    if (preset != ProviderPreset.custom) {
-      _baseUrl.text = preset.baseUrl;
-      _sttModel.text = preset.sttModel;
-      _tagModel.text = preset.tagModel;
+  Future<void> _load() async {
+    final repo = ref.read(settingsRepositoryProvider);
+    for (final form in _forms.values) {
+      final config = await repo.raw(form.task);
+      // Nothing stored at all (fresh install) -> start from the Groq preset, as before.
+      if (config.baseUrl.isEmpty) {
+        form.applyPreset(ProviderPreset.groq);
+      } else {
+        form.load(config);
+      }
     }
-    setState(() {});
+    if (mounted) setState(() => _loaded = true);
   }
 
   Future<void> _save() async {
-    await ref.read(settingsRepositoryProvider).save(ProviderConfig(
-          baseUrl: _baseUrl.text.trim(),
-          apiKey: _apiKey.text.trim(),
-          sttModel: _sttModel.text.trim(),
-          tagModel: _tagModel.text.trim(),
-        ));
+    final repo = ref.read(settingsRepositoryProvider);
+    for (final form in _forms.values) {
+      await repo.save(form.task, form.value);
+    }
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context).settingsSaved)));
@@ -117,10 +139,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   void dispose() {
-    _baseUrl.dispose();
-    _apiKey.dispose();
-    _sttModel.dispose();
-    _tagModel.dispose();
+    for (final form in _forms.values) {
+      form.dispose();
+    }
     super.dispose();
   }
 
@@ -173,8 +194,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            _providerSection(colors, l10n),
-                            const SizedBox(height: 20),
+                            for (final task in ApiTask.values) ...[
+                              _taskSection(_forms[task]!, colors, l10n),
+                              const SizedBox(height: 24),
+                            ],
                             _themeSection(colors, l10n),
                           ],
                         ),
@@ -192,61 +215,61 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _providerSection(ColorScheme colors, AppLocalizations l10n) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _sectionLabel(l10n.settingsProviderSection, colors),
-          const SizedBox(height: 10),
-          _providerConnectedButtonGroup(colors, l10n),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _baseUrl,
-            enabled: _preset == ProviderPreset.custom,
-            style: _monoValueStyle(colors),
-            decoration: _fieldDecoration(l10n.settingsBaseUrl, colors),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _apiKey,
-            obscureText: _apiKeyHidden,
-            style: TextStyle(fontSize: 15, letterSpacing: 2, color: colors.onSurface),
-            decoration: _fieldDecoration(
-              l10n.settingsApiKey,
-              colors,
-              suffixIcon: IconButton(
-                onPressed: () => setState(() => _apiKeyHidden = !_apiKeyHidden),
-                icon: Icon(
-                  _apiKeyHidden ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
-                  fill: 1,
-                  size: 22,
-                ),
-                color: colors.onSurfaceVariant,
-                tooltip: _apiKeyHidden ? l10n.settingsShowKey : l10n.settingsHideKey,
+  Widget _taskSection(_TaskForm form, ColorScheme colors, AppLocalizations l10n) {
+    final (title, modelHelp, keyHelp) = switch (form.task) {
+      ApiTask.stt => (l10n.settingsSttSection, l10n.settingsSttModelHelp, null),
+      ApiTask.tags => (l10n.settingsTagsSection, null, l10n.settingsApiKeyInheritHelp),
+      ApiTask.notes => (l10n.settingsNotesSection, null, l10n.settingsApiKeyInheritHelp),
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionLabel(title, colors),
+        const SizedBox(height: 10),
+        _providerConnectedButtonGroup(form, colors, l10n),
+        const SizedBox(height: 10),
+        TextField(
+          controller: form.baseUrl,
+          enabled: form.preset == ProviderPreset.custom,
+          style: _monoValueStyle(colors),
+          decoration: _fieldDecoration(l10n.settingsBaseUrl, colors),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: form.apiKey,
+          obscureText: form.keyHidden,
+          style: TextStyle(fontSize: 15, letterSpacing: 2, color: colors.onSurface),
+          decoration: _fieldDecoration(
+            l10n.settingsApiKey,
+            colors,
+            suffixIcon: IconButton(
+              onPressed: () => setState(() => form.keyHidden = !form.keyHidden),
+              icon: Icon(
+                form.keyHidden ? Symbols.visibility_rounded : Symbols.visibility_off_rounded,
+                fill: 1,
+                size: 22,
               ),
+              color: colors.onSurfaceVariant,
+              tooltip: form.keyHidden ? l10n.settingsShowKey : l10n.settingsHideKey,
             ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _sttModel,
-            style: _monoValueStyle(colors),
-            decoration: _fieldDecoration(l10n.settingsSttModel, colors).copyWith(
-              helperText: l10n.settingsSttModelHelp,
-              helperMaxLines: 3,
-            ),
-          ),
-          const SizedBox(height: 10),
-          TextField(
-            controller: _tagModel,
-            style: _monoValueStyle(colors),
-            decoration: _fieldDecoration(l10n.settingsTagModel, colors),
-          ),
-        ],
-      );
+          ).copyWith(helperText: keyHelp, helperMaxLines: 3),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: form.model,
+          style: _monoValueStyle(colors),
+          decoration: _fieldDecoration(l10n.settingsModel, colors)
+              .copyWith(helperText: modelHelp, helperMaxLines: 3),
+        ),
+      ],
+    );
+  }
 
   /// Provider segment button group in MD3 Expressive connected style:
   /// height 56 dp, 2 dp gap, outer radii 28 dp, inner radii 8 dp,
   /// with selected segment receiving full 28 dp rounding on all corners.
-  Widget _providerConnectedButtonGroup(ColorScheme colors, AppLocalizations l10n) {
+  Widget _providerConnectedButtonGroup(
+      _TaskForm form, ColorScheme colors, AppLocalizations l10n) {
     final segments = [
       (preset: ProviderPreset.groq, label: 'Groq'),
       (preset: ProviderPreset.openai, label: 'OpenAI'),
@@ -261,11 +284,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             if (i > 0) const SizedBox(width: 2),
             Expanded(
               child: _providerSegmentItem(
+                form: form,
                 preset: segments[i].preset,
                 label: segments[i].label,
                 index: i,
                 total: segments.length,
-                isSelected: _preset == segments[i].preset,
+                isSelected: form.preset == segments[i].preset,
                 colors: colors,
               ),
             ),
@@ -276,6 +300,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Widget _providerSegmentItem({
+    required _TaskForm form,
     required ProviderPreset preset,
     required String label,
     required int index,
@@ -311,7 +336,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: radius,
-          onTap: () => _applyPreset(preset),
+          onTap: () => setState(() => form.applyPreset(preset)),
           child: Center(
             child: Text(
               label,
