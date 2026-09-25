@@ -585,8 +585,44 @@
     "description": "Naglowek sekcji ustawien API dla notatek."
   },
   "settingsModel": "Model",
+  "navQuickRecord": "Zacznij nagrywać",
+  "@navQuickRecord": {"description": "Podpowiedz przycisku szybkiego nagrywania w bocznej szynie."},
+  "navQuickRecordStop": "Zatrzymaj nagrywanie",
+  "@navQuickRecordStop": {"description": "Podpowiedz przycisku szybkiego nagrywania podczas nagrania."},
+  "translateTooltip": "Przetłumacz",
+  "@translateTooltip": {"description": "Podpowiedz przycisku tlumaczenia transkrypcji i notatki."},
+  "translatePickTitle": "Przetłumacz na",
+  "@translatePickTitle": {"description": "Tytul dialogu wyboru jezyka docelowego."},
+  "translationOriginal": "Oryginał",
+  "@translationOriginal": {"description": "Chip pokazujacy oryginalny tekst zamiast tlumaczenia."},
+  "translationDeleteTooltip": "Usuń tłumaczenie",
+  "@translationDeleteTooltip": {"description": "Podpowiedz usuwania zapisanego tlumaczenia."},
+  "tagColorTitle": "Kolor tagu „{tag}”",
+  "@tagColorTitle": {"description": "Tytul dialogu wyboru koloru tagu.", "placeholders": {"tag": {"type": "String"}}},
+  "tagColorDefault": "Domyślny",
+  "noteColorTitle": "Kolor notatki",
+  "@noteColorTitle": {"description": "Tytul dialogu wyboru koloru notatki."},
+  "noteColorTooltip": "Kolor",
+  "@noteColorTooltip": {"description": "Podpowiedz przycisku koloru notatki."},
+  "@tagColorDefault": {"description": "Opcja przywracajaca domyslny kolor tagu."},
+  "settingsTranslateSection": "TŁUMACZENIE",
+  "@settingsTranslateSection": {
+    "description": "Naglowek sekcji API tlumaczen transkrypcji i notatek."
+  },
   "@settingsModel": {
     "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
+  },
+  "settingsSampling": "Steruj temperaturą i top_p",
+  "@settingsSampling": {
+    "description": "Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek."
+  },
+  "settingsSamplingHelp": "Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.",
+  "@settingsSamplingHelp": {
+    "description": "Ostrzezenie pod przelacznikiem temperatury i top_p."
+  },
+  "settingsTemperature": "Temperatura",
+  "@settingsTemperature": {
+    "description": "Etykieta pola temperatury modelu."
   },
   "settingsApiKeyInheritHelp": "Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.",
   "@settingsApiKeyInheritHelp": {
@@ -619,6 +655,14 @@
   "settingsNoteStyleMeetingHelp": "Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.",
   "@settingsNoteStyleMeetingHelp": {
     "description": "Opis presetu protokolu."
+  },
+  "settingsNoteStyleCasual": "Luźna",
+  "@settingsNoteStyleCasual": {
+    "description": "Preset stylu notatek: luzny, z umiarkowana liczba emoji."
+  },
+  "settingsNoteStyleCasualHelp": "Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.",
+  "@settingsNoteStyleCasualHelp": {
+    "description": "Opis presetu luznego."
   },
   "settingsNoteStyleCustom": "Własna",
   "@settingsNoteStyleCustom": {

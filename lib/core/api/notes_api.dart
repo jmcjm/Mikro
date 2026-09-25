@@ -47,6 +47,12 @@ class NotesApi {
         'material for them: participants, topics discussed (a short summary per topic), '
         'decisions, action items as checkboxes ("- [ ] owner — task — deadline", with owner and '
         'deadline only when stated), open questions.',
+    NoteStyle.casual:
+        'Style: relaxed, friendly notes, as if written for a friend. Short, conversational '
+        'sentences and bullet points, light level-2 headings where they help. Use emoji '
+        'sparingly and only where they add meaning: one at the start of a section heading or '
+        'next to a key point — never on every line, never several in a row, a handful in the '
+        'whole note. If there are tasks, list them as checkboxes ("- [ ] ...").',
   };
 
   /// Style part of the system prompt. Custom instructions that are empty fall back to the
@@ -71,7 +77,6 @@ class NotesApi {
       config: config,
       system: '$_formatRules\n\n${styleInstructions(style, customStyle)}',
       user: transcript,
-      temperature: 0.2,
     );
     final note = parseNote(content);
     if (note == null) {

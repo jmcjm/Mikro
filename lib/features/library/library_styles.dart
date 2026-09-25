@@ -6,6 +6,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/recording_status.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/accent_palette.dart';
 import '../../l10n/app_localizations.dart';
 
 /// Shared visual elements for library and recording details, matching design mockups
@@ -112,17 +113,22 @@ class StatusBadge extends StatelessWidget {
 ///
 /// [onDelete] adds a trailing delete icon to remove the tag from the recording.
 /// Only detail views receive deletion capability; on library cards and filter bars tags act as filters.
+///
+/// [color] is the tag's [AccentPalette] index, passed in by the caller (which watches
+/// `tagColorsProvider`) so the chip itself stays a plain widget.
 class TagChip extends StatelessWidget {
   const TagChip({
     super.key,
     required this.label,
     this.dense = false,
+    this.color,
     this.onTap,
     this.onDelete,
   });
 
   final String label;
   final bool dense;
+  final int? color;
   final VoidCallback? onTap;
   final VoidCallback? onDelete;
 
@@ -130,8 +136,10 @@ class TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
+    final (background, foreground) = AccentPalette.of(context).chip(color, scheme.brightness) ??
+        (scheme.secondaryContainer, scheme.onSecondaryContainer);
     return Material(
-      color: scheme.secondaryContainer,
+      color: background,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -155,7 +163,7 @@ class TagChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: dense ? 12 : 14,
                     fontWeight: FontWeight.w500,
-                    color: scheme.onSecondaryContainer,
+                    color: foreground,
                   ),
                 ),
                 if (onDelete != null)
@@ -168,7 +176,7 @@ class TagChip extends StatelessWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                         child: Icon(Symbols.close_rounded,
-                            fill: 1, size: 16, color: scheme.onSecondaryContainer),
+                            fill: 1, size: 16, color: foreground),
                       ),
                     ),
                   ),

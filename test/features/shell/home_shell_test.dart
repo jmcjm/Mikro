@@ -216,4 +216,39 @@ void main() {
     expect(find.byType(LibraryScreen), findsOneWidget);
     await settle(tester);
   });
+
+  testWidgets('rail microphone is quick record: starts from any tab, then stops', (tester) async {
+    await mount(tester,
+        size: const Size(1280, 800),
+        extraOverrides: [recorderControllerProvider.overrideWith(FakeRecorderController.new)]);
+    container.read(homeTabProvider.notifier).select(HomeTab.notes);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip(plL10n.navQuickRecord));
+    // Recording animates the level meter forever, so pumpAndSettle would never return.
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(homeTabProvider), HomeTab.recorder);
+    expect(container.read(recorderControllerProvider).isRecording, isTrue,
+        reason: 'unlike the Record destination, it starts recording');
+
+    await tester.tap(find.byTooltip(plL10n.navQuickRecordStop));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(container.read(recorderControllerProvider).isRecording, isFalse);
+    await settle(tester);
+  });
+
+  testWidgets('rail palette opens Settings scrolled to the theme section', (tester) async {
+    await mount(tester, size: const Size(1280, 800));
+    await tester.pumpAndSettle();
+    // Before: the theme section sits below four API sections, out of view.
+    expect(tester.getRect(find.text('Dracula', skipOffstage: false)).top, greaterThan(800));
+
+    await tester.tap(find.byTooltip(plL10n.navAppearance));
+    await tester.pumpAndSettle();
+
+    expect(container.read(homeTabProvider), HomeTab.settings);
+    expect(tester.getRect(find.text('Dracula')).top, lessThan(800),
+        reason: 'the theme cards are on screen without scrolling by hand');
+    await settle(tester);
+  });
 }

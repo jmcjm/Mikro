@@ -18,6 +18,8 @@ class _Settings implements SettingsRepository {
   Future<void> save(ApiTask task, ServiceConfig config) async {}
   @override
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
+  @override
+  SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
   NoteStyleSetting style = const NoteStyleSetting(style: NoteStyle.detailed);
   @override
   NoteStyleSetting loadNoteStyle() => style;
@@ -91,6 +93,16 @@ void main() {
       'poprawiony ręcznie',
       reason: 'manual transcript corrections must reach the note',
     );
+  });
+
+  test('a new note gets a copy of the recording tags', () async {
+    await db.setTranscript('r', 'tekst', 'whisper-x');
+    await db.setTags('r', ['praca', 'mikro']);
+    modelReplies('# T\n\nx');
+
+    final id = await service().createFromRecording('r');
+
+    expect((await db.watchNoteTags().first)[id], ['mikro', 'praca']);
   });
 
   test('falls back to the recording title when the model gives none', () async {

@@ -1,14 +1,36 @@
 /// The three jobs the app sends to an API. Each has its own endpoint, key and model, so e.g.
 /// transcription can run on ElevenLabs while notes use a stronger model elsewhere.
-enum ApiTask { stt, tags, notes }
+enum ApiTask { stt, tags, notes, translate }
 
 /// Endpoint for one [ApiTask]: base URL, its API key and the model name.
 class ServiceConfig {
-  const ServiceConfig({required this.baseUrl, required this.apiKey, required this.model});
+  const ServiceConfig({
+    required this.baseUrl,
+    required this.apiKey,
+    required this.model,
+    this.sampling,
+  });
 
   final String baseUrl;
   final String apiKey;
   final String model;
+
+  /// Sampling parameters sent with chat requests, or `null` to send none and leave the
+  /// model's defaults. Opt-in because not every model accepts them: OpenAI's reasoning
+  /// models answer HTTP 400 to any temperature other than the default.
+  final SamplingParams? sampling;
+}
+
+class SamplingParams {
+  const SamplingParams({required this.temperature, required this.topP});
+
+  /// Defaults offered when the user turns sampling control on for [task]: deterministic
+  /// titles and tags, a little room for phrasing in notes.
+  factory SamplingParams.defaultFor(ApiTask task) =>
+      SamplingParams(temperature: task == ApiTask.notes ? 0.2 : 0, topP: 1);
+
+  final double temperature;
+  final double topP;
 }
 
 /// Wire format of a transcription request. Titles, tags and notes always go through
@@ -31,11 +53,13 @@ enum ProviderPreset {
     ApiTask.tags: 'llama-3.1-8b-instant',
     // A title and five tags are fine on 8B; a structured summary of a whole recording is not.
     ApiTask.notes: 'llama-3.3-70b-versatile',
+    ApiTask.translate: 'llama-3.3-70b-versatile',
   }),
   openai('https://api.openai.com/v1', {
     ApiTask.stt: 'whisper-1',
     ApiTask.tags: 'gpt-4o-mini',
     ApiTask.notes: 'gpt-4o-mini',
+    ApiTask.translate: 'gpt-4o-mini',
   }),
   // Speech-to-text only: ElevenLabs has no chat completion API.
   elevenlabs('https://api.elevenlabs.io/v1', {ApiTask.stt: 'scribe_v2'}, SttProtocol.elevenlabs),
@@ -46,8 +70,9 @@ enum ProviderPreset {
     ApiTask.stt: 'gemini-3.8-flash',
     ApiTask.tags: 'gemini-3.5-flash-lite',
     ApiTask.notes: 'gemini-3.8-flash',
+    ApiTask.translate: 'gemini-3.8-flash',
   }, SttProtocol.gemini),
-  custom('', {ApiTask.stt: '', ApiTask.tags: '', ApiTask.notes: ''});
+  custom('', {ApiTask.stt: '', ApiTask.tags: '', ApiTask.notes: '', ApiTask.translate: ''});
 
   const ProviderPreset(this.baseUrl, this._models, [this.sttProtocol = SttProtocol.openai]);
 
@@ -74,4 +99,4 @@ enum ProviderPreset {
 
 /// How notes are written. Sent to the model as style instructions on top of the fixed format
 /// rules (Markdown, title heading, language of the transcript, no invented facts).
-enum NoteStyle { detailed, concise, meeting, custom }
+enum NoteStyle { detailed, concise, meeting, casual, custom }

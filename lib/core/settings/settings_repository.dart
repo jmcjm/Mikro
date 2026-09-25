@@ -45,20 +45,53 @@ class SettingsRepository {
     ApiTask.stt => 'stt_model',
     ApiTask.tags => 'tag_model',
     ApiTask.notes => 'notes_model',
+    ApiTask.translate => 'translate_model',
   };
 
   static String apiKeyName(ApiTask task) => 'api_key_${task.name}';
 
+  static String samplingEnabledKey(ApiTask task) => '${task.name}_sampling_enabled';
+  static String temperatureKey(ApiTask task) => '${task.name}_temperature';
+  static String topPKey(ApiTask task) => '${task.name}_top_p';
+
+  /// Sampling is stored as an on/off flag plus both values, so turning it off and on again
+  /// brings the user's numbers back instead of the defaults. Absent flag means off: nothing
+  /// is sent, which every model accepts.
+  SamplingParams? _sampling(ApiTask task) =>
+      (_prefs.getBool(samplingEnabledKey(task)) ?? false) ? samplingValues(task) : null;
+
+  /// Stored sampling values whether or not they are switched on — the settings screen shows
+  /// them when the user turns the switch on.
+  SamplingParams samplingValues(ApiTask task) {
+    final defaults = SamplingParams.defaultFor(task);
+    return SamplingParams(
+      temperature: _prefs.getDouble(temperatureKey(task)) ?? defaults.temperature,
+      topP: _prefs.getDouble(topPKey(task)) ?? defaults.topP,
+    );
+  }
+
   /// Settings as stored, including incomplete ones — this is what the settings screen edits.
+  ///
+  /// Translation came after the per-task split, so an installation that never saved it
+  /// inherits the notes settings wholesale (address, key, model) instead of starting blank —
+  /// both are "a chat model working on a whole transcript".
   Future<ServiceConfig> raw(ApiTask task) async {
-    final baseUrl = _prefs.getString(baseUrlKey(task)) ?? _prefs.getString(legacyBaseUrlKey) ?? '';
+    final parent = task == ApiTask.translate ? await raw(ApiTask.notes) : null;
+    final baseUrl = _prefs.getString(baseUrlKey(task)) ??
+        parent?.baseUrl ??
+        _prefs.getString(legacyBaseUrlKey) ??
+        '';
     final model =
         _prefs.getString(modelKey(task)) ??
+        parent?.model ??
         (task == ApiTask.notes ? _prefs.getString(modelKey(ApiTask.tags)) : null) ??
         '';
-    final apiKey =
-        await _keyStore.read(apiKeyName(task)) ?? await _keyStore.read(legacyApiKeyName) ?? '';
-    return ServiceConfig(baseUrl: baseUrl, apiKey: apiKey, model: model);
+    final apiKey = await _keyStore.read(apiKeyName(task)) ??
+        parent?.apiKey ??
+        await _keyStore.read(legacyApiKeyName) ??
+        '';
+    return ServiceConfig(
+        baseUrl: baseUrl, apiKey: apiKey, model: model, sampling: _sampling(task));
   }
 
   /// Usable settings for [task], or `null` when address or key is missing.
@@ -75,13 +108,20 @@ class SettingsRepository {
       if (stt.baseUrl == config.baseUrl) apiKey = stt.apiKey;
     }
     if (apiKey.isEmpty) return null;
-    return ServiceConfig(baseUrl: config.baseUrl, apiKey: apiKey, model: config.model);
+    return ServiceConfig(
+        baseUrl: config.baseUrl, apiKey: apiKey, model: config.model, sampling: config.sampling);
   }
 
   Future<void> save(ApiTask task, ServiceConfig config) async {
     await _prefs.setString(baseUrlKey(task), config.baseUrl);
     await _prefs.setString(modelKey(task), config.model);
     await _keyStore.write(apiKeyName(task), config.apiKey);
+    final sampling = config.sampling;
+    await _prefs.setBool(samplingEnabledKey(task), sampling != null);
+    if (sampling != null) {
+      await _prefs.setDouble(temperatureKey(task), sampling.temperature);
+      await _prefs.setDouble(topPKey(task), sampling.topP);
+    }
   }
 
   static const noteStyleKey = 'notes_style';

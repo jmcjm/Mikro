@@ -441,6 +441,51 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get navQuickRecord => 'Zacznij nagrywać';
+
+  @override
+  String get navQuickRecordStop => 'Zatrzymaj nagrywanie';
+
+  @override
+  String get translateTooltip => 'Przetłumacz';
+
+  @override
+  String get translatePickTitle => 'Przetłumacz na';
+
+  @override
+  String get translationOriginal => 'Oryginał';
+
+  @override
+  String get translationDeleteTooltip => 'Usuń tłumaczenie';
+
+  @override
+  String tagColorTitle(String tag) {
+    return 'Kolor tagu „$tag”';
+  }
+
+  @override
+  String get tagColorDefault => 'Domyślny';
+
+  @override
+  String get noteColorTitle => 'Kolor notatki';
+
+  @override
+  String get noteColorTooltip => 'Kolor';
+
+  @override
+  String get settingsTranslateSection => 'TŁUMACZENIE';
+
+  @override
+  String get settingsSampling => 'Steruj temperaturą i top_p';
+
+  @override
+  String get settingsSamplingHelp =>
+      'Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.';
+
+  @override
+  String get settingsTemperature => 'Temperatura';
+
+  @override
   String get settingsApiKeyInheritHelp =>
       'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
 
@@ -467,6 +512,13 @@ class AppLocalizationsPl extends AppLocalizations {
   @override
   String get settingsNoteStyleMeetingHelp =>
       'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.';
+
+  @override
+  String get settingsNoteStyleCasual => 'Luźna';
+
+  @override
+  String get settingsNoteStyleCasualHelp =>
+      'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.';
 
   @override
   String get settingsNoteStyleCustom => 'Własna';

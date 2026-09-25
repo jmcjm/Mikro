@@ -116,6 +116,12 @@ void main() {
       expect(prompts, hasLength(NoteStyle.values.length));
     });
 
+    test('casual style asks for emoji, but only a few', () {
+      final prompt = NotesApi.styleInstructions(NoteStyle.casual, '');
+      expect(prompt, contains('emoji'));
+      expect(prompt, contains('sparingly'), reason: 'without a cap small models flood the note');
+    });
+
     test('custom instructions are passed through verbatim', () async {
       final prompt = await systemPromptFor(NoteStyle.custom, '  Pisz jak do studenta.  ');
       expect(prompt, contains('Pisz jak do studenta.'));

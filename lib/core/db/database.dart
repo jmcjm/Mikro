@@ -40,6 +40,11 @@ class Recordings extends Table {
 class Tags extends Table {
   IntColumn get id => integer().autoIncrement()();
   TextColumn get name => text().unique()();
+
+  /// Index into the app's tag palette ([TagColor]), `null` for the default look. Stored as an
+  /// index, not an ARGB value, so the palette can follow the theme (light/dark) instead of
+  /// freezing one shade.
+  IntColumn get color => integer().nullable()();
 }
 
 class RecordingTags extends Table {
@@ -64,8 +69,36 @@ class Notes extends Table {
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
+  /// [AccentPalette] index chosen by the user, `null` for the default look.
+  IntColumn get color => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// Tags of a note. Copied from the source recording when the note is made, then independent:
+/// the note keeps them when the recording is re-tagged or deleted.
+class NoteTags extends Table {
+  TextColumn get noteId => text().references(Notes, #id, onDelete: KeyAction.cascade)();
+  IntColumn get tagId => integer().references(Tags, #id, onDelete: KeyAction.cascade)();
+
+  @override
+  Set<Column> get primaryKey => {noteId, tagId};
+}
+
+/// Translation of a recording's transcript or of a note, stored next to the original. Exactly
+/// one of [recordingId] / [noteId] is set; one row per source and [language] — translating
+/// again into the same language replaces it.
+class Translations extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get recordingId =>
+      text().nullable().references(Recordings, #id, onDelete: KeyAction.cascade)();
+  TextColumn get noteId => text().nullable().references(Notes, #id, onDelete: KeyAction.cascade)();
+
+  /// Language code from [TranslationLanguage], e.g. `en`.
+  TextColumn get language => text()();
+  TextColumn get content => text()();
+  DateTimeColumn get createdAt => dateTime()();
 }
 
 class RecordingWithTags {
@@ -75,7 +108,7 @@ class RecordingWithTags {
   final List<String> tags;
 }
 
-@DriftDatabase(tables: [Recordings, Tags, RecordingTags, Notes])
+@DriftDatabase(tables: [Recordings, Tags, RecordingTags, Notes, NoteTags, Translations])
 class AppDatabase extends _$AppDatabase {
   AppDatabase()
       : super(driftDatabase(
@@ -87,7 +120,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 7;
 
   /// Value of the `error_kind` column for network errors — the only kind that makes sense
   /// to retry when connectivity restores. The pipeline persists this as `ApiErrorKind.network.name`,
@@ -117,6 +150,23 @@ class AppDatabase extends _$AppDatabase {
           // v4 -> v5: adds the notes table. Nothing to backfill — notes are created on demand.
           if (from < 5) {
             await m.createTable(notes);
+          }
+          // v5 -> v6: tag colours, note tags and translations. Existing notes get the tags
+          // their source recording has now — the closest thing to "copied when made".
+          if (from < 6) {
+            await m.addColumn(tags, tags.color);
+            await m.createTable(noteTags);
+            await m.createTable(translations);
+            await customStatement(
+                'INSERT OR IGNORE INTO note_tags (note_id, tag_id) '
+                'SELECT n.id, rt.tag_id FROM notes n '
+                'JOIN recording_tags rt ON rt.recording_id = n.recording_id');
+          }
+          // v6 -> v7: note colour. Existing notes keep the default look. Only for databases
+          // that already had the notes table: below v5 the createTable above builds it from
+          // the current definition, colour included, and adding it again would fail.
+          if (from >= 5 && from < 7) {
+            await m.addColumn(notes, notes.color);
           }
         },
         beforeOpen: (details) async {
@@ -207,12 +257,18 @@ class AppDatabase extends _$AppDatabase {
         await (delete(recordingTags)
               ..where((rt) => rt.recordingId.equals(recordingId) & rt.tagId.equals(tag.id)))
             .go();
-        final stillUsed =
-            await (select(recordingTags)..where((rt) => rt.tagId.equals(tag.id))).get();
-        if (stillUsed.isEmpty) {
-          await (delete(tags)..where((t) => t.id.equals(tag.id))).go();
-        }
+        await _deleteOrphanTags();
       });
+
+  /// Removes tags used by no recording and no note. Typed, so streams watching Tags hear
+  /// about it. Every place that unlinks tags must call this, or colours and names of tags
+  /// nobody uses would pile up — and a tag used only by notes must survive.
+  Future<void> _deleteOrphanTags() async {
+    final onRecordings = selectOnly(recordingTags)..addColumns([recordingTags.tagId]);
+    final onNotes = selectOnly(noteTags)..addColumns([noteTags.tagId]);
+    await (delete(tags)..where((t) => t.id.isNotInQuery(onRecordings) & t.id.isNotInQuery(onNotes)))
+        .go();
+  }
 
   /// Rolls a recording back to the state right after recording: clears transcript, model, title,
   /// error and ALL tags (manual ones too — they described the old transcript), then sets status to
@@ -232,26 +288,22 @@ class AppDatabase extends _$AppDatabase {
           ),
         );
         await (delete(recordingTags)..where((rt) => rt.recordingId.equals(id))).go();
-        final used = selectOnly(recordingTags)..addColumns([recordingTags.tagId]);
-        await (delete(tags)..where((t) => t.id.isNotInQuery(used))).go();
+        await _deleteOrphanTags();
       });
 
   /// Deletes a recording and cleans up orphaned tags.
   ///
-  /// Raw `customStatement` is safe here ONLY because typed `delete(recordings)` runs in the same transaction:
-  /// it signals to drift that the recordings table has changed, invalidating the streams.
-  /// A raw customStatement alone does not invalidate anything — a stream watching only the Tags table
-  /// would not receive an invalidation notification and would show deleted tags.
-  ///
-  /// Linked notes are unlinked with a typed update before the delete. The foreign key would set
-  /// NULL on its own, but a change made by SQLite's `ON DELETE` is invisible to drift, so streams
-  /// watching the Notes table would keep pointing at a recording that no longer exists.
+  /// Everything hanging off the recording is removed or unlinked with typed statements first.
+  /// The foreign keys would do it on their own, but a change made by SQLite's `ON DELETE` is
+  /// invisible to drift, so streams watching those tables (notes pointing at the recording,
+  /// its translations, its tags) would keep showing rows that no longer exist.
   Future<void> deleteRecording(String id) => transaction(() async {
         await (update(notes)..where((n) => n.recordingId.equals(id)))
             .write(const NotesCompanion(recordingId: Value(null)));
+        await (delete(translations)..where((t) => t.recordingId.equals(id))).go();
+        await (delete(recordingTags)..where((rt) => rt.recordingId.equals(id))).go();
         await (delete(recordings)..where((r) => r.id.equals(id))).go();
-        await customStatement(
-            'DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM recording_tags)');
+        await _deleteOrphanTags();
       });
 
   /// Recordings that failed due to a network error — the only kind that makes sense to retry
@@ -332,7 +384,112 @@ class AppDatabase extends _$AppDatabase {
         updatedAt: Value(now),
       ));
 
-  Future<void> deleteNote(String id) => (delete(notes)..where((n) => n.id.equals(id))).go();
+  /// Same reasoning as [deleteRecording]: dependants go with typed deletes, not the cascade.
+  Future<void> deleteNote(String id) => transaction(() async {
+        await (delete(translations)..where((t) => t.noteId.equals(id))).go();
+        await (delete(noteTags)..where((nt) => nt.noteId.equals(id))).go();
+        await (delete(notes)..where((n) => n.id.equals(id))).go();
+        await _deleteOrphanTags();
+      });
+
+  /// Recolours a note without bumping `updatedAt`: a colour is not an edit, and the note
+  /// should not jump to the top of the list for it.
+  Future<void> setNoteColor(String id, int? color) =>
+      (update(notes)..where((n) => n.id.equals(id))).write(NotesCompanion(color: Value(color)));
+
+  // --- Note tags ---
+
+  /// Gives the note every tag the recording has right now.
+  Future<void> copyRecordingTagsToNote(String recordingId, String noteId) async {
+    final rows =
+        await (select(recordingTags)..where((rt) => rt.recordingId.equals(recordingId))).get();
+    await batch((b) => b.insertAll(
+          noteTags,
+          [for (final r in rows) NoteTagsCompanion.insert(noteId: noteId, tagId: r.tagId)],
+          mode: InsertMode.insertOrIgnore,
+        ));
+  }
+
+  Future<void> removeNoteTag(String noteId, String name) => transaction(() async {
+        final tag = await (select(tags)..where((t) => t.name.equals(normalizeTagName(name))))
+            .getSingleOrNull();
+        if (tag == null) return;
+        await (delete(noteTags)..where((nt) => nt.noteId.equals(noteId) & nt.tagId.equals(tag.id)))
+            .go();
+        await _deleteOrphanTags();
+      });
+
+  Future<void> addNoteTag(String noteId, String name) => transaction(() async {
+        final normalized = normalizeTagName(name);
+        await into(tags).insert(TagsCompanion.insert(name: normalized),
+            mode: InsertMode.insertOrIgnore);
+        final tag = await (select(tags)..where((t) => t.name.equals(normalized))).getSingle();
+        await into(noteTags).insert(NoteTagsCompanion.insert(noteId: noteId, tagId: tag.id),
+            mode: InsertMode.insertOrIgnore);
+      });
+
+  /// Tag names per note id, for the note view and note search.
+  Stream<Map<String, List<String>>> watchNoteTags() {
+    final query = select(noteTags).join([innerJoin(tags, tags.id.equalsExp(noteTags.tagId))])
+      ..orderBy([OrderingTerm.asc(tags.name)]);
+    return query.watch().map((rows) {
+      final byNote = <String, List<String>>{};
+      for (final row in rows) {
+        byNote.putIfAbsent(row.readTable(noteTags).noteId, () => []).add(row.readTable(tags).name);
+      }
+      return byNote;
+    });
+  }
+
+  // --- Tag colours ---
+
+  /// Colour index per tag name; tags with the default look are absent.
+  Stream<Map<String, int>> watchTagColors() =>
+      (select(tags)..where((t) => t.color.isNotNull())).watch().map(
+            (rows) => {for (final t in rows) t.name: t.color!},
+          );
+
+  Future<void> setTagColor(String name, int? color) =>
+      (update(tags)..where((t) => t.name.equals(normalizeTagName(name))))
+          .write(TagsCompanion(color: Value(color)));
+
+  // --- Translations ---
+
+  /// Stores [content] as the translation of a recording or a note into [language], replacing
+  /// an earlier translation into the same language.
+  Future<void> saveTranslation({
+    String? recordingId,
+    String? noteId,
+    required String language,
+    required String content,
+    required DateTime now,
+  }) {
+    assert((recordingId == null) != (noteId == null), 'exactly one source');
+    return transaction(() async {
+      await (delete(translations)
+            ..where((t) =>
+                (recordingId != null ? t.recordingId.equals(recordingId) : t.noteId.equals(noteId!)) &
+                t.language.equals(language)))
+          .go();
+      await into(translations).insert(TranslationsCompanion.insert(
+        recordingId: Value(recordingId),
+        noteId: Value(noteId),
+        language: language,
+        content: content,
+        createdAt: now,
+      ));
+    });
+  }
+
+  Stream<List<Translation>> watchTranslations({String? recordingId, String? noteId}) =>
+      (select(translations)
+            ..where((t) =>
+                recordingId != null ? t.recordingId.equals(recordingId) : t.noteId.equals(noteId!))
+            ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+          .watch();
+
+  Future<void> deleteTranslation(int id) =>
+      (delete(translations)..where((t) => t.id.equals(id))).go();
 
   Stream<List<Note>> watchNotes() =>
       (select(notes)..orderBy([(n) => OrderingTerm.desc(n.updatedAt)])).watch();

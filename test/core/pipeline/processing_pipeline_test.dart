@@ -28,6 +28,8 @@ class FakeSettings implements SettingsRepository {
   @override
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
+  SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
+  @override
   NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
   @override
   Future<void> saveNoteStyle(NoteStyleSetting setting) async {}
@@ -46,6 +48,8 @@ class ThrowingSettings implements SettingsRepository {
   Future<void> save(ApiTask task, ServiceConfig config) async {}
   @override
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
+  @override
+  SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
   @override
   NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
   @override

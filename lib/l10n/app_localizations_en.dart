@@ -444,6 +444,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsModel => 'Model';
 
   @override
+  String get navQuickRecord => 'Start recording';
+
+  @override
+  String get navQuickRecordStop => 'Stop recording';
+
+  @override
+  String get translateTooltip => 'Translate';
+
+  @override
+  String get translatePickTitle => 'Translate into';
+
+  @override
+  String get translationOriginal => 'Original';
+
+  @override
+  String get translationDeleteTooltip => 'Delete translation';
+
+  @override
+  String tagColorTitle(String tag) {
+    return 'Colour of “$tag”';
+  }
+
+  @override
+  String get tagColorDefault => 'Default';
+
+  @override
+  String get noteColorTitle => 'Note colour';
+
+  @override
+  String get noteColorTooltip => 'Colour';
+
+  @override
+  String get settingsTranslateSection => 'TRANSLATION';
+
+  @override
+  String get settingsSampling => 'Control temperature and top_p';
+
+  @override
+  String get settingsSamplingHelp =>
+      'Not every model supports this. Reasoning models (e.g. OpenAI GPT-5) reject it with HTTP 400 — leave it off for those.';
+
+  @override
+  String get settingsTemperature => 'Temperature';
+
+  @override
   String get settingsApiKeyInheritHelp =>
       'Leave empty to use the Transcription key when the address is the same.';
 
@@ -470,6 +515,13 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsNoteStyleMeetingHelp =>
       'Participants, topics, decisions, action items (who, what, by when) and open questions.';
+
+  @override
+  String get settingsNoteStyleCasual => 'Casual';
+
+  @override
+  String get settingsNoteStyleCasualHelp =>
+      'Relaxed and friendly, with a few well-placed emoji — not a wall of them.';
 
   @override
   String get settingsNoteStyleCustom => 'Custom';

@@ -87,7 +87,7 @@ void main() {
       // Address and model repeat in each of the three API sections (STT, tags, notes).
       for (final label in ['Base URL', 'Model']) {
         final matching = fields.where((c) => c.decoration?.labelText == label).toList();
-        expect(matching, hasLength(3), reason: 'field $label in every API section');
+        expect(matching, hasLength(4), reason: 'field $label in every API section');
         for (final field in matching) {
           expect(field.style?.fontFamily, monoFontFamily, reason: 'field $label is not mono');
           expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'field $label');

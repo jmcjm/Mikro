@@ -9,6 +9,7 @@ import 'core/theme/theme_providers.dart';
 import 'features/library/library_screen.dart';
 import 'features/notes/notes_screen.dart';
 import 'features/onboarding/onboarding_gate.dart';
+import 'features/recorder/recorder_controller.dart';
 import 'features/recorder/recorder_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/shell/home_tab.dart';
@@ -156,10 +157,12 @@ class _HomeNavigationBar extends StatelessWidget {
 /// Tablet layout rail: width 96, background `surfaceContainer`, indicator 56x32.
 ///
 /// The design mockup places a square with a microphone icon above the destinations and a palette button below them without
-/// specifying their actions. An icon without an action is worse than no icon, so both lead to where
-/// the corresponding feature belongs: microphone to the Record screen, palette to Settings where theme
-/// selection resides. Decision documented in report.
-class _HomeRail extends StatelessWidget {
+/// specifying their actions. The microphone is quick record — it starts (or stops) a recording
+/// in one click from any tab, which the "Record" destination below it does not; merely jumping
+/// to the Record screen would duplicate that destination. The palette leads to Settings, where
+/// theme selection resides — scrolled straight to the theme section, otherwise it would only
+/// duplicate the Settings destination.
+class _HomeRail extends ConsumerWidget {
   const _HomeRail({required this.index, required this.onSelected, required this.l10n});
 
   final int index;
@@ -167,7 +170,8 @@ class _HomeRail extends StatelessWidget {
   final AppLocalizations l10n;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final recording = ref.watch(recorderControllerProvider).isRecording;
     final scheme = Theme.of(context).colorScheme;
     final labels = [l10n.navRecord, l10n.navLibrary, l10n.navNotes, l10n.navSettings];
     final icons = [
@@ -201,12 +205,18 @@ class _HomeRail extends StatelessWidget {
       leading: Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 12),
         child: _RailButton(
-          icon: Symbols.mic_rounded,
+          icon: recording ? Symbols.stop_rounded : Symbols.mic_rounded,
           iconSize: 28,
-          background: scheme.primary,
-          foreground: scheme.onPrimary,
-          tooltip: l10n.navRecord,
-          onTap: () => onSelected(HomeTab.recorder),
+          background: recording ? scheme.error : scheme.primary,
+          foreground: recording ? scheme.onError : scheme.onPrimary,
+          tooltip: recording ? l10n.navQuickRecordStop : l10n.navQuickRecord,
+          onTap: () {
+            // The Record screen shows the timer and the level meter, so the user lands there
+            // either way.
+            onSelected(HomeTab.recorder);
+            final controller = ref.read(recorderControllerProvider.notifier);
+            recording ? controller.stopRecording() : controller.startRecording();
+          },
         ),
       ),
       // `margin-top:auto` from mockup: button stays at the bottom edge of the rail regardless
@@ -222,7 +232,10 @@ class _HomeRail extends StatelessWidget {
               background: scheme.primaryContainer,
               foreground: scheme.onPrimaryContainer,
               tooltip: l10n.navAppearance,
-              onTap: () => onSelected(HomeTab.settings),
+              onTap: () {
+                onSelected(HomeTab.settings);
+                ref.read(settingsThemeRequestProvider.notifier).state++;
+              },
             ),
           ),
         ),

@@ -46,12 +46,48 @@ Future<SharedPreferences> pumpSettings(
 void main() {
   // Screen is entirely layout, so analyze won't catch layout issues — only building tree
   // catches Row overflows or invalid constraints. Each test builds the screen.
-  testWidgets('theme section has six cards from mockup', (tester) async {
+  testWidgets('theme section has the mockup cards plus Catppuccin and Solarized', (tester) async {
     await pumpSettings(tester);
 
-    for (final label in ['Jasny', 'Ciemny', 'Dracula', 'Nord', 'Gruvbox', 'Systemowy']) {
-      expect(find.text(label), findsOneWidget, reason: 'missing card $label');
+    for (final label in [
+      'Jasny',
+      'Ciemny',
+      'Dracula',
+      'Nord',
+      'Gruvbox',
+      'Catppuccin Latte',
+      'Catppuccin Frappé',
+      'Catppuccin Macchiato',
+      'Catppuccin Mocha',
+      'Solarized Light',
+      'Solarized Dark',
+      'Systemowy',
+    ]) {
+      expect(find.text(label, skipOffstage: false), findsOneWidget, reason: 'missing card $label');
     }
+  });
+
+  testWidgets('cards per row follow the available width', (tester) async {
+    double top(String label) => tester.getTopLeft(find.text(label, skipOffstage: false)).dy;
+
+    await pumpSettings(tester); // 412 wide: three per row.
+    expect(top('Dracula'), top('Jasny'));
+    expect(top('Nord'), greaterThan(top('Jasny')));
+
+    await tester.binding.setSurfaceSize(const Size(900, 892));
+    await tester.pumpAndSettle();
+    expect(top('Nord'), top('Jasny'), reason: 'a wider screen fits more cards in a row');
+  });
+
+  testWidgets('a one-line card is centred next to a two-line one in its row', (tester) async {
+    await pumpSettings(tester);
+    await tester.binding.setSurfaceSize(const Size(900, 892));
+    await tester.pumpAndSettle();
+    final oneLine = find.text('Gruvbox', skipOffstage: false);
+    final twoLines = find.text('Catppuccin Latte', skipOffstage: false);
+    expect(tester.getTopLeft(oneLine).dy, tester.getTopLeft(find.text('Jasny', skipOffstage: false)).dy);
+    expect(tester.getCenter(oneLine).dy, closeTo(tester.getCenter(twoLines).dy, 1),
+        reason: 'the shorter content sits in the middle of the stretched card');
   });
 
   testWidgets('selecting card saves mode and palette to preferences', (tester) async {
@@ -74,21 +110,22 @@ void main() {
   testWidgets('provider section shows fields and Groq preset', (tester) async {
     await pumpSettings(tester);
 
-    expect(find.text('Groq'), findsNWidgets(3));
-    expect(find.text('OpenAI'), findsNWidgets(3));
-    expect(find.text('Gemini'), findsNWidgets(3));
+    expect(find.text('Groq'), findsNWidgets(4));
+    expect(find.text('OpenAI'), findsNWidgets(4));
+    expect(find.text('Gemini'), findsNWidgets(4));
     expect(find.text('ElevenLabs'), findsOneWidget,
         reason: 'ElevenLabs has no chat API, so it is offered for transcription only');
-    expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(3));
+    expect(find.text(plL10n.settingsProviderCustom), findsNWidgets(4));
     expect(find.text(plL10n.settingsSttSection), findsOneWidget);
     expect(find.text(plL10n.settingsTagsSection), findsOneWidget);
     expect(find.text(plL10n.settingsNotesSection), findsOneWidget);
+    expect(find.text(plL10n.settingsTranslateSection), findsOneWidget);
     // Every section has its own address, key and model.
-    expect(find.text(plL10n.settingsBaseUrl), findsNWidgets(3));
-    expect(find.text(plL10n.settingsApiKey), findsNWidgets(3));
-    expect(find.text(plL10n.settingsModel), findsNWidgets(3));
+    expect(find.text(plL10n.settingsBaseUrl), findsNWidgets(4));
+    expect(find.text(plL10n.settingsApiKey), findsNWidgets(4));
+    expect(find.text(plL10n.settingsModel), findsNWidgets(4));
     // Missing stored configuration -> screen starts on Groq preset.
-    expect(find.text('https://api.groq.com/openai/v1'), findsNWidgets(3));
+    expect(find.text('https://api.groq.com/openai/v1'), findsNWidgets(4));
   });
 
   testWidgets('API key is masked by default and can be revealed', (tester) async {
@@ -163,7 +200,7 @@ void main() {
     await tester.tap(find.text('OpenAI').at(2));
     await tester.pumpAndSettle();
     expect(fieldWith('https://api.openai.com/v1'), findsOneWidget);
-    expect(fieldWith('https://api.groq.com/openai/v1'), findsNWidgets(2));
+    expect(fieldWith('https://api.groq.com/openai/v1'), findsNWidgets(3));
 
     final keyFields = find.byWidgetPredicate((w) => w is TextField && w.obscureText);
     await tester.enterText(keyFields.at(0), 'gsk');
@@ -177,7 +214,66 @@ void main() {
     expect(prefs.getString('tags_base_url'), 'https://api.groq.com/openai/v1');
     expect(prefs.getString('notes_base_url'), 'https://api.openai.com/v1');
     expect(prefs.getString('notes_model'), 'gpt-4o-mini');
-    expect(keys.values, {'api_key_stt': 'gsk', 'api_key_tags': '', 'api_key_notes': 'sk'});
+    expect(keys.values, {
+      'api_key_stt': 'gsk',
+      'api_key_tags': '',
+      'api_key_notes': 'sk',
+      'api_key_translate': '',
+    });
+  });
+
+  // The shell keeps a SettingsScreen alive in its IndexedStack, and onboarding pushes another
+  // one on top. A save in the pushed screen must reach the kept one, or the tab shows (and a
+  // later save there writes back) the state from before the save.
+  testWidgets('a save in one settings screen reloads the other live ones', (tester) async {
+    final keys = FakeKeyStore();
+    final prefs = await pumpSettings(tester, keys: keys);
+
+    tester.state<NavigatorState>(find.byType(Navigator)).push(
+          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+        );
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('OpenAI').first);
+    await tester.tap(find.text('OpenAI').first);
+    await tester.pumpAndSettle();
+    final keyFields = find.byWidgetPredicate((w) => w is TextField && w.obscureText);
+    await tester.enterText(keyFields.at(0), 'sk-nowy');
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('stt_base_url'), 'https://api.openai.com/v1');
+
+    tester.state<NavigatorState>(find.byType(Navigator)).pop();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(fieldWith('https://api.openai.com/v1'), findsOneWidget);
+    expect(fieldWith('sk-nowy'), findsOneWidget);
+  });
+
+  testWidgets('sampling switch: only for tags and notes, off by default, saves values',
+      (tester) async {
+    final prefs = await pumpSettings(tester);
+
+    final switches = find.byType(SwitchListTile);
+    expect(switches, findsNWidgets(3), reason: 'transcription has no sampling control; tags, notes and translation do');
+    expect(find.text(plL10n.settingsTemperature), findsNothing, reason: 'off by default');
+
+    await tester.ensureVisible(switches.first);
+    await tester.tap(switches.first);
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.settingsTemperature), findsOneWidget);
+    await tester.enterText(fieldWith('0').first, '0,5');
+
+    await tester.ensureVisible(find.text(plL10n.settingsSave));
+    await tester.tap(find.text(plL10n.settingsSave));
+    await tester.pumpAndSettle();
+
+    expect(prefs.getBool('tags_sampling_enabled'), isTrue);
+    expect(prefs.getDouble('tags_temperature'), 0.5, reason: 'decimal comma accepted');
+    expect(prefs.getDouble('tags_top_p'), 1);
+    expect(prefs.getBool('notes_sampling_enabled'), isFalse);
   });
 
   testWidgets('settings saved before the split fill all three sections', (tester) async {
@@ -191,10 +287,10 @@ void main() {
       keys: FakeKeyStore()..values['api_key'] = 'stary',
     );
 
-    expect(fieldWith('http://localhost:8000/v1'), findsNWidgets(3));
-    expect(fieldWith('stary'), findsNWidgets(3));
+    expect(fieldWith('http://localhost:8000/v1'), findsNWidgets(4));
+    expect(fieldWith('stary'), findsNWidgets(4));
     expect(fieldWith('whisper-lokalny'), findsOneWidget);
-    expect(fieldWith('qwen'), findsNWidgets(2), reason: 'notes inherit the tagging model');
+    expect(fieldWith('qwen'), findsNWidgets(3), reason: "notes inherit the tagging model, translation inherits notes");
   });
 
   testWidgets('note style: presets describe themselves, custom takes instructions',

@@ -127,10 +127,10 @@ void main() {
 
   // --- schema v2: errorKind (D2c) ---
 
-  test('fresh database is version 5 and has error_kind, waveform, and title columns', () async {
+  test('fresh database is version 7 and has error_kind, waveform, and title columns', () async {
     await insert('a');
     final version = await db.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 5);
+    expect(version.data.values.first, 7);
 
     final columns = await db.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']),
@@ -168,7 +168,7 @@ void main() {
         reason: 'we do not know what kind of error it was, so it remains unrecognized');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 5,
+    expect(version.data.values.first, 7,
         reason: 'v1 database reaches current schema in a single open');
 
     // user_version alone proves nothing: drift bumps it upon leaving onUpgrade even
@@ -260,7 +260,7 @@ void main() {
         reason: 'pre-v3 recordings were not measured, so there is nothing to draw');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 5);
+    expect(version.data.values.first, 7);
 
     final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']), contains('waveform'));
@@ -375,7 +375,7 @@ void main() {
         reason: 'pre-v4 recordings had no titles, and we cannot guess title from transcript');
 
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 5);
+    expect(version.data.values.first, 7);
 
     final columns = await legacy.customSelect('PRAGMA table_info(recordings)').get();
     expect(columns.map((c) => c.data['name']), contains('title'));
@@ -463,7 +463,7 @@ void main() {
 
     expect((await legacy.getRecording('stare'))!.title, 'Tytuł');
     final version = await legacy.customSelect('PRAGMA user_version').getSingle();
-    expect(version.data.values.first, 5);
+    expect(version.data.values.first, 7);
 
     // The table must actually work, including the link to an existing recording.
     await legacy.insertNote(
@@ -522,5 +522,137 @@ void main() {
         id: 'n', recordingId: 'a', title: 't', content: 'c', now: DateTime.utc(2026));
     await db.resetProcessing('a');
     expect((await db.getNote('n'))!.recordingId, 'a');
+  });
+
+  group('v6: note tags, tag colours, translations', () {
+    test('migration v5 -> v6 backfills note tags from the source recording', () async {
+      await db.close();
+      final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
+        rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+            '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
+            '"transcript" TEXT NULL, "provider_used" TEXT NULL, "error_message" TEXT NULL, '
+            '"error_kind" TEXT NULL, "waveform" TEXT NULL, "title" TEXT NULL, PRIMARY KEY ("id"))');
+        rawDb.execute('CREATE TABLE "tags" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+            '"name" TEXT NOT NULL UNIQUE)');
+        rawDb.execute('CREATE TABLE "recording_tags" ("recording_id" TEXT NOT NULL '
+            'REFERENCES recordings (id) ON DELETE CASCADE, "tag_id" INTEGER NOT NULL '
+            'REFERENCES tags (id) ON DELETE CASCADE, PRIMARY KEY ("recording_id", "tag_id"))');
+        rawDb.execute('CREATE TABLE "notes" ("id" TEXT NOT NULL, "recording_id" TEXT NULL '
+            'REFERENCES recordings (id) ON DELETE SET NULL, "title" TEXT NOT NULL, '
+            '"content" TEXT NOT NULL, "created_at" INTEGER NOT NULL, "updated_at" INTEGER NOT NULL, '
+            'PRIMARY KEY ("id"))');
+        rawDb.execute("INSERT INTO recordings (id, created_at, duration_ms, audio_path, status) "
+            "VALUES ('r', 0, 1000, '/r.m4a', 'done')");
+        rawDb.execute("INSERT INTO tags (id, name) VALUES (1, 'praca'), (2, 'mikro')");
+        rawDb.execute("INSERT INTO recording_tags VALUES ('r', 1), ('r', 2)");
+        rawDb.execute("INSERT INTO notes VALUES ('n', 'r', 't', 'c', 0, 0)");
+        rawDb.execute("INSERT INTO notes VALUES ('bez', NULL, 't', 'c', 0, 0)");
+        rawDb.execute('PRAGMA user_version = 5');
+      }));
+      addTearDown(legacy.close);
+
+      final tags = await legacy.watchNoteTags().first;
+      expect(tags, {'n': ['mikro', 'praca']});
+      await legacy.setTagColor('praca', 3);
+      expect(await legacy.watchTagColors().first, {'praca': 3});
+    });
+
+    test('a note made from a recording keeps copied tags after the recording goes', () async {
+      await insert('a');
+      await db.setTags('a', ['praca', 'mikro']);
+      await db.insertNote(
+          id: 'n', recordingId: 'a', title: 't', content: 'c', now: DateTime.utc(2026));
+      await db.copyRecordingTagsToNote('a', 'n');
+
+      await db.deleteRecording('a');
+
+      expect(await db.watchNoteTags().first, {'n': ['mikro', 'praca']},
+          reason: 'a tag used only by a note must survive orphan cleanup');
+    });
+
+    test('removing a note tag cleans up the tag once nothing uses it', () async {
+      await db.insertNote(
+          id: 'n', recordingId: null, title: 't', content: 'c', now: DateTime.utc(2026));
+      await db.addNoteTag('n', ' Praca ');
+      await db.setTagColor('praca', 1);
+      expect(await db.watchNoteTags().first, {'n': ['praca']});
+
+      await db.removeNoteTag('n', 'praca');
+
+      expect(await db.watchNoteTags().first, isEmpty);
+      expect(await db.select(db.tags).get(), isEmpty);
+    });
+
+    test('tag colour is shared: set once, seen for recordings and notes; null resets', () async {
+      await insert('a');
+      await db.setTags('a', ['praca']);
+      await db.setTagColor('praca', 5);
+      expect(await db.watchTagColors().first, {'praca': 5});
+      await db.setTagColor('praca', null);
+      expect(await db.watchTagColors().first, isEmpty);
+    });
+
+    test('translation per language replaces, deletes with its source, visibly to streams',
+        () async {
+      await insert('a');
+      await db.saveTranslation(
+          recordingId: 'a', language: 'en', content: 'v1', now: DateTime.utc(2026, 1, 1));
+      await db.saveTranslation(
+          recordingId: 'a', language: 'de', content: 'hallo', now: DateTime.utc(2026, 1, 2));
+      await db.saveTranslation(
+          recordingId: 'a', language: 'en', content: 'v2', now: DateTime.utc(2026, 1, 3));
+
+      final list = await db.watchTranslations(recordingId: 'a').first;
+      expect(list.map((t) => (t.language, t.content)), [('de', 'hallo'), ('en', 'v2')]);
+
+      final emissions = <List<Translation>>[];
+      final sub = db.watchTranslations(recordingId: 'a').listen(emissions.add);
+      addTearDown(sub.cancel);
+      await pumpEventQueue();
+      await db.deleteRecording('a');
+      await pumpEventQueue();
+      expect(emissions.last, isEmpty);
+    });
+
+    test('note translations go with the note', () async {
+      await db.insertNote(
+          id: 'n', recordingId: null, title: 't', content: 'c', now: DateTime.utc(2026));
+      await db.saveTranslation(noteId: 'n', language: 'en', content: 'x', now: DateTime.utc(2026));
+      await db.deleteNote('n');
+      expect(await db.select(db.translations).get(), isEmpty);
+    });
+  });
+
+  test('note colour: set, reset, does not bump updatedAt', () async {
+    await db.insertNote(
+        id: 'n', recordingId: null, title: 't', content: 'c', now: DateTime.utc(2026, 1, 1));
+    await db.setNoteColor('n', 4);
+    final coloured = (await db.getNote('n'))!;
+    expect(coloured.color, 4);
+    expect(coloured.updatedAt.toUtc(), DateTime.utc(2026, 1, 1));
+    await db.setNoteColor('n', null);
+    expect((await db.getNote('n'))!.color, isNull);
+  });
+
+  test('migration v6 -> v7 adds note colour and keeps notes', () async {
+    await db.close();
+    final legacy = AppDatabase.forTesting(NativeDatabase.memory(setup: (rawDb) {
+      rawDb.execute('CREATE TABLE "recordings" ("id" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+          '"duration_ms" INTEGER NOT NULL, "audio_path" TEXT NOT NULL, "status" TEXT NOT NULL, '
+          '"transcript" TEXT NULL, "provider_used" TEXT NULL, "error_message" TEXT NULL, '
+          '"error_kind" TEXT NULL, "waveform" TEXT NULL, "title" TEXT NULL, PRIMARY KEY ("id"))');
+      rawDb.execute('CREATE TABLE "tags" ("id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, '
+          '"name" TEXT NOT NULL UNIQUE, "color" INTEGER NULL)');
+      rawDb.execute('CREATE TABLE "notes" ("id" TEXT NOT NULL, "recording_id" TEXT NULL, '
+          '"title" TEXT NOT NULL, "content" TEXT NOT NULL, "created_at" INTEGER NOT NULL, '
+          '"updated_at" INTEGER NOT NULL, PRIMARY KEY ("id"))');
+      rawDb.execute("INSERT INTO notes VALUES ('n', NULL, 'Stara', 'c', 0, 0)");
+      rawDb.execute('PRAGMA user_version = 6');
+    }));
+    addTearDown(legacy.close);
+
+    expect((await legacy.getNote('n'))!.title, 'Stara');
+    await legacy.setNoteColor('n', 2);
+    expect((await legacy.getNote('n'))!.color, 2);
   });
 }

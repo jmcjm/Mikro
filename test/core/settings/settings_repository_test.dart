@@ -139,6 +139,45 @@ void main() {
     expect(raw.model, 'm');
   });
 
+  test('translation inherits the notes settings until it has its own', () async {
+    final keys = FakeKeyStore();
+    final r = await repo({}, keys);
+    await r.save(ApiTask.notes, const ServiceConfig(baseUrl: _openai, apiKey: 'sk', model: 'gpt'));
+
+    final inherited = (await r.load(ApiTask.translate))!;
+    expect((inherited.baseUrl, inherited.apiKey, inherited.model), (_openai, 'sk', 'gpt'));
+
+    await r.save(
+        ApiTask.translate, const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'llama'));
+    final own = (await r.load(ApiTask.translate))!;
+    expect((own.baseUrl, own.apiKey, own.model), (_groq, 'gsk', 'llama'));
+  });
+
+  test('sampling is off by default and round-trips per task when switched on', () async {
+    final r = await repo({}, FakeKeyStore());
+    expect((await r.raw(ApiTask.tags)).sampling, isNull, reason: 'off: nothing is sent');
+    expect(r.samplingValues(ApiTask.notes).temperature, 0.2, reason: 'notes default');
+
+    await r.save(
+      ApiTask.tags,
+      const ServiceConfig(
+        baseUrl: _groq,
+        apiKey: 'gsk',
+        model: 'llama',
+        sampling: SamplingParams(temperature: 0.7, topP: 0.9),
+      ),
+    );
+    final loaded = (await r.load(ApiTask.tags))!.sampling!;
+    expect(loaded.temperature, 0.7);
+    expect(loaded.topP, 0.9);
+    expect((await r.raw(ApiTask.notes)).sampling, isNull, reason: 'tasks are independent');
+
+    // Switching off keeps the numbers, so switching back on does not lose them.
+    await r.save(ApiTask.tags, const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'llama'));
+    expect((await r.load(ApiTask.tags))!.sampling, isNull);
+    expect(r.samplingValues(ApiTask.tags).temperature, 0.7);
+  });
+
   test('note style defaults to detailed and round-trips with custom text', () async {
     final r = await repo({});
     expect(r.loadNoteStyle().style, NoteStyle.detailed);

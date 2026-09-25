@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../core/db/database.dart';
 import '../../core/models/recording_status.dart';
 import '../../core/providers.dart';
+import '../../core/theme/accent_palette.dart';
 import '../../core/util/format.dart';
 import '../../l10n/app_localizations.dart';
 import '../shell/home_tab.dart';
@@ -204,6 +205,7 @@ class _TagFilterBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = AppLocalizations.of(context);
     void select(String? tag) => ref.read(tagFilterProvider.notifier).state = tag;
+    final colors = ref.watch(tagColorsProvider).value ?? const {};
     return SizedBox(
       height: 32,
       child: HorizontalScrollable(
@@ -219,6 +221,7 @@ class _TagFilterBar extends ConsumerWidget {
               const SizedBox(width: 8),
               _FilterChip(
                 label: tag,
+                color: colors[tag],
                 selected: selected == tag,
                 onTap: () => select(tag),
               ),
@@ -231,17 +234,27 @@ class _TagFilterBar extends ConsumerWidget {
 }
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({required this.label, required this.selected, required this.onTap});
+  const _FilterChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.color,
+  });
 
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
+  /// [AccentPalette] index: fills the chip when selected, shows as a dot when not.
+  final int? color;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final (background, foreground) = AccentPalette.of(context).chip(color, scheme.brightness) ??
+        (scheme.secondaryContainer, scheme.onSecondaryContainer);
     return Material(
-      color: selected ? scheme.secondaryContainer : Colors.transparent,
+      color: selected ? background : Colors.transparent,
       // Unselected chip renders border outline, selected renders filled background.
       // Material does not accept `shape` and `borderRadius` together, so radius is set on the border shape.
       shape: RoundedRectangleBorder(
@@ -259,8 +272,14 @@ class _FilterChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (selected) ...[
-                Icon(Symbols.check_rounded,
-                    fill: 1, size: 18, color: scheme.onSecondaryContainer),
+                Icon(Symbols.check_rounded, fill: 1, size: 18, color: foreground),
+                const SizedBox(width: 6),
+              ] else if (color != null) ...[
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: background),
+                ),
                 const SizedBox(width: 6),
               ],
               Text(
@@ -268,7 +287,7 @@ class _FilterChip extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: selected ? scheme.onSecondaryContainer : scheme.onSurface,
+                  color: selected ? foreground : scheme.onSurface,
                 ),
               ),
             ],
@@ -295,6 +314,7 @@ class RecordingCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tagColors = ref.watch(tagColorsProvider).value ?? const {};
     final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
     final r = item.recording;
@@ -393,6 +413,7 @@ class RecordingCard extends ConsumerWidget {
                         TagChip(
                           label: item.tags[i],
                           dense: true,
+                          color: tagColors[item.tags[i]],
                           onTap: () => ref.read(tagFilterProvider.notifier).state = item.tags[i],
                         ),
                       ],

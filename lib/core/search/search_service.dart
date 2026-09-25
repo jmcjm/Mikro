@@ -78,8 +78,13 @@ class SearchService {
 
   /// Same matching as recordings, over note title and Markdown body. Markdown syntax needs no
   /// stripping: `#`, `*` and `-` are token separators anyway.
-  List<Note> searchNotes(List<Note> all, {String query = ''}) =>
-      _rank(all, query, (note) => [note.title, note.content]);
+  /// [tags] maps note id to its tag names; they are searched like the title and body.
+  List<Note> searchNotes(
+    List<Note> all, {
+    String query = '',
+    Map<String, List<String>> tags = const {},
+  }) =>
+      _rank(all, query, (note) => [note.title, note.content, ...?tags[note.id]]);
 
   List<T> _rank<T>(List<T> items, String query, List<String> Function(T) fieldsOf) {
     final normalizedQuery = _normalize(query.trim());

@@ -7,14 +7,17 @@ import '../../core/api/api_errors.dart';
 import '../../core/db/database.dart';
 import '../../core/notes/note_service.dart';
 import '../../core/providers.dart';
+import '../../core/theme/accent_palette.dart';
 import '../../core/util/format.dart';
 import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
+import '../library/color_picker_dialog.dart';
 import '../library/library_styles.dart';
 import '../library/recording_detail_screen.dart';
 import '../library/recording_error.dart';
 import '../library/selected_recording.dart';
 import '../shell/home_tab.dart';
+import '../translation/translation_widgets.dart';
 import 'selected_note.dart';
 
 /// Standalone note route for narrow layouts.
@@ -49,6 +52,10 @@ class _NoteViewState extends ConsumerState<NoteView> {
   /// is the exception.
   bool _editing = false;
   bool _regenerating = false;
+  bool _translating = false;
+
+  /// Language code of the translation shown instead of the note; `null` shows the note.
+  String? _shownLanguage;
 
   @override
   void initState() {
@@ -122,6 +129,44 @@ class _NoteViewState extends ConsumerState<NoteView> {
     }
   }
 
+  /// Translates the note as it is NOW (pending edits written first) and shows the result.
+  Future<void> _translate() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final service = ref.read(translationServiceProvider);
+    final language = await pickTranslationLanguage(context, last: service.lastLanguage);
+    if (language == null || !mounted) return;
+    setState(() => _translating = true);
+    try {
+      await Future.wait([_title.flush(), _content.flush()]);
+      await service.translateNote(widget.noteId, language);
+      if (mounted) {
+        setState(() {
+          _shownLanguage = language;
+          _editing = false;
+        });
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));
+    } finally {
+      if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  Future<void> _deleteTranslation(Translation t) async {
+    if (_shownLanguage == t.language) setState(() => _shownLanguage = null);
+    await _db.deleteTranslation(t.id);
+  }
+
+  Future<void> _addTag(List<String> existing) async {
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AddTagDialog(existing: existing),
+    );
+    if (name == null) return;
+    await _db.addNoteTag(widget.noteId, name);
+  }
+
   Future<bool> _confirm(String title, String message, String action) async {
     final result = await showDialog<bool>(
       context: context,
@@ -181,8 +226,10 @@ class _NoteViewState extends ConsumerState<NoteView> {
             ),
             const SizedBox(height: 8),
             _titleField(fontSize: 28),
+            const SizedBox(height: 8),
+            _tagRow(),
             const SizedBox(height: 12),
-            Expanded(child: _body()),
+            Expanded(child: _bodyWithTranslations(note)),
           ],
         ),
       );
@@ -205,8 +252,10 @@ class _NoteViewState extends ConsumerState<NoteView> {
             _meta(note),
             const SizedBox(height: 4),
             _titleField(fontSize: 24),
+            const SizedBox(height: 8),
+            _tagRow(),
             const SizedBox(height: 12),
-            Expanded(child: _body()),
+            Expanded(child: _bodyWithTranslations(note)),
           ],
         ),
       ),
@@ -217,6 +266,12 @@ class _NoteViewState extends ConsumerState<NoteView> {
     final l10n = AppLocalizations.of(context);
     final scheme = Theme.of(context).colorScheme;
     return [
+      IconButton(
+        icon: Icon(Symbols.palette_rounded, fill: 1, color: scheme.onSurfaceVariant),
+        tooltip: l10n.noteColorTooltip,
+        onPressed: () => showNoteColorDialog(context, ref, note.id, note.color),
+      ),
+      TranslateButton(busy: _translating, color: scheme.onSurfaceVariant, onPressed: _translate),
       if (note.recordingId != null)
         _regenerating
             ? const Padding(
@@ -242,7 +297,11 @@ class _NoteViewState extends ConsumerState<NoteView> {
         onPressed: () {
           // Leaving edit mode writes immediately, so the preview never renders stale text.
           if (_editing) _content.flush();
-          setState(() => _editing = !_editing);
+          setState(() {
+            _editing = !_editing;
+            // A translation is read-only: editing always means editing the note itself.
+            if (_editing) _shownLanguage = null;
+          });
         },
       ),
       IconButton(
@@ -272,7 +331,14 @@ class _NoteViewState extends ConsumerState<NoteView> {
       spacing: 12,
       runSpacing: 4,
       children: [
-        Text(formatDateTime(note.updatedAt), style: muted),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (note.color != null) ...[AccentPalette.of(context).dot(note.color), const SizedBox(width: 8)],
+            // Flexible: in the wide layout this row shares its width with the action buttons.
+            Flexible(child: Text(formatDateTime(note.updatedAt), style: muted)),
+          ],
+        ),
         if (recordingId == null)
           Text(l10n.noteSourceDeleted, style: muted)
         else
@@ -308,7 +374,51 @@ class _NoteViewState extends ConsumerState<NoteView> {
     );
   }
 
-  Widget _body() {
+  /// Tags copied from the source recording, editable here independently of it. Tapping a
+  /// chip picks its colour.
+  Widget _tagRow() {
+    final tags = ref.watch(noteTagsProvider).value?[widget.noteId] ?? const <String>[];
+    final colors = ref.watch(tagColorsProvider).value ?? const {};
+    return HorizontalScrollable(
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final tag in tags) ...[
+            TagChip(
+              label: tag,
+              color: colors[tag],
+              onTap: () => showTagColorDialog(context, ref, tag),
+              onDelete: () => _db.removeNoteTag(widget.noteId, tag),
+            ),
+            const SizedBox(width: 6),
+          ],
+          AddTagChip(onTap: () => _addTag(tags)),
+        ],
+      ),
+    );
+  }
+
+  Widget _bodyWithTranslations(Note note) {
+    final translations = ref.watch(noteTranslationsProvider(widget.noteId)).value ?? const [];
+    final shown = translations.where((t) => t.language == _shownLanguage).firstOrNull;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TranslationSwitcher(
+          translations: translations,
+          selected: shown?.language,
+          onSelect: (language) => setState(() {
+            _shownLanguage = language;
+            if (language != null) _editing = false;
+          }),
+          onDelete: _deleteTranslation,
+        ),
+        Expanded(child: _body(translation: shown?.content)),
+      ],
+    );
+  }
+
+  Widget _body({String? translation}) {
     final scheme = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
     return Container(
@@ -318,7 +428,9 @@ class _NoteViewState extends ConsumerState<NoteView> {
         borderRadius: BorderRadius.circular(24),
       ),
       padding: const EdgeInsets.all(20),
-      child: _editing
+      child: translation != null
+          ? _markdown(translation)
+          : _editing
           ? TextField(
               controller: _content.controller,
               autofocus: true,
@@ -331,27 +443,32 @@ class _NoteViewState extends ConsumerState<NoteView> {
             )
           : ListenableBuilder(
               listenable: _content.controller,
-              builder: (context, _) => Markdown(
-                data: _content.controller.text,
-                selectable: true,
-                padding: EdgeInsets.zero,
-                styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                  p: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),
-                  listBullet: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),
-                  h1: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: scheme.onSurface),
-                  h2: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: scheme.onSurface),
-                  h3: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: scheme.onSurface),
-                  blockquoteDecoration: BoxDecoration(
-                    color: scheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  code: monoStyle(
-                    size: 14,
-                    color: scheme.onSurface,
-                  ).copyWith(backgroundColor: scheme.surfaceContainerHigh),
-                ),
-              ),
+              builder: (context, _) => _markdown(_content.controller.text),
             ),
+    );
+  }
+
+  Widget _markdown(String data) {
+    final scheme = Theme.of(context).colorScheme;
+    return Markdown(
+      data: data,
+      selectable: true,
+      padding: EdgeInsets.zero,
+      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+        p: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),
+        listBullet: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),
+        h1: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: scheme.onSurface),
+        h2: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: scheme.onSurface),
+        h3: TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: scheme.onSurface),
+        blockquoteDecoration: BoxDecoration(
+          color: scheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        code: monoStyle(
+          size: 14,
+          color: scheme.onSurface,
+        ).copyWith(backgroundColor: scheme.surfaceContainerHigh),
+      ),
     );
   }
 }

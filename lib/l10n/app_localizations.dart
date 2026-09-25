@@ -896,6 +896,90 @@ abstract class AppLocalizations {
   /// **'Model'**
   String get settingsModel;
 
+  /// Podpowiedz przycisku szybkiego nagrywania w bocznej szynie.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zacznij nagrywać'**
+  String get navQuickRecord;
+
+  /// Podpowiedz przycisku szybkiego nagrywania podczas nagrania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zatrzymaj nagrywanie'**
+  String get navQuickRecordStop;
+
+  /// Podpowiedz przycisku tlumaczenia transkrypcji i notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Przetłumacz'**
+  String get translateTooltip;
+
+  /// Tytul dialogu wyboru jezyka docelowego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Przetłumacz na'**
+  String get translatePickTitle;
+
+  /// Chip pokazujacy oryginalny tekst zamiast tlumaczenia.
+  ///
+  /// In pl, this message translates to:
+  /// **'Oryginał'**
+  String get translationOriginal;
+
+  /// Podpowiedz usuwania zapisanego tlumaczenia.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usuń tłumaczenie'**
+  String get translationDeleteTooltip;
+
+  /// Tytul dialogu wyboru koloru tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor tagu „{tag}”'**
+  String tagColorTitle(String tag);
+
+  /// Opcja przywracajaca domyslny kolor tagu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Domyślny'**
+  String get tagColorDefault;
+
+  /// Tytul dialogu wyboru koloru notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor notatki'**
+  String get noteColorTitle;
+
+  /// Podpowiedz przycisku koloru notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kolor'**
+  String get noteColorTooltip;
+
+  /// Naglowek sekcji API tlumaczen transkrypcji i notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'TŁUMACZENIE'**
+  String get settingsTranslateSection;
+
+  /// Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Steruj temperaturą i top_p'**
+  String get settingsSampling;
+
+  /// Ostrzezenie pod przelacznikiem temperatury i top_p.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nie każdy model to obsługuje. Modele rozumujące (np. OpenAI GPT-5) odrzucają to błędem HTTP 400 — przy nich zostaw wyłączone.'**
+  String get settingsSamplingHelp;
+
+  /// Etykieta pola temperatury modelu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Temperatura'**
+  String get settingsTemperature;
+
   /// Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie.
   ///
   /// In pl, this message translates to:
@@ -943,6 +1027,18 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.'**
   String get settingsNoteStyleMeetingHelp;
+
+  /// Preset stylu notatek: luzny, z umiarkowana liczba emoji.
+  ///
+  /// In pl, this message translates to:
+  /// **'Luźna'**
+  String get settingsNoteStyleCasual;
+
+  /// Opis presetu luznego.
+  ///
+  /// In pl, this message translates to:
+  /// **'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.'**
+  String get settingsNoteStyleCasualHelp;
 
   /// Wlasny styl notatek z instrukcjami uzytkownika.
   ///

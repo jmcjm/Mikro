@@ -7,12 +7,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api/notes_api.dart';
 import 'api/tagging_api.dart';
 import 'api/transcription_api.dart';
+import 'api/translation_api.dart';
 import 'audio/mikro_recorder.dart';
 import 'db/database.dart';
 import 'notes/note_service.dart';
 import 'pipeline/processing_pipeline.dart';
 import 'search/search_service.dart';
 import 'settings/settings_repository.dart';
+import 'translation/translation_service.dart';
 
 final sharedPrefsProvider =
     Provider<SharedPreferences>((ref) => throw UnimplementedError('override in main'));
@@ -41,6 +43,12 @@ final keyStoreProvider = Provider<KeyStore>((ref) => SecureKeyStore());
 final settingsRepositoryProvider = Provider<SettingsRepository>(
     (ref) => SettingsRepository(ref.watch(sharedPrefsProvider), ref.watch(keyStoreProvider)));
 
+/// Bumped after every settings save. More than one settings screen can be alive at once (the
+/// shell keeps one in its IndexedStack, onboarding pushes another), and each loads its form
+/// only in initState — so they listen to this and reload, instead of showing and later
+/// writing back the state from before someone else's save.
+final settingsRevisionProvider = StateProvider<int>((ref) => 0);
+
 final transcriptionApiProvider =
     Provider<TranscriptionApi>((ref) => TranscriptionApi(ref.watch(dioProvider)));
 
@@ -53,6 +61,30 @@ final noteServiceProvider = Provider<NoteService>((ref) => NoteService(
       notesApi: ref.watch(notesApiProvider),
       settings: ref.watch(settingsRepositoryProvider),
     ));
+
+final translationApiProvider =
+    Provider<TranslationApi>((ref) => TranslationApi(ref.watch(dioProvider)));
+
+final translationServiceProvider = Provider<TranslationService>((ref) => TranslationService(
+      db: ref.watch(databaseProvider),
+      api: ref.watch(translationApiProvider),
+      settings: ref.watch(settingsRepositoryProvider),
+      prefs: ref.watch(sharedPrefsProvider),
+    ));
+
+final recordingTranslationsProvider = StreamProvider.family<List<Translation>, String>(
+    (ref, recordingId) => ref.watch(databaseProvider).watchTranslations(recordingId: recordingId));
+
+final noteTranslationsProvider = StreamProvider.family<List<Translation>, String>(
+    (ref, noteId) => ref.watch(databaseProvider).watchTranslations(noteId: noteId));
+
+/// Tag names per note id.
+final noteTagsProvider = StreamProvider<Map<String, List<String>>>(
+    (ref) => ref.watch(databaseProvider).watchNoteTags());
+
+/// Colour index per tag name, shared by recordings and notes.
+final tagColorsProvider =
+    StreamProvider<Map<String, int>>((ref) => ref.watch(databaseProvider).watchTagColors());
 
 final recorderProvider = Provider<MikroRecorder>((ref) {
   final recorder = RecordPluginRecorder();
@@ -90,5 +122,9 @@ final noteSearchQueryProvider = StateProvider<String>((ref) => '');
 
 final filteredNotesProvider = Provider<List<Note>>((ref) {
   final all = ref.watch(notesStreamProvider).value ?? [];
-  return ref.watch(searchServiceProvider).searchNotes(all, query: ref.watch(noteSearchQueryProvider));
+  return ref.watch(searchServiceProvider).searchNotes(
+        all,
+        query: ref.watch(noteSearchQueryProvider),
+        tags: ref.watch(noteTagsProvider).value ?? const {},
+      );
 });

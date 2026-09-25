@@ -8,6 +8,7 @@ import '../../core/settings/settings_repository.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../shell/home_tab.dart';
 
 /// Single theme choice card in the grid. The mockup displays six cards in a 2x3 layout
 /// and couples mode with palette — each card represents a (mode, palette) pair.
@@ -33,8 +34,8 @@ class _ThemeChoice {
       mode == ThemeMode.light ? Brightness.light : Brightness.dark;
 }
 
-/// Dracula, Nord, and Gruvbox are proper names — they remain identical across languages and do not
-/// need ARB entries. Only the other three labels are localized, so the list is built
+/// Dracula, Nord, Gruvbox, Catppuccin and Solarized are proper names — they remain identical across
+/// languages and do not need ARB entries. Only the other three labels are localized, so the list is built
 /// at build time rather than declared as a constant.
 List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
       _ThemeChoice(
@@ -43,6 +44,19 @@ List<_ThemeChoice> _themeChoices(AppLocalizations l10n) => [
       _ThemeChoice(label: 'Dracula', mode: ThemeMode.dark, palette: AppPalette.dracula),
       _ThemeChoice(label: 'Nord', mode: ThemeMode.dark, palette: AppPalette.nord),
       _ThemeChoice(label: 'Gruvbox', mode: ThemeMode.dark, palette: AppPalette.gruvbox),
+      _ThemeChoice(
+          label: 'Catppuccin Latte', mode: ThemeMode.light, palette: AppPalette.catppuccinLatte),
+      _ThemeChoice(
+          label: 'Catppuccin Frappé', mode: ThemeMode.dark, palette: AppPalette.catppuccinFrappe),
+      _ThemeChoice(
+          label: 'Catppuccin Macchiato',
+          mode: ThemeMode.dark,
+          palette: AppPalette.catppuccinMacchiato),
+      _ThemeChoice(
+          label: 'Catppuccin Mocha', mode: ThemeMode.dark, palette: AppPalette.catppuccinMocha),
+      _ThemeChoice(
+          label: 'Solarized Light', mode: ThemeMode.light, palette: AppPalette.solarized),
+      _ThemeChoice(label: 'Solarized Dark', mode: ThemeMode.dark, palette: AppPalette.solarized),
       _ThemeChoice(
         label: l10n.settingsThemeSystem,
         mode: ThemeMode.system,
@@ -66,14 +80,45 @@ class _TaskForm {
   final baseUrl = TextEditingController();
   final apiKey = TextEditingController();
   final model = TextEditingController();
+  final temperature = TextEditingController();
+  final topP = TextEditingController();
   ProviderPreset preset = ProviderPreset.groq;
   bool keyHidden = true;
+  bool samplingEnabled = false;
 
-  void load(ServiceConfig config) {
+  /// Transcription does not go through chat completions, so only titles/tags and notes
+  /// offer sampling control.
+  bool get hasSampling => task != ApiTask.stt;
+
+  void load(ServiceConfig config, SamplingParams samplingValues) {
     baseUrl.text = config.baseUrl;
     apiKey.text = config.apiKey;
     model.text = config.model;
     preset = ProviderPreset.of(config.baseUrl);
+    loadSampling(enabled: config.sampling != null, values: samplingValues);
+  }
+
+  void loadSampling({required bool enabled, required SamplingParams values}) {
+    samplingEnabled = enabled;
+    temperature.text = _formatNumber(values.temperature);
+    topP.text = _formatNumber(values.topP);
+  }
+
+  static String _formatNumber(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
+
+  /// Accepts a decimal comma as well; anything unparsable falls back to the task default
+  /// rather than blocking the save. Clamped to the range the OpenAI API accepts.
+  static double _parse(String text, double fallback, double max) =>
+      (double.tryParse(text.trim().replaceAll(',', '.')) ?? fallback).clamp(0, max).toDouble();
+
+  SamplingParams? get _samplingValue {
+    if (!hasSampling || !samplingEnabled) return null;
+    final defaults = SamplingParams.defaultFor(task);
+    return SamplingParams(
+      temperature: _parse(temperature.text, defaults.temperature, 2),
+      topP: _parse(topP.text, defaults.topP, 1),
+    );
   }
 
   /// Switching preset fills address and model; the key is left alone — it belongs to the
@@ -89,9 +134,12 @@ class _TaskForm {
         baseUrl: baseUrl.text.trim(),
         apiKey: apiKey.text.trim(),
         model: model.text.trim(),
+        sampling: _samplingValue,
       );
 
   void dispose() {
+    temperature.dispose();
+    topP.dispose();
     baseUrl.dispose();
     apiKey.dispose();
     model.dispose();
@@ -103,6 +151,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   var _noteStyle = NoteStyle.detailed;
   final _noteStyleCustom = TextEditingController();
   var _loaded = false;
+
+  /// Theme section, for shortcuts that open Settings scrolled to it.
+  final _themeKey = GlobalKey();
+  var _themeScrollPending = false;
 
   @override
   void initState() {
@@ -117,23 +169,45 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       // Nothing stored at all (fresh install) -> start from the Groq preset, as before.
       if (config.baseUrl.isEmpty) {
         form.applyPreset(ProviderPreset.groq);
+        form.loadSampling(enabled: false, values: repo.samplingValues(form.task));
       } else {
-        form.load(config);
+        form.load(config, repo.samplingValues(form.task));
       }
     }
     final style = repo.loadNoteStyle();
     _noteStyle = style.style;
     _noteStyleCustom.text = style.custom;
     if (mounted) setState(() => _loaded = true);
+    if (_themeScrollPending) _scrollToTheme();
+  }
+
+  /// Scrolls the theme section into view after the next frame, once it is laid out. Before
+  /// the form has loaded there is no section yet, so the request waits for [_load].
+  void _scrollToTheme() {
+    if (!_loaded) {
+      _themeScrollPending = true;
+      return;
+    }
+    _themeScrollPending = false;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = _themeKey.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(target,
+          duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+    });
   }
 
   Future<void> _save() async {
     final repo = ref.read(settingsRepositoryProvider);
+    // Taken before the awaits: this screen may be popped mid-save, and the others still
+    // need to hear about it.
+    final revision = ref.read(settingsRevisionProvider.notifier);
     for (final form in _forms.values) {
       await repo.save(form.task, form.value);
     }
     await repo.saveNoteStyle(
         NoteStyleSetting(style: _noteStyle, custom: _noteStyleCustom.text.trim()));
+    revision.state++;
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(AppLocalizations.of(context).settingsSaved)));
@@ -156,6 +230,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(settingsRevisionProvider, (_, _) => _load());
+    ref.listen(settingsThemeRequestProvider, (_, _) => _scrollToTheme());
     if (!_loaded) return const Center(child: CircularProgressIndicator());
     final colors = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context);
@@ -207,7 +283,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               _taskSection(_forms[task]!, colors, l10n),
                               const SizedBox(height: 24),
                             ],
-                            _themeSection(colors, l10n),
+                            KeyedSubtree(key: _themeKey, child: _themeSection(colors, l10n)),
                           ],
                         ),
                       ),
@@ -229,6 +305,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ApiTask.stt => (l10n.settingsSttSection, l10n.settingsSttModelHelp, null),
       ApiTask.tags => (l10n.settingsTagsSection, null, l10n.settingsApiKeyInheritHelp),
       ApiTask.notes => (l10n.settingsNotesSection, null, l10n.settingsApiKeyInheritHelp),
+      ApiTask.translate =>
+        (l10n.settingsTranslateSection, null, l10n.settingsApiKeyInheritHelp),
     };
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -270,9 +348,63 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           decoration: _fieldDecoration(l10n.settingsModel, colors)
               .copyWith(helperText: modelHelp, helperMaxLines: 3),
         ),
+        if (form.hasSampling) ...[
+          const SizedBox(height: 6),
+          _samplingControl(form, colors, l10n),
+        ],
         if (form.task == ApiTask.notes) ...[
           const SizedBox(height: 16),
           _noteStylePicker(colors, l10n),
+        ],
+      ],
+    );
+  }
+
+  /// Opt-in temperature and top_p. Off by default because some models (OpenAI's reasoning
+  /// family) reject any non-default value with HTTP 400; off means neither is sent.
+  Widget _samplingControl(_TaskForm form, ColorScheme colors, AppLocalizations l10n) {
+    final numberKeyboard = const TextInputType.numberWithOptions(decimal: true);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SwitchListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+          value: form.samplingEnabled,
+          onChanged: (on) => setState(() => form.samplingEnabled = on),
+          title: Text(
+            l10n.settingsSampling,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colors.onSurface),
+          ),
+          subtitle: Text(
+            l10n.settingsSamplingHelp,
+            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+          ),
+        ),
+        if (form.samplingEnabled) ...[
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: form.temperature,
+                  keyboardType: numberKeyboard,
+                  style: _monoValueStyle(colors),
+                  decoration: _fieldDecoration(l10n.settingsTemperature, colors)
+                      .copyWith(helperText: '0–2'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: form.topP,
+                  keyboardType: numberKeyboard,
+                  style: _monoValueStyle(colors),
+                  decoration:
+                      _fieldDecoration('top_p', colors).copyWith(helperText: '0–1'),
+                ),
+              ),
+            ],
+          ),
         ],
       ],
     );
@@ -285,6 +417,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       (NoteStyle.detailed, l10n.settingsNoteStyleDetailed, l10n.settingsNoteStyleDetailedHelp),
       (NoteStyle.concise, l10n.settingsNoteStyleConcise, l10n.settingsNoteStyleConciseHelp),
       (NoteStyle.meeting, l10n.settingsNoteStyleMeeting, l10n.settingsNoteStyleMeetingHelp),
+      (NoteStyle.casual, l10n.settingsNoteStyleCasual, l10n.settingsNoteStyleCasualHelp),
       (NoteStyle.custom, l10n.settingsNoteStyleCustom, null),
     ];
     final help = options.firstWhere((o) => o.$1 == _noteStyle).$3;
@@ -451,26 +584,53 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       children: [
         _sectionLabel(l10n.settingsThemeSection, colors),
         const SizedBox(height: 10),
-        for (var row = 0; row < choices.length; row += 3) ...[
-          if (row > 0) const SizedBox(height: 10),
-          Row(
+        LayoutBuilder(builder: (context, constraints) {
+          final columns = _themeColumns(constraints.maxWidth);
+          return Column(
             children: [
-              for (final choice in choices.skip(row).take(3)) ...[
-                if (choice != choices[row]) const SizedBox(width: 10),
-                Expanded(
-                  child: _themeCard(
-                    choice,
-                    colors,
-                    selected: choice.mode == mode && choice.palette == palette,
+              for (var row = 0; row < choices.length; row += columns) ...[
+                if (row > 0) const SizedBox(height: _themeGap),
+                // IntrinsicHeight: a two-line name makes its card taller, and the rest of the
+                // row follows so the grid stays even.
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (var i = row; i < row + columns; i++) ...[
+                        if (i > row) const SizedBox(width: _themeGap),
+                        // The last row is padded with empty slots so its cards keep the
+                        // same width as the ones above.
+                        Expanded(
+                          child: i < choices.length
+                              ? _themeCard(
+                                  choices[i],
+                                  colors,
+                                  selected: choices[i].mode == mode &&
+                                      choices[i].palette == palette,
+                                )
+                              : const SizedBox.shrink(),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
             ],
-          ),
-        ],
+          );
+        }),
       ],
     );
   }
+
+  static const _themeGap = 10.0;
+
+  /// Narrowest a theme card may get: three swatch dots plus padding, and room for a name
+  /// such as "Macchiato" on one line.
+  static const _themeCardMinWidth = 104.0;
+
+  /// As many cards per row as fit at [_themeCardMinWidth], never fewer than two.
+  static int _themeColumns(double width) =>
+      ((width + _themeGap) / (_themeCardMinWidth + _themeGap)).floor().clamp(2, 12);
 
   Widget _themeCard(_ThemeChoice choice, ColorScheme colors, {required bool selected}) =>
       InkWell(
@@ -486,8 +646,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               width: selected ? 2 : 1,
             ),
           ),
+          // Centred: cards in a row share the height of the tallest one (a two-line name).
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               if (choice.icon case final icon?)
                 Icon(icon, fill: 1, size: 16, color: colors.onSurfaceVariant)
@@ -496,6 +658,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               const SizedBox(height: 8),
               Text(
                 choice.label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
