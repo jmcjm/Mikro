@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.1.0" date="2026-09-25">
+      <description>
+        <p>Tłumaczenia transkryptów i notatek, tagi notatek, kolory tagów i notatek, motywy Catppuccin i Solarized, luźny styl notatek oraz opcjonalne sterowanie temperaturą i top_p. Do tego wszystko z 2.0.0-alpha1: edytowalne transkrypty, notatki Markdown, rozpoznawanie rozmówców, osobne ustawienia API dla każdego zadania oraz dostawcy ElevenLabs i Gemini.</p>
+        <p xml:lang="en">Translations of transcripts and notes, note tags, tag and note colours, Catppuccin and Solarized themes, a casual note style and opt-in temperature and top_p control. Plus everything from 2.0.0-alpha1: editable transcripts, Markdown notes, speaker recognition, separate API settings per task, and ElevenLabs and Gemini providers.</p>
+      </description>
+    </release>
     <release version="2.0.0-alpha1" date="2026-09-25" type="development">
       <description>
         <p>Edytowalne transkrypty, notatki Markdown z wyszukiwaniem i stylami, rozpoznawanie rozmówców, osobne ustawienia API dla transkrypcji, tagów i notatek oraz dostawcy ElevenLabs i Gemini.</p>
