@@ -67,6 +67,11 @@ jobs:
             echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release.jks
             printf "storePassword=%s\nkeyPassword=%s\nkeyAlias=%s\nstoreFile=app/release.jks\n" \
               "$KEYSTORE_PASSWORD" "$KEY_PASSWORD" "$KEY_ALIAS" > android/key.properties
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            # A debug key is generated fresh on every runner, so a release signed with it
+            # cannot update the previous one - fail instead of publishing it.
+            echo "::error::KEYSTORE_BASE64 secret is missing; refusing to publish a debug-signed release"
+            exit 1
           else
             echo "==> No release keystore secret found, falling back to debug signing"
           fi
