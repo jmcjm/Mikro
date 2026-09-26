@@ -212,8 +212,11 @@ class _NoteViewState extends ConsumerState<NoteView> {
     _content.syncFrom(note.content);
 
     final actions = _actions(note);
+    // The whole column scrolls as one page and the note body grows with its text: a body
+    // scrolling on its own under a fixed header was squeezed to a sliver on a short screen
+    // (a phone in landscape).
     if (widget.panel) {
-      return Padding(
+      return SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -229,7 +232,7 @@ class _NoteViewState extends ConsumerState<NoteView> {
             const SizedBox(height: 8),
             _tagRow(),
             const SizedBox(height: 12),
-            Expanded(child: _bodyWithTranslations(note)),
+            _bodyWithTranslations(note),
           ],
         ),
       );
@@ -244,7 +247,7 @@ class _NoteViewState extends ConsumerState<NoteView> {
         ),
         actions: actions,
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -255,7 +258,7 @@ class _NoteViewState extends ConsumerState<NoteView> {
             const SizedBox(height: 8),
             _tagRow(),
             const SizedBox(height: 12),
-            Expanded(child: _bodyWithTranslations(note)),
+            _bodyWithTranslations(note),
           ],
         ),
       ),
@@ -413,7 +416,7 @@ class _NoteViewState extends ConsumerState<NoteView> {
           }),
           onDelete: _deleteTranslation,
         ),
-        Expanded(child: _body(translation: shown?.content)),
+        _body(translation: shown?.content),
       ],
     );
   }
@@ -434,9 +437,8 @@ class _NoteViewState extends ConsumerState<NoteView> {
           ? TextField(
               controller: _content.controller,
               autofocus: true,
-              expands: true,
+              minLines: 12,
               maxLines: null,
-              textAlignVertical: TextAlignVertical.top,
               keyboardType: TextInputType.multiline,
               style: monoStyle(size: 14, color: scheme.onSurface).copyWith(height: 1.5),
               decoration: InputDecoration.collapsed(hintText: l10n.noteContentHint),
@@ -450,10 +452,9 @@ class _NoteViewState extends ConsumerState<NoteView> {
 
   Widget _markdown(String data) {
     final scheme = Theme.of(context).colorScheme;
-    return Markdown(
+    return MarkdownBody(
       data: data,
       selectable: true,
-      padding: EdgeInsets.zero,
       styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
         p: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),
         listBullet: TextStyle(fontSize: 16, height: 1.5, color: scheme.onSurface),

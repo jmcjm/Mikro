@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.2.1" date="2026-09-26">
+      <description>
+        <p>Poprawki układu na telefonie w poziomie: ekran nagrywania mieści się bez przewijania, transkrypt i notatka przewijają się razem z panelem zamiast ściskać się do paska, lista nie jest szersza od panelu obok, a przy wycięciu ekranu nie ma już pustego pasa przy menu. Pierwsze wydanie na Androida podpisane stałym kluczem: aktualizacja z 2.1.0 lub starszej wymaga jednorazowej reinstalacji.</p>
+        <p xml:lang="en">Layout fixes for a phone in landscape: the recording screen fits without scrolling, the transcript and the note scroll with their panel instead of being squeezed to a sliver, the list is never wider than the pane beside it, and a display cutout no longer leaves an empty strip next to the menu. The first Android release signed with a permanent key: updating from 2.1.0 or earlier needs a one-time reinstall.</p>
+      </description>
+    </release>
     <release version="2.2.0" date="2026-09-26">
       <description>
         <p>Nowy ekran ustawień: lista usług AI z dostawcą i modelem, formularz każdej usługi na osobnej podstronie (na komputerze obok listy), adres i próbkowanie w sekcji „Zaawansowane”, temperatura i top_p na suwakach. Na szerokim ekranie lista w Bibliotece, Notatkach i Ustawieniach rośnie z oknem. Wydanie podpisane stałym kluczem: aktualizacja z wcześniejszej wersji wymaga jednorazowej reinstalacji.</p>

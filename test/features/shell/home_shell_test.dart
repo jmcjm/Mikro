@@ -58,6 +58,8 @@ class FakeRecorderController extends RecorderController {
 void main() {
   test('list column: a share of the width between 400 and 560 px', () {
     expect(listPaneWidth(1184), 400, reason: '1280 window minus the rail: the mockup width');
+    expect(listPaneWidth(804), closeTo(361.8, 0.1),
+        reason: 'a phone in landscape: the list gives way so the detail pane stays wider');
     expect(listPaneWidth(1824), closeTo(510.7, 0.1), reason: 'grows with the window');
     expect(listPaneWidth(3744), 560, reason: 'capped so the detail pane keeps most');
   });
@@ -191,6 +193,19 @@ void main() {
 
     expect(find.byType(NavigationRail), findsOneWidget);
     expect(find.byType(NavigationBar), findsNothing);
+    await settle(tester);
+  });
+
+  testWidgets('a display cutout next to the rail is not padded twice', (tester) async {
+    // A phone in landscape: the cutout inset is on the rail's side.
+    tester.view.padding = const FakeViewPadding(left: 90);
+    await mount(tester, size: const Size(915, 412));
+
+    final railRight = tester.getTopRight(find.byType(NavigationRail)).dx;
+    final contentLeft = tester.getTopLeft(find.byType(IndexedStack)).dx;
+    expect(contentLeft, railRight, reason: 'the screens start right after the rail');
+    final inset = MediaQuery.paddingOf(tester.element(find.byType(RecorderScreen))).left;
+    expect(inset, 0, reason: 'the rail already kept clear of the cutout');
     await settle(tester);
   });
 

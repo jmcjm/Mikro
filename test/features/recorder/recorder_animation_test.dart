@@ -1,5 +1,7 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_symbols_icons/symbols.dart';
 import 'package:mikro/features/recorder/recorder_controller.dart';
 import 'package:mikro/features/recorder/recorder_screen.dart';
 
@@ -79,6 +81,20 @@ void main() {
       expect(tester.binding.transientCallbackCount, 0,
           reason: 'IndexedStack keeps this screen alive on every tab — pulsing outside recording '
               'would force computing nine cosines 60 times per second throughout app lifecycle');
+    });
+
+    testWidgets('a phone in landscape puts the timer beside the button, nothing to scroll',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 360);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await mount(tester);
+
+      final timer = tester.getRect(find.text('0:00'));
+      final button = tester.getRect(find.byIcon(Symbols.mic_rounded));
+      expect(timer.right, lessThan(button.left), reason: 'side by side, not stacked');
+      final scroll = tester.state<ScrollableState>(find.byType(Scrollable).first);
+      expect(scroll.position.maxScrollExtent, 0, reason: 'everything fits on one screen');
     });
 
     testWidgets('ticker starts on recording begin and stops on recording stop', (tester) async {
