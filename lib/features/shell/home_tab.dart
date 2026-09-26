@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Breakpoint above which the app switches to the wide layout: navigation moves from bottom to the side rail,
@@ -9,9 +11,11 @@ const wideLayoutBreakpoint = 840.0;
 
 /// Width of the list column in the wide layout (library, notes, settings), given the width
 /// next to the rail; the detail pane takes the rest. A share of the window so a large screen
-/// gets a wider list, but never narrower than the mockup's 400 px and capped so the detail
-/// pane keeps most of the room.
-double listPaneWidth(double available) => (available * 0.28).clamp(400.0, 560.0);
+/// gets a wider list, normally between the mockup's 400 px and 560 px. Just above the
+/// breakpoint (a phone in landscape) 400 px would leave the detail pane narrower than the
+/// list, so there the list gives way and never takes more than 45%.
+double listPaneWidth(double available) =>
+    math.min((available * 0.28).clamp(400.0, 560.0), available * 0.45);
 
 /// Shell navigation tabs. Named constants instead of magic numbers, as multiple places
 /// outside the shell reference these destinations — empty library state, history button on

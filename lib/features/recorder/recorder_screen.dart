@@ -149,57 +149,88 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
       body: SafeArea(
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final status = [
+              _StatusPill(isRecording: state.isRecording),
+              const SizedBox(height: 28),
+              _Timer(elapsed: state.elapsed, isRecording: state.isRecording),
+              Text(
+                _formatCaption,
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 18 / 13,
+                  letterSpacing: 0.4,
+                  fontFamily: monoFontFamily,
+                  fontFamilyFallback: monoFontFallback,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ];
+            final button = _animated(
+              state.isRecording,
+              () => _PulseButton(
+                isRecording: state.isRecording,
+                morphProgress: _morphAnimation.value,
+                amplitude: state.amplitude,
+                ring1: _wave(_phase(_ring1Seconds)),
+                ring2: _wave(_phase(_ring2Seconds)),
+                spinPhase: _phase(_spinSeconds),
+                cookiePulse: _wave(_phase(_cookiePulseSeconds)),
+                onTap: () => _toggle(controller, state.isRecording),
+              ),
+            );
+            final bars = _animated(
+              state.isRecording,
+              () => _LevelBars(
+                isRecording: state.isRecording,
+                amplitude: state.amplitude,
+                elapsedSeconds: _elapsedSeconds.value,
+              ),
+            );
+            final error = [
+              if (state.lastError != null) ...[
+                const SizedBox(height: 32),
+                _ErrorCard(error: state.lastError!),
+              ],
+            ];
+            // A phone in landscape is too short for the stacked layout: timer and level bars
+            // go beside the button instead of above and below it.
+            final sideBySide = constraints.maxHeight < _stackedHeight &&
+                constraints.maxWidth >= _sideBySideMinWidth;
             return SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _StatusPill(isRecording: state.isRecording),
-                    const SizedBox(height: 28),
-                    _Timer(elapsed: state.elapsed, isRecording: state.isRecording),
-                    Text(
-                      _formatCaption,
-                      style: TextStyle(
-                        fontSize: 13,
-                        height: 18 / 13,
-                        letterSpacing: 0.4,
-                        fontFamily: monoFontFamily,
-                        fontFamilyFallback: monoFontFallback,
-                        color: scheme.onSurfaceVariant,
+                child: sideBySide
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ...status,
+                                const SizedBox(height: 24),
+                                bars,
+                                ...error,
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 48),
+                          button,
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ...status,
+                          const SizedBox(height: 44),
+                          button,
+                          const SizedBox(height: 40),
+                          bars,
+                          ...error,
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 44),
-                    _animated(
-                      state.isRecording,
-                      () => _PulseButton(
-                        isRecording: state.isRecording,
-                        morphProgress: _morphAnimation.value,
-                        amplitude: state.amplitude,
-                        ring1: _wave(_phase(_ring1Seconds)),
-                        ring2: _wave(_phase(_ring2Seconds)),
-                        spinPhase: _phase(_spinSeconds),
-                        cookiePulse: _wave(_phase(_cookiePulseSeconds)),
-                        onTap: () => _toggle(controller, state.isRecording),
-                      ),
-                    ),
-                    const SizedBox(height: 40),
-                    _animated(
-                      state.isRecording,
-                      () => _LevelBars(
-                        isRecording: state.isRecording,
-                        amplitude: state.amplitude,
-                        elapsedSeconds: _elapsedSeconds.value,
-                      ),
-                    ),
-                    if (state.lastError != null) ...[
-                      const SizedBox(height: 32),
-                      _ErrorCard(error: state.lastError!),
-                    ],
-                  ],
-                ),
               ),
             );
           },
@@ -207,6 +238,12 @@ class _RecorderScreenState extends ConsumerState<RecorderScreen>
       ),
     );
   }
+
+  /// Height of the stacked layout: status pill, timer, caption, button and level bars.
+  static const _stackedHeight = 32 + 28 + 80 + 18 + 44 + _pulseBoxSize + 40 + _barsHeight;
+
+  /// Room for the timer beside the button.
+  static const _sideBySideMinWidth = 560.0;
 
   Future<void> _toggle(RecorderController controller, bool isRecording) async {
     if (!isRecording) {

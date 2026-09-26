@@ -170,6 +170,37 @@ void main() {
     await unmount(tester);
   });
 
+  testWidgets('short wide screen: the panel scrolls to a full-height transcript',
+      (tester) async {
+    await insert('a');
+    // A phone in landscape: wide enough for two panes, too short for the player card, the
+    // tags and the transcript on one screen.
+    await pumpLibrary(tester, size: const Size(915, 412));
+    await tester.tap(find.text('Transkrypt nagrania a'));
+    await tester.pump();
+    await tester.pump();
+
+    final field = find.descendant(
+      of: find.byType(RecordingDetailView),
+      matching: find.byType(TextField),
+    );
+    expect(field, findsOneWidget);
+    final scroll = find.descendant(
+      of: find.byType(RecordingDetailView),
+      matching: find.byType(SingleChildScrollView),
+    );
+    expect(scroll, findsWidgets, reason: 'the body scrolls instead of squeezing the transcript');
+
+    await tester.drag(scroll.first, const Offset(0, -1000));
+    await tester.pump();
+    expect(tester.getSize(field).height, greaterThan(150),
+        reason: 'the transcript gets room to be read and edited');
+    final panel = tester.getRect(find.byType(RecordingDetailView));
+    expect(tester.getRect(field).bottom, lessThanOrEqualTo(panel.bottom));
+
+    await unmount(tester);
+  });
+
   testWidgets('wide screen: panel carries header from mockup without app bar',
       (tester) async {
     await insert('a');

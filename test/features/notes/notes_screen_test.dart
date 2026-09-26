@@ -43,6 +43,34 @@ void main() {
         now: at ?? DateTime(2026, 9, 1),
       );
 
+  testWidgets('short wide screen: the whole note panel scrolls, not just the body',
+      (tester) async {
+    await note('n1', 'Długa notatka', List.generate(60, (i) => 'Linia numer $i').join('\n\n'));
+    // A phone in landscape: two panes, little height.
+    tester.view.physicalSize = const Size(915, 412);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [databaseProvider.overrideWithValue(db)],
+      child: localizedApp(const NotesScreen()),
+    ));
+    await tester.pump();
+    await tester.pump();
+    await tester.tap(find.text('Długa notatka'));
+    await tester.pump();
+    await tester.pump();
+
+    final panel = find.byType(NoteView);
+    final title = find.descendant(of: panel, matching: find.byType(TextField)).first;
+    final top = tester.getTopLeft(title).dy;
+    await tester.drag(panel, const Offset(0, -300));
+    await tester.pump();
+    expect(tester.getTopLeft(title).dy, lessThan(top - 200),
+        reason: 'the title scrolls away with the body');
+    expect(find.text('Linia numer 20'), findsOneWidget, reason: 'the body grows with its text');
+    await unmount(tester);
+  });
+
   testWidgets('empty state', (tester) async {
     await pump(tester, const NotesScreen());
     expect(find.text(plL10n.notesEmpty), findsOneWidget);
@@ -77,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(NoteView), findsOneWidget);
-    expect(find.byType(Markdown), findsOneWidget);
+    expect(find.byType(MarkdownBody), findsOneWidget);
     expect(find.text('Ustalenia'), findsOneWidget, reason: 'heading marker is rendered, not shown');
     await unmount(tester);
   });

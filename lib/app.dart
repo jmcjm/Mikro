@@ -85,7 +85,17 @@ class HomeShell extends ConsumerWidget {
         body: Row(
           children: [
             _HomeRail(index: index, onSelected: select, l10n: l10n),
-            Expanded(child: body),
+            // The rail already keeps clear of a display cutout on its side (a phone in
+            // landscape); without this the screens' own SafeArea would add the same inset
+            // again, leaving a wide empty strip next to the rail.
+            Expanded(
+              child: MediaQuery.removePadding(
+                context: context,
+                removeLeft: Directionality.of(context) == TextDirection.ltr,
+                removeRight: Directionality.of(context) == TextDirection.rtl,
+                child: body,
+              ),
+            ),
           ],
         ),
       );

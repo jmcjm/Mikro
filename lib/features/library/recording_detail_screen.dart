@@ -731,19 +731,41 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     // into, it gets the whole height.
     final typing =
         _transcriptFocus.hasFocus && MediaQuery.viewInsetsOf(context).bottom > 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!typing) ...[
-          _playerCard(item.recording),
-          SizedBox(height: gap),
-          _tagRow(item),
-          SizedBox(height: gap),
-        ],
-        Expanded(child: _content(item.recording)),
-      ],
-    );
+    return LayoutBuilder(builder: (context, constraints) {
+      if (typing || constraints.maxHeight >= _minFixedBodyHeight) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!typing) ...[
+              _playerCard(item.recording),
+              SizedBox(height: gap),
+              _tagRow(item),
+              SizedBox(height: gap),
+            ],
+            Expanded(child: _content(item.recording)),
+          ],
+        );
+      }
+      // Too short for all three at once (a phone in landscape): the transcript would be
+      // squeezed to a sliver. The body scrolls instead, and the transcript gets the full
+      // height once scrolled to.
+      return SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _playerCard(item.recording),
+            SizedBox(height: gap),
+            _tagRow(item),
+            SizedBox(height: gap),
+            SizedBox(height: constraints.maxHeight, child: _content(item.recording)),
+          ],
+        ),
+      );
+    });
   }
+
+  /// Below this the body height cannot fit the player card, the tags and a usable transcript.
+  static const _minFixedBodyHeight = 560.0;
 
   /// Tag row from mockup: horizontally scrollable recording chips followed by trailing "+ tag" action button.
   /// Tapping a chip picks its colour.
