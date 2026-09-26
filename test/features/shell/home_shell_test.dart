@@ -56,6 +56,12 @@ class FakeRecorderController extends RecorderController {
 }
 
 void main() {
+  test('list column: a share of the width between 400 and 560 px', () {
+    expect(listPaneWidth(1184), 400, reason: '1280 window minus the rail: the mockup width');
+    expect(listPaneWidth(1824), closeTo(510.7, 0.1), reason: 'grows with the window');
+    expect(listPaneWidth(3744), 560, reason: 'capped so the detail pane keeps most');
+  });
+
   late ProviderContainer container;
 
   /// Mounts shell directly, skipping OnboardingGate — that has its own tests, and here
@@ -238,16 +244,16 @@ void main() {
   });
 
   testWidgets('rail palette opens Settings scrolled to the theme section', (tester) async {
-    await mount(tester, size: const Size(1280, 800));
+    // Short enough that the last row of theme cards is below the service list, out of view.
+    await mount(tester, size: const Size(1280, 600));
     await tester.pumpAndSettle();
-    // Before: the theme section sits below four API sections, out of view.
-    expect(tester.getRect(find.text('Dracula', skipOffstage: false)).top, greaterThan(800));
+    expect(tester.getRect(find.text('Solarized Dark', skipOffstage: false)).top, greaterThan(600));
 
     await tester.tap(find.byTooltip(plL10n.navAppearance));
     await tester.pumpAndSettle();
 
     expect(container.read(homeTabProvider), HomeTab.settings);
-    expect(tester.getRect(find.text('Dracula')).top, lessThan(800),
+    expect(tester.getRect(find.text('Solarized Dark')).top, lessThan(600),
         reason: 'the theme cards are on screen without scrolling by hand');
     await settle(tester);
   });

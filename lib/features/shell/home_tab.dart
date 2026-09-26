@@ -7,6 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// exact same time: a rail without a side panel (or vice-versa) is an unsupported layout state.
 const wideLayoutBreakpoint = 840.0;
 
+/// Width of the list column in the wide layout (library, notes, settings), given the width
+/// next to the rail; the detail pane takes the rest. A share of the window so a large screen
+/// gets a wider list, but never narrower than the mockup's 400 px and capped so the detail
+/// pane keeps most of the room.
+double listPaneWidth(double available) => (available * 0.28).clamp(400.0, 560.0);
+
 /// Shell navigation tabs. Named constants instead of magic numbers, as multiple places
 /// outside the shell reference these destinations — empty library state, history button on
 /// Record screen, snackbar action, and rail navigation.

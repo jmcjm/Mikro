@@ -28,23 +28,25 @@ class NotesScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Row(
-          children: [
-            Container(
-              width: 400,
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: scheme.outlineVariant)),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              Container(
+                width: listPaneWidth(constraints.maxWidth),
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: scheme.outlineVariant)),
+                ),
+                child: const _NotesList(twoPane: true),
               ),
-              child: const _NotesList(twoPane: true),
-            ),
-            Expanded(
-              child: selected == null
-                  ? ColoredBox(color: scheme.surface)
-                  // Keyed by id for the same reason as the recording panel: a new note needs
-                  // a fresh State, not the previous note's controllers.
-                  : NoteView(key: ValueKey(selected), noteId: selected, panel: true),
-            ),
-          ],
+              Expanded(
+                child: selected == null
+                    ? ColoredBox(color: scheme.surface)
+                    // Keyed by id for the same reason as the recording panel: a new note
+                    // needs a fresh State, not the previous note's controllers.
+                    : NoteView(key: ValueKey(selected), noteId: selected, panel: true),
+              ),
+            ],
+          ),
         ),
       ),
     );

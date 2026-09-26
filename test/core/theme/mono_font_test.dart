@@ -83,11 +83,20 @@ void main() {
     testWidgets('technical fields in settings use bundled family', (tester) async {
       await pumpSettings(tester);
 
+      // The model name on the service list.
+      final listModel = tester.widget<Text>(find.text('whisper-large-v3-turbo'));
+      expect(listModel.style?.fontFamily, monoFontFamily, reason: 'list model is not mono');
+
+      // A custom server shows the address field next to the model.
+      await tester.tap(find.text(plL10n.settingsSttTitle));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(plL10n.settingsProviderCustom));
+      await tester.pumpAndSettle();
+
       final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
-      // Address and model repeat in each of the three API sections (STT, tags, notes).
       for (final label in ['Base URL', 'Model']) {
         final matching = fields.where((c) => c.decoration?.labelText == label).toList();
-        expect(matching, hasLength(4), reason: 'field $label in every API section');
+        expect(matching, hasLength(1), reason: 'field $label on the service page');
         for (final field in matching) {
           expect(field.style?.fontFamily, monoFontFamily, reason: 'field $label is not mono');
           expect(field.style?.fontFamilyFallback, contains('monospace'), reason: 'field $label');

@@ -432,15 +432,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Speakers are recognised by ElevenLabs, Gemini and gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) does not tell speakers apart.';
 
   @override
-  String get settingsSttSection => 'TRANSCRIPTION';
-
-  @override
-  String get settingsTagsSection => 'TITLES & TAGS';
-
-  @override
-  String get settingsNotesSection => 'NOTES';
-
-  @override
   String get settingsModel => 'Model';
 
   @override
@@ -476,9 +467,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noteColorTooltip => 'Colour';
 
   @override
-  String get settingsTranslateSection => 'TRANSLATION';
-
-  @override
   String get settingsSampling => 'Control temperature and top_p';
 
   @override
@@ -491,9 +479,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsApiKeyInheritHelp =>
       'Leave empty to use the Transcription key when the address is the same.';
-
-  @override
-  String get settingsNoteStyle => 'Note style';
 
   @override
   String get settingsNoteStyleDetailed => 'Detailed';
@@ -536,4 +521,43 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settingsNoteStyleCustomHelp =>
       'The app enforces the format (Markdown, title, transcript language) itself — describe only style and structure here.';
+
+  @override
+  String get settingsServicesSection => 'AI SERVICES';
+
+  @override
+  String get settingsSttTitle => 'Transcription';
+
+  @override
+  String get settingsTagsTitle => 'Titles and tags';
+
+  @override
+  String get settingsNotesTitle => 'Notes';
+
+  @override
+  String get settingsTranslateTitle => 'Translation';
+
+  @override
+  String get settingsProviderSection => 'PROVIDER';
+
+  @override
+  String get settingsNoteStyleSection => 'NOTE STYLE';
+
+  @override
+  String get settingsApiKeyInheritHint => 'From Transcription';
+
+  @override
+  String get settingsAdvanced => 'Advanced';
+
+  @override
+  String get settingsAdvancedSamplingSummary =>
+      'Base URL · temperature and top_p';
+
+  @override
+  String get settingsBaseUrlFromProvider => 'Base URL · set by the provider';
+
+  @override
+  String settingsAdvancedSamplingValues(String temperature, String topP) {
+    return 'Base URL · temperature $temperature, top_p $topP';
+  }
 }

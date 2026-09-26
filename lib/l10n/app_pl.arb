@@ -572,18 +572,6 @@
   "@settingsSttModelHelp": {
     "description": "Podpowiedz pod polem modelu STT: diaryzacja zalezy od modelu."
   },
-  "settingsSttSection": "TRANSKRYPCJA",
-  "@settingsSttSection": {
-    "description": "Naglowek sekcji ustawien API dla transkrypcji (STT)."
-  },
-  "settingsTagsSection": "TYTUŁY I TAGI",
-  "@settingsTagsSection": {
-    "description": "Naglowek sekcji ustawien API dla tytulow i tagow."
-  },
-  "settingsNotesSection": "NOTATKI",
-  "@settingsNotesSection": {
-    "description": "Naglowek sekcji ustawien API dla notatek."
-  },
   "settingsModel": "Model",
   "navQuickRecord": "Zacznij nagrywać",
   "@navQuickRecord": {"description": "Podpowiedz przycisku szybkiego nagrywania w bocznej szynie."},
@@ -605,10 +593,6 @@
   "noteColorTooltip": "Kolor",
   "@noteColorTooltip": {"description": "Podpowiedz przycisku koloru notatki."},
   "@tagColorDefault": {"description": "Opcja przywracajaca domyslny kolor tagu."},
-  "settingsTranslateSection": "TŁUMACZENIE",
-  "@settingsTranslateSection": {
-    "description": "Naglowek sekcji API tlumaczen transkrypcji i notatek."
-  },
   "@settingsModel": {
     "description": "Etykieta pola nazwy modelu w kazdej sekcji API."
   },
@@ -627,10 +611,6 @@
   "settingsApiKeyInheritHelp": "Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.",
   "@settingsApiKeyInheritHelp": {
     "description": "Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie."
-  },
-  "settingsNoteStyle": "Styl notatek",
-  "@settingsNoteStyle": {
-    "description": "Etykieta wyboru stylu notatek w sekcji Notatki."
   },
   "settingsNoteStyleDetailed": "Szczegółowa",
   "@settingsNoteStyleDetailed": {
@@ -679,5 +659,29 @@
   "settingsNoteStyleCustomHelp": "Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.",
   "@settingsNoteStyleCustomHelp": {
     "description": "Podpowiedz pod polem instrukcji: czego nie trzeba pisac."
-  }
+  },
+  "settingsServicesSection": "USŁUGI AI",
+  "@settingsServicesSection": {"description": "Naglowek listy uslug AI na ekranie ustawien."},
+  "settingsSttTitle": "Transkrypcja",
+  "@settingsSttTitle": {"description": "Nazwa uslugi transkrypcji na liscie i w tytule podstrony."},
+  "settingsTagsTitle": "Tytuły i tagi",
+  "@settingsTagsTitle": {"description": "Nazwa uslugi tytulow i tagow na liscie i w tytule podstrony."},
+  "settingsNotesTitle": "Notatki",
+  "@settingsNotesTitle": {"description": "Nazwa uslugi notatek na liscie i w tytule podstrony."},
+  "settingsTranslateTitle": "Tłumaczenie",
+  "@settingsTranslateTitle": {"description": "Nazwa uslugi tlumaczen na liscie i w tytule podstrony."},
+  "settingsProviderSection": "DOSTAWCA",
+  "@settingsProviderSection": {"description": "Naglowek wyboru dostawcy na podstronie uslugi."},
+  "settingsNoteStyleSection": "STYL NOTATEK",
+  "@settingsNoteStyleSection": {"description": "Naglowek wyboru stylu notatek na podstronie Notatki."},
+  "settingsApiKeyInheritHint": "Z Transkrypcji",
+  "@settingsApiKeyInheritHint": {"description": "Podpowiedz w pustym polu klucza uslug innych niz transkrypcja."},
+  "settingsAdvanced": "Zaawansowane",
+  "@settingsAdvanced": {"description": "Rozwijana sekcja z adresem i parametrami probkowania."},
+  "settingsAdvancedSamplingSummary": "Base URL · temperatura i top_p",
+  "@settingsAdvancedSamplingSummary": {"description": "Podsumowanie zwinietej sekcji Zaawansowane, gdy probkowanie jest wylaczone."},
+  "settingsBaseUrlFromProvider": "Base URL · ustawia dostawca",
+  "@settingsBaseUrlFromProvider": {"description": "Etykieta adresu tylko do odczytu, gdy wybrany jest gotowy dostawca."},
+  "settingsAdvancedSamplingValues": "Base URL · temperatura {temperature}, top_p {topP}",
+  "@settingsAdvancedSamplingValues": {"description": "Podsumowanie zwinietej sekcji Zaawansowane z wlaczonym probkowaniem.", "placeholders": {"temperature": {"type": "String"}, "topP": {"type": "String"}}}
 }

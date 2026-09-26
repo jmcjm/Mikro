@@ -872,24 +872,6 @@ abstract class AppLocalizations {
   /// **'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.'**
   String get settingsSttModelHelp;
 
-  /// Naglowek sekcji ustawien API dla transkrypcji (STT).
-  ///
-  /// In pl, this message translates to:
-  /// **'TRANSKRYPCJA'**
-  String get settingsSttSection;
-
-  /// Naglowek sekcji ustawien API dla tytulow i tagow.
-  ///
-  /// In pl, this message translates to:
-  /// **'TYTUŁY I TAGI'**
-  String get settingsTagsSection;
-
-  /// Naglowek sekcji ustawien API dla notatek.
-  ///
-  /// In pl, this message translates to:
-  /// **'NOTATKI'**
-  String get settingsNotesSection;
-
   /// Etykieta pola nazwy modelu w kazdej sekcji API.
   ///
   /// In pl, this message translates to:
@@ -956,12 +938,6 @@ abstract class AppLocalizations {
   /// **'Kolor'**
   String get noteColorTooltip;
 
-  /// Naglowek sekcji API tlumaczen transkrypcji i notatek.
-  ///
-  /// In pl, this message translates to:
-  /// **'TŁUMACZENIE'**
-  String get settingsTranslateSection;
-
   /// Przelacznik wysylania temperature i top_p w sekcjach tagow i notatek.
   ///
   /// In pl, this message translates to:
@@ -985,12 +961,6 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.'**
   String get settingsApiKeyInheritHelp;
-
-  /// Etykieta wyboru stylu notatek w sekcji Notatki.
-  ///
-  /// In pl, this message translates to:
-  /// **'Styl notatek'**
-  String get settingsNoteStyle;
 
   /// Preset stylu notatek: szczegolowe, ustrukturyzowane.
   ///
@@ -1063,6 +1033,78 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Format (Markdown, tytuł, język transkryptu) aplikacja pilnuje sama — tu opisz tylko styl i strukturę.'**
   String get settingsNoteStyleCustomHelp;
+
+  /// Naglowek listy uslug AI na ekranie ustawien.
+  ///
+  /// In pl, this message translates to:
+  /// **'USŁUGI AI'**
+  String get settingsServicesSection;
+
+  /// Nazwa uslugi transkrypcji na liscie i w tytule podstrony.
+  ///
+  /// In pl, this message translates to:
+  /// **'Transkrypcja'**
+  String get settingsSttTitle;
+
+  /// Nazwa uslugi tytulow i tagow na liscie i w tytule podstrony.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tytuły i tagi'**
+  String get settingsTagsTitle;
+
+  /// Nazwa uslugi notatek na liscie i w tytule podstrony.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki'**
+  String get settingsNotesTitle;
+
+  /// Nazwa uslugi tlumaczen na liscie i w tytule podstrony.
+  ///
+  /// In pl, this message translates to:
+  /// **'Tłumaczenie'**
+  String get settingsTranslateTitle;
+
+  /// Naglowek wyboru dostawcy na podstronie uslugi.
+  ///
+  /// In pl, this message translates to:
+  /// **'DOSTAWCA'**
+  String get settingsProviderSection;
+
+  /// Naglowek wyboru stylu notatek na podstronie Notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'STYL NOTATEK'**
+  String get settingsNoteStyleSection;
+
+  /// Podpowiedz w pustym polu klucza uslug innych niz transkrypcja.
+  ///
+  /// In pl, this message translates to:
+  /// **'Z Transkrypcji'**
+  String get settingsApiKeyInheritHint;
+
+  /// Rozwijana sekcja z adresem i parametrami probkowania.
+  ///
+  /// In pl, this message translates to:
+  /// **'Zaawansowane'**
+  String get settingsAdvanced;
+
+  /// Podsumowanie zwinietej sekcji Zaawansowane, gdy probkowanie jest wylaczone.
+  ///
+  /// In pl, this message translates to:
+  /// **'Base URL · temperatura i top_p'**
+  String get settingsAdvancedSamplingSummary;
+
+  /// Etykieta adresu tylko do odczytu, gdy wybrany jest gotowy dostawca.
+  ///
+  /// In pl, this message translates to:
+  /// **'Base URL · ustawia dostawca'**
+  String get settingsBaseUrlFromProvider;
+
+  /// Podsumowanie zwinietej sekcji Zaawansowane z wlaczonym probkowaniem.
+  ///
+  /// In pl, this message translates to:
+  /// **'Base URL · temperatura {temperature}, top_p {topP}'**
+  String settingsAdvancedSamplingValues(String temperature, String topP);
 }
 
 class _AppLocalizationsDelegate
