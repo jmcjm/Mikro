@@ -31,18 +31,20 @@ class LibraryScreen extends ConsumerWidget {
     return Scaffold(
       body: SafeArea(
         bottom: false,
-        child: Row(
-          children: [
-            // Desktop mockup: list 400 px, separated from detail panel by hairline border.
-            Container(
-              width: 400,
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: scheme.outlineVariant)),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            children: [
+              // List separated from the detail panel by a hairline border.
+              Container(
+                width: listPaneWidth(constraints.maxWidth),
+                decoration: BoxDecoration(
+                  border: Border(right: BorderSide(color: scheme.outlineVariant)),
+                ),
+                child: const _LibraryList(twoPane: true),
               ),
-              child: const _LibraryList(twoPane: true),
-            ),
-            const Expanded(child: _DetailPane()),
-          ],
+              const Expanded(child: _DetailPane()),
+            ],
+          ),
         ),
       ),
     );
