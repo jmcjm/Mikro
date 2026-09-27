@@ -9,6 +9,16 @@
 #   4. Assembles single-file build/flatpak/pl.jmc.mikro.flatpak bundle.
 #   5. With --install, installs the bundle into the current user's flatpak environment.
 #
+# Publishing (optional, used by CI for releases):
+#   FLATPAK_REPO_URL     public URL the OSTree repo build/flatpak/repo is served from.
+#                        The bundle then points at it, so an app installed from the
+#                        .flatpak file gets updates via `flatpak update` / app stores,
+#                        and pl.jmc.mikro.flatpakref / .flatpakrepo are written next to it.
+#   FLATPAK_GPG_KEY_ID   key the repo and bundle are signed with (needs no passphrase).
+#   FLATPAK_GPG_HOMEDIR  GnuPG home holding that key (default: gpg's own default).
+#   Setting FLATPAK_REPO_URL requires FLATPAK_GPG_KEY_ID - flatpak refuses unsigned
+#   remotes by default.
+#
 # Usage (from repository root):
 #   ./packaging/build-flatpak.sh [--skip-bundle] [--clean] [--install]
 #
@@ -26,6 +36,21 @@ BUILD_DIR="$OUT_DIR/build"
 OSTREE_REPO="$OUT_DIR/repo"
 STATE_DIR="$OUT_DIR/state"
 BUNDLE_FILE="$OUT_DIR/$APP_ID.flatpak"
+FLATHUB_REPO="https://dl.flathub.org/repo/flathub.flatpakrepo"
+
+REPO_URL="${FLATPAK_REPO_URL:-}"
+GPG_KEY_ID="${FLATPAK_GPG_KEY_ID:-}"
+GPG_ARGS=()
+if [ -n "$GPG_KEY_ID" ]; then
+  GPG_ARGS+=(--gpg-sign="$GPG_KEY_ID")
+  if [ -n "${FLATPAK_GPG_HOMEDIR:-}" ]; then
+    GPG_ARGS+=(--gpg-homedir="$FLATPAK_GPG_HOMEDIR")
+  fi
+fi
+if [ -n "$REPO_URL" ] && [ -z "$GPG_KEY_ID" ]; then
+  echo "FLATPAK_REPO_URL needs FLATPAK_GPG_KEY_ID (flatpak rejects unsigned remotes)" >&2
+  exit 1
+fi
 
 SKIP_BUNDLE=0
 INSTALL=0
@@ -70,11 +95,50 @@ fi
 echo "==> Running flatpak-builder"
 mkdir -p "$OUT_DIR"
 flatpak-builder --user --force-clean --state-dir="$STATE_DIR" \
+  "${GPG_ARGS[@]+"${GPG_ARGS[@]}"}" \
   --repo="$OSTREE_REPO" "$BUILD_DIR" "$MANIFEST"
+
+echo "==> Updating repo summary and appstream"
+flatpak build-update-repo --title="Mikro" --default-branch=master \
+  --generate-static-deltas --prune \
+  "${GPG_ARGS[@]+"${GPG_ARGS[@]}"}" "$OSTREE_REPO"
+
+FLATPAK_BUNDLE_ARGS=(--runtime-repo="$FLATHUB_REPO")
+if [ -n "$REPO_URL" ]; then
+  REPO_URL="${REPO_URL%/}/"
+  PUBKEY_FILE="$OUT_DIR/$APP_ID.gpg"
+  gpg ${FLATPAK_GPG_HOMEDIR:+--homedir "$FLATPAK_GPG_HOMEDIR"} \
+    --export "$GPG_KEY_ID" > "$PUBKEY_FILE"
+  [ -s "$PUBKEY_FILE" ] || { echo "cannot export GPG key $GPG_KEY_ID" >&2; exit 1; }
+  PUBKEY_B64="$(base64 -w0 "$PUBKEY_FILE")"
+  FLATPAK_BUNDLE_ARGS+=(--repo-url="$REPO_URL" --gpg-keys="$PUBKEY_FILE")
+
+  echo "==> Writing $APP_ID.flatpakref and $APP_ID.flatpakrepo"
+  cat > "$OUT_DIR/$APP_ID.flatpakref" <<EOF
+[Flatpak Ref]
+Name=$APP_ID
+Branch=master
+Title=Mikro
+Url=$REPO_URL
+SuggestRemoteName=mikro
+RuntimeRepo=$FLATHUB_REPO
+IsRuntime=false
+Homepage=https://github.com/jmcjm/mikro
+GPGKey=$PUBKEY_B64
+EOF
+  cat > "$OUT_DIR/$APP_ID.flatpakrepo" <<EOF
+[Flatpak Repo]
+Title=Mikro
+Url=$REPO_URL
+Homepage=https://github.com/jmcjm/mikro
+GPGKey=$PUBKEY_B64
+EOF
+fi
 
 echo "==> Building single-file bundle"
 rm -f "$BUNDLE_FILE"
-flatpak build-bundle "$OSTREE_REPO" "$BUNDLE_FILE" "$APP_ID" master
+flatpak build-bundle "${FLATPAK_BUNDLE_ARGS[@]}" \
+  "$OSTREE_REPO" "$BUNDLE_FILE" "$APP_ID" master
 
 if [ "$INSTALL" -eq 1 ]; then
   echo "==> Installing bundle (--user)"

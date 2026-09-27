@@ -39,6 +39,26 @@ Consistent `pl.jmc.mikro` identifier across all platforms: `APPLICATION_ID` in `
 
 Flatpak bundles all of these from `org.freedesktop.Platform//25.08`. AppImage relies on the host system dependencies.
 
+## Flatpak Updates
+
+A single-file `.flatpak` bundle on its own carries no update source: app stores (GNOME Software, Bazaar, Discover) match apps by ref (`app/pl.jmc.mikro/x86_64/master`), see the new bundle as "already installed" and never offer an update. So on every stable release tag CI also publishes a signed OSTree repository to GitHub Pages (`<pages-url>/repo/`), and the released bundle points at it. Anything installed from `pl.jmc.mikro.flatpak` or `pl.jmc.mikro.flatpakref` then updates through `flatpak update` and app stores.
+
+Pre-release tags (containing `-`, e.g. `2.3.0-rc1`) still build a bundle but are not published to the repo.
+
+Without the secret, CI builds the bundle as before (no update source) and prints a warning.
+
+### Installing
+
+```sh
+flatpak install --user https://github.com/jmcjm/mikro/releases/latest/download/pl.jmc.mikro.flatpakref
+```
+
+A copy installed from an older bundle (without an update source) needs one reinstall: `flatpak install --user --reinstall pl.jmc.mikro.flatpak` (or uninstall and install the `.flatpakref`).
+
+### Local builds
+
+`build-flatpak.sh` publishes the same way when `FLATPAK_REPO_URL`, `FLATPAK_GPG_KEY_ID` and optionally `FLATPAK_GPG_HOMEDIR` are set; without them it builds an unsigned bundle for local testing.
+
 ## Icon Regeneration
 
 ```sh
