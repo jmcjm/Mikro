@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.2.2" date="2026-09-27">
+      <description>
+        <p>Flatpak dostaje teraz aktualizacje: wersja zainstalowana z pliku .flatpakref aktualizuje się przez „flatpak update” i sklepy z aplikacjami. Kopia zainstalowana ze starszego pliku .flatpak wymaga jednorazowej reinstalacji.</p>
+        <p xml:lang="en">The Flatpak now receives updates: a copy installed from the .flatpakref file updates through "flatpak update" and app stores. A copy installed from an older .flatpak file needs a one-time reinstall.</p>
+      </description>
+    </release>
     <release version="2.2.1" date="2026-09-26">
       <description>
         <p>Poprawki układu na telefonie w poziomie: ekran nagrywania mieści się bez przewijania, transkrypt i notatka przewijają się razem z panelem zamiast ściskać się do paska, lista nie jest szersza od panelu obok, a przy wycięciu ekranu nie ma już pustego pasa przy menu. Pierwsze wydanie na Androida podpisane stałym kluczem: aktualizacja z 2.1.0 lub starszej wymaga jednorazowej reinstalacji.</p>
