@@ -91,7 +91,7 @@ For packaging details, dependencies, and layout, see [`packaging/README.md`](pac
 
 ## CI / CD
 
-Automated builds and GitHub Releases are configured via [GitHub Actions](.github/workflows/build.yml). Pushing a version tag (e.g. `1.0` or `v1.0`) automatically builds and publishes the Android APK, Linux AppImage, and Linux Flatpak packages.
+Automated builds and GitHub Releases are configured via [GitHub Actions](.github/workflows/build.yml). Pushing a version tag (e.g. `1.0` or `v1.0`) automatically builds and publishes the Android APK, Linux AppImage, and Linux Flatpak packages. Stable releases also publish a signed Flatpak repository to GitHub Pages, so a Flatpak install gets updates through `flatpak update` and app stores - see [`packaging/README.md`](packaging/README.md#flatpak-updates).
 
 ## License
 

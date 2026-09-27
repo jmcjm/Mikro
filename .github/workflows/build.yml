@@ -144,6 +144,11 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: test
+    permissions:
+      contents: read
+      pages: read
+    outputs:
+      publish: ${{ steps.signing.outputs.publish }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -185,14 +190,78 @@ jobs:
       - name: Build Flutter Linux bundle
         run: flutter build linux --release
 
+      - name: Import Flatpak signing key
+        id: signing
+        env:
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$FLATPAK_GPG_PRIVATE_KEY" ]; then
+            # Without a key the bundle is still built, but it points at no repo, so an
+            # installed app never sees updates - the Pages repo is what makes them work.
+            if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+              echo "::warning::FLATPAK_GPG_PRIVATE_KEY secret is missing; the Flatpak repo is not published and the bundle gets no updates"
+            fi
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          mkdir -m 700 -p "$GNUPGHOME"
+          # Accepts both an ASCII-armored key and its base64 encoding.
+          if printf '%s' "$FLATPAK_GPG_PRIVATE_KEY" | grep -q 'BEGIN PGP'; then
+            printf '%s\n' "$FLATPAK_GPG_PRIVATE_KEY" | gpg --batch --import
+          else
+            printf '%s' "$FLATPAK_GPG_PRIVATE_KEY" | base64 --decode | gpg --batch --import
+          fi
+          KEY_ID="$(gpg --batch --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
+          echo "FLATPAK_GPG_HOMEDIR=$GNUPGHOME" >> "$GITHUB_ENV"
+          echo "FLATPAK_GPG_KEY_ID=$KEY_ID" >> "$GITHUB_ENV"
+          # A pre-release tag (2.3.0-rc1) must not reach everyone who installed the app.
+          if [[ "$GITHUB_REF" == refs/tags/* && "$GITHUB_REF_NAME" != *-* ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Look up GitHub Pages URL
+        id: pages
+        if: steps.signing.outputs.publish == 'true'
+        uses: actions/configure-pages@v5
+
       - name: Package Flatpak
+        env:
+          FLATPAK_REPO_URL: ${{ steps.pages.outputs.base_url && format('{0}/repo/', steps.pages.outputs.base_url) || '' }}
         run: ./packaging/build-flatpak.sh --skip-bundle
 
       - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v4
         with:
           name: mikro-flatpak
-          path: build/flatpak/pl.jmc.mikro.flatpak
+          path: |
+            build/flatpak/pl.jmc.mikro.flatpak
+            build/flatpak/pl.jmc.mikro.flatpakref
+          if-no-files-found: ignore
+
+      - name: Assemble Flatpak repo site
+        if: steps.signing.outputs.publish == 'true'
+        run: |
+          mkdir -p site
+          cp -a build/flatpak/repo site/repo
+          cp build/flatpak/pl.jmc.mikro.flatpakref build/flatpak/pl.jmc.mikro.flatpakrepo \
+            build/flatpak/pl.jmc.mikro.gpg site/
+          cat > site/index.html <<'EOF'
+          <!doctype html>
+          <meta charset="utf-8">
+          <title>Mikro Flatpak repository</title>
+          <h1>Mikro Flatpak repository</h1>
+          <p><a href="pl.jmc.mikro.flatpakref">Install Mikro</a> or run:</p>
+          <pre>flatpak install --user pl.jmc.mikro.flatpakref</pre>
+          EOF
+
+      - name: Upload Flatpak repo site
+        if: steps.signing.outputs.publish == 'true'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
 
   release:
     name: Publish GitHub Release
@@ -228,7 +297,25 @@ jobs:
             release-assets/mikro.apk
             release-assets/Mikro-x86_64.AppImage
             release-assets/pl.jmc.mikro.flatpak
+            release-assets/pl.jmc.mikro.flatpakref
           generate_release_notes: true
           # A tag with a pre-release suffix (2.0.0-alpha1, 2.1.0-rc1) is published as a
           # pre-release, so GitHub "latest" and Obtainium's default stable track skip it.
           prerelease: ${{ contains(github.ref_name, '-') }}
+
+  publish-flatpak-repo:
+    name: Publish Flatpak repo to GitHub Pages
+    # After the release, so installed apps are offered an update only once it is out.
+    if: startsWith(github.ref, 'refs/tags/') && needs.build-flatpak.outputs.publish == 'true'
+    needs: [build-flatpak, release]
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
