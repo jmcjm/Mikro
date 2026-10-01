@@ -5,13 +5,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/intl.dart' as intl;
 
-import 'app_localizations_en.dart';
-import 'app_localizations_pl.dart';
+import 'app_localizations_cs.dart';
 import 'app_localizations_de.dart';
+import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
 import 'app_localizations_fr.dart';
+import 'app_localizations_pl.dart';
 import 'app_localizations_uk.dart';
-import 'app_localizations_cs.dart';
 
 // ignore_for_file: type=lint
 
@@ -99,13 +99,13 @@ abstract class AppLocalizations {
 
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[
-    Locale('en'),
-    Locale('pl'),
+    Locale('cs'),
     Locale('de'),
+    Locale('en'),
     Locale('es'),
     Locale('fr'),
+    Locale('pl'),
     Locale('uk'),
-    Locale('cs'),
   ];
 
   /// Etykieta zakladki nagrywania w dolnym pasku i w railu.
@@ -1211,8 +1211,15 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool isSupported(Locale locale) =>
-      <String>['en', 'pl', 'de', 'es', 'fr', 'uk', 'cs'].contains(locale.languageCode);
+  bool isSupported(Locale locale) => <String>[
+    'cs',
+    'de',
+    'en',
+    'es',
+    'fr',
+    'pl',
+    'uk',
+  ].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -1221,20 +1228,20 @@ class _AppLocalizationsDelegate
 AppLocalizations lookupAppLocalizations(Locale locale) {
   // Lookup logic when only language code is specified.
   switch (locale.languageCode) {
-    case 'en':
-      return AppLocalizationsEn();
-    case 'pl':
-      return AppLocalizationsPl();
+    case 'cs':
+      return AppLocalizationsCs();
     case 'de':
       return AppLocalizationsDe();
+    case 'en':
+      return AppLocalizationsEn();
     case 'es':
       return AppLocalizationsEs();
     case 'fr':
       return AppLocalizationsFr();
+    case 'pl':
+      return AppLocalizationsPl();
     case 'uk':
       return AppLocalizationsUk();
-    case 'cs':
-      return AppLocalizationsCs();
   }
 
   throw FlutterError(

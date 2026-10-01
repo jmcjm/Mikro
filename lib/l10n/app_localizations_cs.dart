@@ -65,7 +65,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get libraryEmptyNoRecordings => 'Žádné nahrávky';
 
   @override
-  String get libraryEmptyDescription => 'Klepněte na mikrofon na obrazovce nahrávání — první poznámka se objeví tady, i se štítky.';
+  String get libraryEmptyDescription =>
+      'Klepněte na mikrofon na obrazovce nahrávání — první poznámka se objeví tady, i se štítky.';
 
   @override
   String get libraryRecordCta => 'Nahrajte první poznámku';
@@ -92,7 +93,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get detailDeleteTitle => 'Smazat tuto nahrávku?';
 
   @override
-  String get detailDeleteMessage => 'Zvukový soubor i přepis budou nenávratně smazány.';
+  String get detailDeleteMessage =>
+      'Zvukový soubor i přepis budou nenávratně smazány.';
 
   @override
   String get detailCancel => 'Zrušit';
@@ -146,7 +148,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get detailShareAudio => 'Zvukový soubor';
 
   @override
-  String get detailCopiedAudioPath => 'Cesta ke zvukovému souboru zkopírována do schránky.';
+  String get detailCopiedAudioPath =>
+      'Cesta ke zvukovému souboru zkopírována do schránky.';
 
   @override
   String get detailShareError => 'Sdílení se nezdařilo.';
@@ -158,7 +161,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get detailRegenerateTitle => 'Vygenerovat znovu?';
 
   @override
-  String get detailRegenerateMessage => 'Přepis, název i všechny štítky (včetně ručních) budou odstraněny a nahrávka se zpracuje od začátku.';
+  String get detailRegenerateMessage =>
+      'Přepis, název i všechny štítky (včetně ručních) budou odstraněny a nahrávka se zpracuje od začátku.';
 
   @override
   String get detailRegenerateConfirm => 'Vygenerovat';
@@ -238,16 +242,19 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsThemeSystem => 'Systémový';
 
   @override
-  String get onboardingWelcomeHeadline => 'Mluvte.\nMikro to zapíše\na označí štítky.';
+  String get onboardingWelcomeHeadline =>
+      'Mluvte.\nMikro to zapíše\na označí štítky.';
 
   @override
-  String get onboardingWelcomeBody => 'Nahrávky zůstávají ve vašem zařízení, přepis a štítky jdou k poskytovateli, kterého si vyberete.';
+  String get onboardingWelcomeBody =>
+      'Nahrávky zůstávají ve vašem zařízení, přepis a štítky jdou k poskytovateli, kterého si vyberete.';
 
   @override
   String get onboardingMicHeadline => 'Nejdřív\nmikrofon.';
 
   @override
-  String get onboardingMicBody => 'Systém se zeptá jen jednou. Bez přístupu Mikro nenahraje ani slovo.';
+  String get onboardingMicBody =>
+      'Systém se zeptá jen jednou. Bez přístupu Mikro nenahraje ani slovo.';
 
   @override
   String get onboardingMicTitle => 'Přístup k mikrofonu';
@@ -265,19 +272,23 @@ class AppLocalizationsCs extends AppLocalizations {
   String get onboardingMicRetry => 'Zkusit znovu';
 
   @override
-  String get onboardingMicDenied => 'Zamítnuto. Zapněte přístup v nastavení systému.';
+  String get onboardingMicDenied =>
+      'Zamítnuto. Zapněte přístup v nastavení systému.';
 
   @override
-  String get onboardingProviderHeadline => 'Klíč API\nmůže počkat,\njak dlouho chcete.';
+  String get onboardingProviderHeadline =>
+      'Klíč API\nmůže počkat,\njak dlouho chcete.';
 
   @override
-  String get onboardingProviderBody => 'Přepis a štítky jdou ke Groq nebo OpenAI. Samotné nahrávání funguje bez klíče.';
+  String get onboardingProviderBody =>
+      'Přepis a štítky jdou ke Groq nebo OpenAI. Samotné nahrávání funguje bez klíče.';
 
   @override
   String get onboardingProviderTitle => 'Klíč API';
 
   @override
-  String get onboardingProviderSubtitle => 'Groq nebo OpenAI — lze přidat později';
+  String get onboardingProviderSubtitle =>
+      'Groq nebo OpenAI — lze přidat později';
 
   @override
   String get onboardingNext => 'Další';
@@ -289,13 +300,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String get apiErrorNetwork => 'Žádné připojení k síti.';
 
   @override
-  String get apiErrorAuth => 'Autorizace selhala — zkontrolujte klíč API v Nastavení.';
+  String get apiErrorAuth =>
+      'Autorizace selhala — zkontrolujte klíč API v Nastavení.';
 
   @override
   String get apiErrorTooLarge => 'API soubor odmítlo — je příliš velký.';
 
   @override
-  String get apiErrorRateLimit => 'Překročen limit požadavků — zkuste to za chvíli.';
+  String get apiErrorRateLimit =>
+      'Překročen limit požadavků — zkuste to za chvíli.';
 
   @override
   String apiErrorServer(String detail) {
@@ -320,10 +333,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get apiErrorBadTags => 'Model nevrátil žádné použitelné štítky.';
 
   @override
-  String get pipelineErrorNoConfig => 'Chybí konfigurace API — vyplňte adresu a klíč v příslušné části Nastavení (přepis, štítky nebo poznámky).';
+  String get pipelineErrorNoConfig =>
+      'Chybí konfigurace API — vyplňte adresu a klíč v příslušné části Nastavení (přepis, štítky nebo poznámky).';
 
   @override
-  String get pipelineErrorSizeLimit => 'Nahrávka je příliš velká pro vybraného poskytovatele přepisu (OpenAI a Groq: 25 MB, Gemini: 14 MB). Zvolte jiného poskytovatele, např. ElevenLabs.';
+  String get pipelineErrorSizeLimit =>
+      'Nahrávka je příliš velká pro vybraného poskytovatele přepisu (OpenAI a Groq: 25 MB, Gemini: 14 MB). Zvolte jiného poskytovatele, např. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -343,7 +358,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get notesSearchHint => 'Hledat v poznámkách';
 
   @override
-  String get notesEmpty => 'Zatím žádné poznámky. Otevřete nahrávku a použijte „Vytvořit poznámku“.';
+  String get notesEmpty =>
+      'Zatím žádné poznámky. Otevřete nahrávku a použijte „Vytvořit poznámku“.';
 
   @override
   String get notesNoResults => 'Hledání neodpovídá žádná poznámka.';
@@ -378,7 +394,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get noteDeleteTitle => 'Smazat poznámku?';
 
   @override
-  String get noteDeleteMessage => 'Poznámka bude nenávratně smazána. Nahrávka a přepis zůstanou.';
+  String get noteDeleteMessage =>
+      'Poznámka bude nenávratně smazána. Nahrávka a přepis zůstanou.';
 
   @override
   String get noteRegenerateTooltip => 'Vygenerovat znovu z přepisu';
@@ -387,7 +404,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get noteRegenerateTitle => 'Vygenerovat poznámku znovu?';
 
   @override
-  String get noteRegenerateMessage => 'Obsah a název budou nahrazeny novou verzí z aktuálního přepisu. Vaše úpravy budou ztraceny.';
+  String get noteRegenerateMessage =>
+      'Obsah a název budou nahrazeny novou verzí z aktuálního přepisu. Vaše úpravy budou ztraceny.';
 
   @override
   String get noteSaveError => 'Poznámku se nepodařilo uložit.';
@@ -411,7 +429,8 @@ class AppLocalizationsCs extends AppLocalizations {
   String get detailTranscriptSaveError => 'Přepis se nepodařilo uložit.';
 
   @override
-  String get settingsSttModelHelp => 'Mluvčí rozpoznávají ElevenLabs, Gemini a gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) mluvčí nerozlišuje.';
+  String get settingsSttModelHelp =>
+      'Mluvčí rozpoznávají ElevenLabs, Gemini a gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) mluvčí nerozlišuje.';
 
   @override
   String get settingsModel => 'Model';
@@ -452,37 +471,43 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsSampling => 'Řídit temperature a top_p';
 
   @override
-  String get settingsSamplingHelp => 'Ne každý model to podporuje. Modely s uvažováním (např. OpenAI GPT-5) to odmítnou s HTTP 400 — u nich nechte vypnuto.';
+  String get settingsSamplingHelp =>
+      'Ne každý model to podporuje. Modely s uvažováním (např. OpenAI GPT-5) to odmítnou s HTTP 400 — u nich nechte vypnuto.';
 
   @override
   String get settingsTemperature => 'Temperature';
 
   @override
-  String get settingsApiKeyInheritHelp => 'Nechte prázdné, aby se při stejné adrese použil klíč z Přepisu.';
+  String get settingsApiKeyInheritHelp =>
+      'Nechte prázdné, aby se při stejné adrese použil klíč z Přepisu.';
 
   @override
   String get settingsNoteStyleDetailed => 'Podrobný';
 
   @override
-  String get settingsNoteStyleDetailedHelp => 'Nadpisy, odrážky a tučné písmo; zachová každý podstatný fakt, úkoly jako kontrolní seznam.';
+  String get settingsNoteStyleDetailedHelp =>
+      'Nadpisy, odrážky a tučné písmo; zachová každý podstatný fakt, úkoly jako kontrolní seznam.';
 
   @override
   String get settingsNoteStyleConcise => 'Stručný';
 
   @override
-  String get settingsNoteStyleConciseHelp => 'Pár odrážek s tím nejdůležitějším a případnými úkoly — přečtete za minutu.';
+  String get settingsNoteStyleConciseHelp =>
+      'Pár odrážek s tím nejdůležitějším a případnými úkoly — přečtete za minutu.';
 
   @override
   String get settingsNoteStyleMeeting => 'Zápis z porady';
 
   @override
-  String get settingsNoteStyleMeetingHelp => 'Účastníci, témata, rozhodnutí, úkoly (kdo, co, do kdy) a otevřené otázky.';
+  String get settingsNoteStyleMeetingHelp =>
+      'Účastníci, témata, rozhodnutí, úkoly (kdo, co, do kdy) a otevřené otázky.';
 
   @override
   String get settingsNoteStyleCasual => 'Nezávazný';
 
   @override
-  String get settingsNoteStyleCasualHelp => 'Uvolněný a přátelský, s pár dobře umístěnými emoji — ne jejich hromadou.';
+  String get settingsNoteStyleCasualHelp =>
+      'Uvolněný a přátelský, s pár dobře umístěnými emoji — ne jejich hromadou.';
 
   @override
   String get settingsNoteStyleCustom => 'Vlastní';
@@ -491,10 +516,12 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsNoteStyleCustomLabel => 'Pokyny pro AI';
 
   @override
-  String get settingsNoteStyleCustomHint => 'např. Piš studijní poznámky: definice, příklady a na konci 3 opakovací otázky.';
+  String get settingsNoteStyleCustomHint =>
+      'např. Piš studijní poznámky: definice, příklady a na konci 3 opakovací otázky.';
 
   @override
-  String get settingsNoteStyleCustomHelp => 'Formát (Markdown, název, jazyk přepisu) určuje aplikace sama — popište zde jen styl a strukturu.';
+  String get settingsNoteStyleCustomHelp =>
+      'Formát (Markdown, název, jazyk přepisu) určuje aplikace sama — popište zde jen styl a strukturu.';
 
   @override
   String get settingsServicesSection => 'SLUŽBY AI';
@@ -524,12 +551,15 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsAdvanced => 'Pokročilé';
 
   @override
-  String get settingsAdvancedSamplingSummary => 'Základní URL · temperature a top_p';
+  String get settingsAdvancedSamplingSummary =>
+      'Základní URL · temperature a top_p';
 
   @override
-  String get settingsBaseUrlFromProvider => 'Základní URL · určuje poskytovatel';
+  String get settingsBaseUrlFromProvider =>
+      'Základní URL · určuje poskytovatel';
 
   @override
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Základní URL · temperature $temperature, top_p $topP';
   }
+}

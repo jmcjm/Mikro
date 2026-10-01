@@ -25,7 +25,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get recorderHistoryTooltip => 'Bibliothek';
 
   @override
-  String get recorderSavedSnackbar => 'Aufnahme gespeichert — Transkription läuft.';
+  String get recorderSavedSnackbar =>
+      'Aufnahme gespeichert — Transkription läuft.';
 
   @override
   String get recorderSavedAction => 'Anzeigen';
@@ -65,7 +66,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get libraryEmptyNoRecordings => 'Keine Aufnahmen';
 
   @override
-  String get libraryEmptyDescription => 'Tippe auf dem Aufnahme-Bildschirm auf das Mikrofon — deine erste Notiz erscheint hier, mit Tags versehen.';
+  String get libraryEmptyDescription =>
+      'Tippe auf dem Aufnahme-Bildschirm auf das Mikrofon — deine erste Notiz erscheint hier, mit Tags versehen.';
 
   @override
   String get libraryRecordCta => 'Erste Notiz aufnehmen';
@@ -92,7 +94,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailDeleteTitle => 'Diese Aufnahme löschen?';
 
   @override
-  String get detailDeleteMessage => 'Die Audiodatei und das Transkript werden endgültig gelöscht.';
+  String get detailDeleteMessage =>
+      'Die Audiodatei und das Transkript werden endgültig gelöscht.';
 
   @override
   String get detailCancel => 'Abbrechen';
@@ -107,7 +110,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailRecordingDeleted => 'Aufnahme gelöscht.';
 
   @override
-  String get detailCopiedTranscript => 'Transkript in die Zwischenablage kopiert.';
+  String get detailCopiedTranscript =>
+      'Transkript in die Zwischenablage kopiert.';
 
   @override
   String get detailCopied => 'Kopiert.';
@@ -131,7 +135,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailAddTagConfirm => 'Hinzufügen';
 
   @override
-  String get detailTagSaveError => 'Die Tag-Änderung konnte nicht gespeichert werden.';
+  String get detailTagSaveError =>
+      'Die Tag-Änderung konnte nicht gespeichert werden.';
 
   @override
   String get detailRemoveTagTooltip => 'Tag entfernen';
@@ -146,7 +151,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailShareAudio => 'Audiodatei';
 
   @override
-  String get detailCopiedAudioPath => 'Pfad der Audiodatei in die Zwischenablage kopiert.';
+  String get detailCopiedAudioPath =>
+      'Pfad der Audiodatei in die Zwischenablage kopiert.';
 
   @override
   String get detailShareError => 'Teilen nicht möglich.';
@@ -158,7 +164,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailRegenerateTitle => 'Neu erzeugen?';
 
   @override
-  String get detailRegenerateMessage => 'Transkript, Titel und alle Tags (auch manuelle) werden entfernt und die Aufnahme wird von Grund auf neu verarbeitet.';
+  String get detailRegenerateMessage =>
+      'Transkript, Titel und alle Tags (auch manuelle) werden entfernt und die Aufnahme wird von Grund auf neu verarbeitet.';
 
   @override
   String get detailRegenerateConfirm => 'Neu erzeugen';
@@ -167,7 +174,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailRegenerateBusy => 'Diese Aufnahme wird gerade verarbeitet.';
 
   @override
-  String get detailRegenerateError => 'Die Aufnahme konnte nicht zurückgesetzt werden.';
+  String get detailRegenerateError =>
+      'Die Aufnahme konnte nicht zurückgesetzt werden.';
 
   @override
   String get detailRewindTooltip => '10 Sekunden zurück';
@@ -238,16 +246,19 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsThemeSystem => 'System';
 
   @override
-  String get onboardingWelcomeHeadline => 'Sprich.\nMikro schreibt mit\nund vergibt Tags.';
+  String get onboardingWelcomeHeadline =>
+      'Sprich.\nMikro schreibt mit\nund vergibt Tags.';
 
   @override
-  String get onboardingWelcomeBody => 'Aufnahmen bleiben auf deinem Gerät, Transkription und Tags gehen an den Anbieter deiner Wahl.';
+  String get onboardingWelcomeBody =>
+      'Aufnahmen bleiben auf deinem Gerät, Transkription und Tags gehen an den Anbieter deiner Wahl.';
 
   @override
   String get onboardingMicHeadline => 'Erst das\nMikrofon.';
 
   @override
-  String get onboardingMicBody => 'Das System fragt nur einmal. Ohne Zugriff nimmt Mikro kein Wort auf.';
+  String get onboardingMicBody =>
+      'Das System fragt nur einmal. Ohne Zugriff nimmt Mikro kein Wort auf.';
 
   @override
   String get onboardingMicTitle => 'Mikrofonzugriff';
@@ -265,19 +276,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get onboardingMicRetry => 'Erneut versuchen';
 
   @override
-  String get onboardingMicDenied => 'Abgelehnt. Aktiviere den Zugriff in den Systemeinstellungen.';
+  String get onboardingMicDenied =>
+      'Abgelehnt. Aktiviere den Zugriff in den Systemeinstellungen.';
 
   @override
-  String get onboardingProviderHeadline => 'Der API-Schlüssel\nkann warten,\nso lange du willst.';
+  String get onboardingProviderHeadline =>
+      'Der API-Schlüssel\nkann warten,\nso lange du willst.';
 
   @override
-  String get onboardingProviderBody => 'Transkription und Tags gehen an Groq oder OpenAI. Die Aufnahme selbst funktioniert ohne Schlüssel.';
+  String get onboardingProviderBody =>
+      'Transkription und Tags gehen an Groq oder OpenAI. Die Aufnahme selbst funktioniert ohne Schlüssel.';
 
   @override
   String get onboardingProviderTitle => 'API-Schlüssel';
 
   @override
-  String get onboardingProviderSubtitle => 'Groq oder OpenAI — kann später hinzugefügt werden';
+  String get onboardingProviderSubtitle =>
+      'Groq oder OpenAI — kann später hinzugefügt werden';
 
   @override
   String get onboardingNext => 'Weiter';
@@ -289,13 +304,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get apiErrorNetwork => 'Keine Netzwerkverbindung.';
 
   @override
-  String get apiErrorAuth => 'Autorisierung fehlgeschlagen — prüfe den API-Schlüssel in den Einstellungen.';
+  String get apiErrorAuth =>
+      'Autorisierung fehlgeschlagen — prüfe den API-Schlüssel in den Einstellungen.';
 
   @override
   String get apiErrorTooLarge => 'Die API hat die Datei abgelehnt — zu groß.';
 
   @override
-  String get apiErrorRateLimit => 'Anfragelimit überschritten — versuche es gleich noch einmal.';
+  String get apiErrorRateLimit =>
+      'Anfragelimit überschritten — versuche es gleich noch einmal.';
 
   @override
   String apiErrorServer(String detail) {
@@ -311,19 +328,23 @@ class AppLocalizationsDe extends AppLocalizations {
   String get apiErrorBadFormat => 'Unerwartetes API-Antwortformat.';
 
   @override
-  String get apiErrorNoContent => 'Die API-Antwort enthielt keinen Nachrichteninhalt.';
+  String get apiErrorNoContent =>
+      'Die API-Antwort enthielt keinen Nachrichteninhalt.';
 
   @override
   String get apiErrorNoTranscript => 'Die API-Antwort enthielt kein Textfeld.';
 
   @override
-  String get apiErrorBadTags => 'Das Modell hat keine brauchbaren Tags geliefert.';
+  String get apiErrorBadTags =>
+      'Das Modell hat keine brauchbaren Tags geliefert.';
 
   @override
-  String get pipelineErrorNoConfig => 'Keine API-Konfiguration — trage Adresse und Schlüssel im passenden Abschnitt der Einstellungen ein (Transkription, Tags oder Notizen).';
+  String get pipelineErrorNoConfig =>
+      'Keine API-Konfiguration — trage Adresse und Schlüssel im passenden Abschnitt der Einstellungen ein (Transkription, Tags oder Notizen).';
 
   @override
-  String get pipelineErrorSizeLimit => 'Die Aufnahme ist für den gewählten Transkriptionsanbieter zu groß (OpenAI und Groq: 25 MB, Gemini: 14 MB). Wähle einen anderen Anbieter, z. B. ElevenLabs.';
+  String get pipelineErrorSizeLimit =>
+      'Die Aufnahme ist für den gewählten Transkriptionsanbieter zu groß (OpenAI und Groq: 25 MB, Gemini: 14 MB). Wähle einen anderen Anbieter, z. B. ElevenLabs.';
 
   @override
   String pipelineErrorUnexpected(String detail) {
@@ -343,7 +364,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get notesSearchHint => 'Notizen durchsuchen';
 
   @override
-  String get notesEmpty => 'Noch keine Notizen. Öffne eine Aufnahme und wähle „Notiz erstellen“.';
+  String get notesEmpty =>
+      'Noch keine Notizen. Öffne eine Aufnahme und wähle „Notiz erstellen“.';
 
   @override
   String get notesNoResults => 'Keine Notizen entsprechen deiner Suche.';
@@ -378,7 +400,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noteDeleteTitle => 'Notiz löschen?';
 
   @override
-  String get noteDeleteMessage => 'Die Notiz wird endgültig gelöscht. Aufnahme und Transkript bleiben erhalten.';
+  String get noteDeleteMessage =>
+      'Die Notiz wird endgültig gelöscht. Aufnahme und Transkript bleiben erhalten.';
 
   @override
   String get noteRegenerateTooltip => 'Aus Transkript neu erzeugen';
@@ -387,7 +410,8 @@ class AppLocalizationsDe extends AppLocalizations {
   String get noteRegenerateTitle => 'Notiz neu erzeugen?';
 
   @override
-  String get noteRegenerateMessage => 'Inhalt und Titel werden durch eine neue Version aus dem aktuellen Transkript ersetzt. Deine Änderungen gehen verloren.';
+  String get noteRegenerateMessage =>
+      'Inhalt und Titel werden durch eine neue Version aus dem aktuellen Transkript ersetzt. Deine Änderungen gehen verloren.';
 
   @override
   String get noteSaveError => 'Die Notiz konnte nicht gespeichert werden.';
@@ -408,10 +432,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get detailTranscriptHint => 'Das Transkript ist leer';
 
   @override
-  String get detailTranscriptSaveError => 'Das Transkript konnte nicht gespeichert werden.';
+  String get detailTranscriptSaveError =>
+      'Das Transkript konnte nicht gespeichert werden.';
 
   @override
-  String get settingsSttModelHelp => 'Sprecher werden von ElevenLabs, Gemini und gpt-4o-transcribe-diarize (OpenAI) erkannt. Whisper (Groq, OpenAI) unterscheidet keine Sprecher.';
+  String get settingsSttModelHelp =>
+      'Sprecher werden von ElevenLabs, Gemini und gpt-4o-transcribe-diarize (OpenAI) erkannt. Whisper (Groq, OpenAI) unterscheidet keine Sprecher.';
 
   @override
   String get settingsModel => 'Modell';
@@ -452,37 +478,43 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsSampling => 'Temperature und top_p steuern';
 
   @override
-  String get settingsSamplingHelp => 'Nicht jedes Modell unterstützt das. Reasoning-Modelle (z. B. OpenAI GPT-5) lehnen es mit HTTP 400 ab — lass es dort ausgeschaltet.';
+  String get settingsSamplingHelp =>
+      'Nicht jedes Modell unterstützt das. Reasoning-Modelle (z. B. OpenAI GPT-5) lehnen es mit HTTP 400 ab — lass es dort ausgeschaltet.';
 
   @override
   String get settingsTemperature => 'Temperature';
 
   @override
-  String get settingsApiKeyInheritHelp => 'Leer lassen, um den Transkriptions-Schlüssel zu verwenden, wenn die Adresse dieselbe ist.';
+  String get settingsApiKeyInheritHelp =>
+      'Leer lassen, um den Transkriptions-Schlüssel zu verwenden, wenn die Adresse dieselbe ist.';
 
   @override
   String get settingsNoteStyleDetailed => 'Ausführlich';
 
   @override
-  String get settingsNoteStyleDetailedHelp => 'Überschriften, Aufzählungen und Fettdruck; behält jeden relevanten Fakt, Aufgaben als Checkliste.';
+  String get settingsNoteStyleDetailedHelp =>
+      'Überschriften, Aufzählungen und Fettdruck; behält jeden relevanten Fakt, Aufgaben als Checkliste.';
 
   @override
   String get settingsNoteStyleConcise => 'Knapp';
 
   @override
-  String get settingsNoteStyleConciseHelp => 'Ein paar Stichpunkte mit dem Wesentlichen und eventuellen Aufgaben — in einer Minute gelesen.';
+  String get settingsNoteStyleConciseHelp =>
+      'Ein paar Stichpunkte mit dem Wesentlichen und eventuellen Aufgaben — in einer Minute gelesen.';
 
   @override
   String get settingsNoteStyleMeeting => 'Besprechungsprotokoll';
 
   @override
-  String get settingsNoteStyleMeetingHelp => 'Teilnehmer, Themen, Beschlüsse, Aufgaben (wer, was, bis wann) und offene Fragen.';
+  String get settingsNoteStyleMeetingHelp =>
+      'Teilnehmer, Themen, Beschlüsse, Aufgaben (wer, was, bis wann) und offene Fragen.';
 
   @override
   String get settingsNoteStyleCasual => 'Locker';
 
   @override
-  String get settingsNoteStyleCasualHelp => 'Entspannt und freundlich, mit ein paar gut platzierten Emojis — keine Wand davon.';
+  String get settingsNoteStyleCasualHelp =>
+      'Entspannt und freundlich, mit ein paar gut platzierten Emojis — keine Wand davon.';
 
   @override
   String get settingsNoteStyleCustom => 'Benutzerdefiniert';
@@ -491,10 +523,12 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsNoteStyleCustomLabel => 'Anweisungen für die KI';
 
   @override
-  String get settingsNoteStyleCustomHint => 'z. B. Schreibe Lernnotizen: Definitionen, Beispiele und 3 Wiederholungsfragen am Ende.';
+  String get settingsNoteStyleCustomHint =>
+      'z. B. Schreibe Lernnotizen: Definitionen, Beispiele und 3 Wiederholungsfragen am Ende.';
 
   @override
-  String get settingsNoteStyleCustomHelp => 'Die App legt das Format (Markdown, Titel, Transkriptsprache) selbst fest — beschreibe hier nur Stil und Struktur.';
+  String get settingsNoteStyleCustomHelp =>
+      'Die App legt das Format (Markdown, Titel, Transkriptsprache) selbst fest — beschreibe hier nur Stil und Struktur.';
 
   @override
   String get settingsServicesSection => 'KI-DIENSTE';
@@ -524,12 +558,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsAdvanced => 'Erweitert';
 
   @override
-  String get settingsAdvancedSamplingSummary => 'Basis-URL · Temperature und top_p';
+  String get settingsAdvancedSamplingSummary =>
+      'Basis-URL · Temperature und top_p';
 
   @override
-  String get settingsBaseUrlFromProvider => 'Basis-URL · vom Anbieter vorgegeben';
+  String get settingsBaseUrlFromProvider =>
+      'Basis-URL · vom Anbieter vorgegeben';
 
   @override
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Basis-URL · Temperature $temperature, top_p $topP';
   }
+}
