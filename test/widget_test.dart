@@ -79,10 +79,10 @@ void main() {
   });
 
   // Locale resolution has two branches and only one of them is verified implicitly by
-  // the rest of the tests. The second one — every language other than Polish falls back to English, not
+  // the rest of the tests. The second one — every language without a translation falls back to English, not
   // the first in supportedLocales — has no other safeguard than this test.
-  testWidgets('non-pl locale falls back to English, not the source language', (tester) async {
-    tester.platformDispatcher.localesTestValue = const [Locale('de', 'DE')];
+  testWidgets('unsupported locale falls back to English, not the source language', (tester) async {
+    tester.platformDispatcher.localesTestValue = const [Locale('ja', 'JP')];
     addTearDown(tester.platformDispatcher.clearLocalesTestValue);
     SharedPreferences.setMockInitialValues({onboardingCompletedKey: true});
     final prefs = await SharedPreferences.getInstance();

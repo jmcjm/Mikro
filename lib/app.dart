@@ -52,7 +52,9 @@ class MikroApp extends ConsumerWidget {
       ],
       supportedLocales: AppLocalizations.supportedLocales,
       localeResolutionCallback: (locale, supportedLocales) {
-        if (locale?.languageCode == 'pl') return const Locale('pl');
+        for (final supported in supportedLocales) {
+          if (supported.languageCode == locale?.languageCode) return supported;
+        }
         return const Locale('en');
       },
       // First launch goes through onboarding, subsequent launches go straight to the shell.

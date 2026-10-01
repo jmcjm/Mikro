@@ -7,6 +7,11 @@ import 'package:intl/intl.dart' as intl;
 
 import 'app_localizations_en.dart';
 import 'app_localizations_pl.dart';
+import 'app_localizations_de.dart';
+import 'app_localizations_es.dart';
+import 'app_localizations_fr.dart';
+import 'app_localizations_uk.dart';
+import 'app_localizations_cs.dart';
 
 // ignore_for_file: type=lint
 
@@ -96,6 +101,11 @@ abstract class AppLocalizations {
   static const List<Locale> supportedLocales = <Locale>[
     Locale('en'),
     Locale('pl'),
+    Locale('de'),
+    Locale('es'),
+    Locale('fr'),
+    Locale('uk'),
+    Locale('cs'),
   ];
 
   /// Etykieta zakladki nagrywania w dolnym pasku i w railu.
@@ -1202,7 +1212,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'pl'].contains(locale.languageCode);
+      <String>['en', 'pl', 'de', 'es', 'fr', 'uk', 'cs'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -1215,6 +1225,16 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEn();
     case 'pl':
       return AppLocalizationsPl();
+    case 'de':
+      return AppLocalizationsDe();
+    case 'es':
+      return AppLocalizationsEs();
+    case 'fr':
+      return AppLocalizationsFr();
+    case 'uk':
+      return AppLocalizationsUk();
+    case 'cs':
+      return AppLocalizationsCs();
   }
 
   throw FlutterError(

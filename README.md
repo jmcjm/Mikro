@@ -66,7 +66,7 @@
 
 ### 🎨 Look & feel
 
-- Material 3 Expressive, English and Polish
+- Material 3 Expressive, UI in English, Polish, German, Spanish, French, Ukrainian and Czech
 - Themes: Material 3, Dracula, Nord, Gruvbox, Catppuccin and Solarized
 
 ## Building
