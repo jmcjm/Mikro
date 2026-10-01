@@ -382,6 +382,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get notePreviewTooltip => 'Preview';
 
   @override
+  String get noteShareTooltip => 'Share';
+
+  @override
   String noteSourceLink(String title) {
     return 'Source: $title';
   }

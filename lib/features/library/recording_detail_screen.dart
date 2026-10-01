@@ -16,6 +16,7 @@ import '../../core/models/recording_status.dart';
 import '../../core/models/tag_name.dart';
 import '../../core/providers.dart';
 import '../../core/util/format.dart';
+import '../../core/util/share_text.dart';
 import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
 import '../notes/note_view.dart';
@@ -364,11 +365,6 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
     }
   }
 
-  /// Native share sheet is supported on mobile and macOS.
-  /// On Linux, fallback to copying transcript to clipboard.
-  bool get _hasNativeShareSheet =>
-      Platform.isAndroid || Platform.isIOS || Platform.isMacOS;
-
   Future<void> _copyTranscript(String transcript, {required String message}) async {
     final messenger = ScaffoldMessenger.of(context);
     await Clipboard.setData(ClipboardData(text: transcript));
@@ -379,16 +375,14 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   Future<void> _shareTranscript(Recording recording) async {
     final transcript = recording.transcript;
     if (transcript == null) return;
-    if (_hasNativeShareSheet) {
-      await SharePlus.instance.share(ShareParams(
-        text: transcript,
-        subject: 'Mikro — ${formatDateTime(recording.createdAt)}',
-      ));
-      return;
-    }
-    if (!mounted) return;
-    await _copyTranscript(transcript,
-        message: AppLocalizations.of(context).detailCopiedTranscript);
+    final messenger = ScaffoldMessenger.of(context);
+    final copiedMessage = AppLocalizations.of(context).detailCopiedTranscript;
+    final usedSheet = await shareText(
+      transcript,
+      subject: 'Mikro — ${formatDateTime(recording.createdAt)}',
+    );
+    if (usedSheet || !mounted) return;
+    messenger.showSnackBar(SnackBar(content: Text(copiedMessage)));
   }
 
   /// Shares the original audio file. share_plus on Linux can only build a `mailto:` link, so there
@@ -397,7 +391,7 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   Future<void> _shareAudio(Recording recording) async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
-    if (!_hasNativeShareSheet) {
+    if (!hasNativeShareSheet) {
       await Clipboard.setData(ClipboardData(text: recording.audioPath));
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text(l10n.detailCopiedAudioPath)));

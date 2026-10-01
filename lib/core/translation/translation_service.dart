@@ -5,6 +5,7 @@ import '../api/translation_api.dart';
 import '../db/database.dart';
 import '../models/provider_config.dart';
 import '../models/translation_language.dart';
+import '../notes/note_markdown.dart';
 import '../notes/note_service.dart';
 import '../settings/settings_repository.dart';
 
@@ -50,7 +51,7 @@ class TranslationService {
     if (note == null) {
       throw MikroApiException(ApiErrorKind.noContent, 'note not found');
     }
-    final source = note.title.trim().isEmpty ? note.content : '# ${note.title}\n\n${note.content}';
+    final source = noteMarkdown(title: note.title, content: note.content);
     final content = await _translate(source, language);
     await db.saveTranslation(noteId: noteId, language: language, content: content, now: _clock());
   }

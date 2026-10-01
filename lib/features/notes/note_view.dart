@@ -5,10 +5,12 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/api/api_errors.dart';
 import '../../core/db/database.dart';
+import '../../core/notes/note_markdown.dart';
 import '../../core/notes/note_service.dart';
 import '../../core/providers.dart';
 import '../../core/theme/accent_palette.dart';
 import '../../core/util/format.dart';
+import '../../core/util/share_text.dart';
 import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
 import '../library/color_picker_dialog.dart';
@@ -150,6 +152,29 @@ class _NoteViewState extends ConsumerState<NoteView> {
       messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));
     } finally {
       if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  /// Shares what is on screen as Markdown: the shown translation, otherwise the note itself.
+  /// The note is read from the controllers, not the database — edits reach it only after a delay.
+  Future<void> _share() async {
+    final l10n = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final translations = ref.read(noteTranslationsProvider(widget.noteId)).value ?? const [];
+    final translation = translations.where((t) => t.language == _shownLanguage).firstOrNull;
+    final title = _title.controller.text.trim();
+    // A translation already carries its own heading, the note gets its title back on top.
+    final text =
+        translation?.content ??
+        noteMarkdown(title: title, content: _content.controller.text);
+    if (text.trim().isEmpty) return;
+    try {
+      final usedSheet = await shareText(text, subject: title.isEmpty ? null : title);
+      if (usedSheet || !mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(l10n.detailCopied)));
+    } catch (_) {
+      if (!mounted) return;
+      messenger.showSnackBar(SnackBar(content: Text(l10n.detailShareError)));
     }
   }
 
@@ -306,6 +331,11 @@ class _NoteViewState extends ConsumerState<NoteView> {
             if (_editing) _shownLanguage = null;
           });
         },
+      ),
+      IconButton(
+        icon: Icon(Symbols.share_rounded, fill: 1, color: scheme.onSurfaceVariant),
+        tooltip: l10n.noteShareTooltip,
+        onPressed: _share,
       ),
       IconButton(
         icon: Icon(Symbols.delete_rounded, fill: 1, color: scheme.onSurfaceVariant),
