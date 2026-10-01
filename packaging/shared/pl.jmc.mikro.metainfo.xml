@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.3.0" date="2026-10-01">
+      <description>
+        <p>Udostępnianie tekstu notatki: przycisk w notatce przekazuje jej treść wraz z tytułem do systemowego okna udostępniania, a na komputerze kopiuje ją do schowka. Gdy na ekranie jest tłumaczenie, udostępniane jest ono, a nie oryginał.</p>
+        <p xml:lang="en">Sharing a note's text: a button on the note hands its content, together with the title, to the system share sheet, and on desktop copies it to the clipboard. When a translation is on screen, the translation is shared instead of the original.</p>
+      </description>
+    </release>
     <release version="2.2.2" date="2026-09-27">
       <description>
         <p>Flatpak dostaje teraz aktualizacje: wersja zainstalowana z pliku .flatpakref aktualizuje się przez „flatpak update” i sklepy z aplikacjami. Kopia zainstalowana ze starszego pliku .flatpak wymaga jednorazowej reinstalacji.</p>
