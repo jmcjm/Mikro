@@ -148,7 +148,7 @@
   },
   "detailCopied": "Skopiowano.",
   "@detailCopied": {
-    "description": "Pasek powiadomienia po skopiowaniu transkryptu ikona kopiowania."
+    "description": "Pasek powiadomienia po skopiowaniu tekstu do schowka: transkryptu ikona kopiowania albo notatki, gdy brak systemowego arkusza udostepniania."
   },
   "detailTranscriptLabel": "TRANSKRYPCJA",
   "@detailTranscriptLabel": {
@@ -506,6 +506,10 @@
   "notePreviewTooltip": "Podgląd",
   "@notePreviewTooltip": {
     "description": "Przelacza notatke w tryb podgladu sformatowanego."
+  },
+  "noteShareTooltip": "Udostępnij",
+  "@noteShareTooltip": {
+    "description": "Podpowiedz przycisku udostepniania tekstu notatki (lub jej tlumaczenia, gdy jest pokazane)."
   },
   "noteSourceLink": "Źródło: {title}",
   "@noteSourceLink": {

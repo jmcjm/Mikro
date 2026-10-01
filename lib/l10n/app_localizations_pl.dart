@@ -379,6 +379,9 @@ class AppLocalizationsPl extends AppLocalizations {
   String get notePreviewTooltip => 'Podgląd';
 
   @override
+  String get noteShareTooltip => 'Udostępnij';
+
+  @override
   String noteSourceLink(String title) {
     return 'Źródło: $title';
   }

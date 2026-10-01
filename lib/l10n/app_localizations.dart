@@ -290,7 +290,7 @@ abstract class AppLocalizations {
   /// **'Skopiowano transkrypt do schowka.'**
   String get detailCopiedTranscript;
 
-  /// Pasek powiadomienia po skopiowaniu transkryptu ikona kopiowania.
+  /// Pasek powiadomienia po skopiowaniu tekstu do schowka: transkryptu ikona kopiowania albo notatki, gdy brak systemowego arkusza udostepniania.
   ///
   /// In pl, this message translates to:
   /// **'Skopiowano.'**
@@ -781,6 +781,12 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Podgląd'**
   String get notePreviewTooltip;
+
+  /// Podpowiedz przycisku udostepniania tekstu notatki (lub jej tlumaczenia, gdy jest pokazane).
+  ///
+  /// In pl, this message translates to:
+  /// **'Udostępnij'**
+  String get noteShareTooltip;
 
   /// Link z notatki do nagrania, z ktorego powstala.
   ///

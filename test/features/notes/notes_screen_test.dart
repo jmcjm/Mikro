@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -42,6 +43,28 @@ void main() {
         content: content,
         now: at ?? DateTime(2026, 9, 1),
       );
+
+  /// Tests run on Linux, where there is no native share sheet and sharing falls back to the
+  /// clipboard — so the clipboard is where the shared text can be observed.
+  List<String> captureClipboard(WidgetTester tester, {bool failing = false}) {
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (
+      call,
+    ) async {
+      if (call.method == 'Clipboard.setData') {
+        if (failing) throw PlatformException(code: 'unavailable');
+        copied.add((call.arguments as Map)['text'] as String);
+      }
+      return null;
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    return copied;
+  }
 
   testWidgets('short wide screen: the whole note panel scrolls, not just the body',
       (tester) async {
@@ -248,6 +271,151 @@ void main() {
     await tester.pumpAndSettle();
 
     expect((await tester.runAsync(() => db.getNote('a')))!.color, 2);
+    await unmount(tester);
+  });
+
+  testWidgets('share: the title goes back on top of the body as a Markdown heading', (
+    tester,
+  ) async {
+    final copied = captureClipboard(tester);
+    await note('a', 'Plan', '- punkt');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    // The title is stored apart from the body (the heading is split off on generation), so the
+    // body alone would lose it.
+    expect(copied, ['# Plan\n\n- punkt']);
+    expect(find.text(plL10n.detailCopied), findsOneWidget);
+    await unmount(tester);
+  });
+
+  testWidgets('share: text typed a moment ago is included, before its delayed save lands', (
+    tester,
+  ) async {
+    final copied = captureClipboard(tester);
+    await note('a', 'Stary', '- punkt');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.edit_rounded));
+    await tester.pump();
+    await tester.enterText(
+      find.byWidgetPredicate((w) => w is TextField && w.controller?.text == 'Stary'),
+      'Nowy',
+    );
+    await tester.enterText(
+      find.byWidgetPredicate((w) => w is TextField && w.controller?.text == '- punkt'),
+      '- punkt\n- drugi',
+    );
+    // No pump with a duration: the 600 ms debounce has not written anything to the database.
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['# Nowy\n\n- punkt\n- drugi']);
+    await unmount(tester);
+  });
+
+  testWidgets('share: a note without a title shares just its body', (tester) async {
+    final copied = captureClipboard(tester);
+    await note('a', '', 'Sama treść');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['Sama treść']);
+    await unmount(tester);
+  });
+
+  testWidgets('share: a shown translation is shared instead of the note', (tester) async {
+    final copied = captureClipboard(tester);
+    await note('a', 'Plan', '- punkt');
+    await db.saveTranslation(
+      noteId: 'a',
+      language: 'en',
+      content: '# Plan\n\n- item',
+      now: DateTime(2026),
+    );
+    await pump(tester, const NoteScreen(noteId: 'a'));
+    await tester.tap(find.text('English'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    // The stored translation already carries its own heading (see TranslationService.translateNote).
+    expect(copied, ['# Plan\n\n- item']);
+    await unmount(tester);
+  });
+
+  testWidgets('share: a stored translation that is not shown does not replace the note', (
+    tester,
+  ) async {
+    final copied = captureClipboard(tester);
+    await note('a', 'Plan', '- punkt');
+    await db.saveTranslation(
+      noteId: 'a',
+      language: 'en',
+      content: '# Plan\n\n- item',
+      now: DateTime(2026),
+    );
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    // The translation exists but the note itself is on screen — that is what gets shared.
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['# Plan\n\n- punkt']);
+    await unmount(tester);
+  });
+
+  testWidgets('share: spaces around the title are not shared', (tester) async {
+    final copied = captureClipboard(tester);
+    await note('a', ' Plan ', 'x');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, ['# Plan\n\nx']);
+    await unmount(tester);
+  });
+
+  testWidgets('share: a note with nothing but whitespace shares nothing', (tester) async {
+    final copied = captureClipboard(tester);
+    await note('a', '  ', '\n ');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, isEmpty);
+    expect(find.text(plL10n.detailCopied), findsNothing);
+    await unmount(tester);
+  });
+
+  testWidgets('share: a failing clipboard reports an error instead of a confirmation', (
+    tester,
+  ) async {
+    final copied = captureClipboard(tester, failing: true);
+    await note('a', 'Plan', '- punkt');
+    await pump(tester, const NoteScreen(noteId: 'a'));
+
+    await tester.tap(find.byIcon(Symbols.share_rounded));
+    await tester.pump();
+    await tester.pump();
+
+    expect(copied, isEmpty);
+    expect(find.text(plL10n.detailShareError), findsOneWidget);
+    expect(find.text(plL10n.detailCopied), findsNothing);
     await unmount(tester);
   });
 }

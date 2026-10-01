@@ -123,6 +123,7 @@
   "noteContentHint": "Note content (Markdown)",
   "noteEditTooltip": "Edit",
   "notePreviewTooltip": "Preview",
+  "noteShareTooltip": "Share",
   "noteSourceLink": "Source: {title}",
   "noteSourceDeleted": "Source recording was deleted",
   "noteDeleteTitle": "Delete note?",
