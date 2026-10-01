@@ -19,6 +19,7 @@ import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/provider_config.dart';
 import 'package:mikro/core/models/recording_status.dart';
 import 'package:mikro/core/notes/note_service.dart';
+import 'package:mikro/core/notes/note_style.dart';
 import 'package:mikro/core/pipeline/processing_pipeline.dart';
 import 'package:mikro/core/providers.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
@@ -70,10 +71,6 @@ class _NoConfigSettings implements SettingsRepository {
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
   SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
-  @override
-  NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
-  @override
-  Future<void> saveNoteStyle(NoteStyleSetting setting) async {}
 }
 
 /// Text field of the add-tag dialog. The transcript is a TextField too, so a bare
@@ -102,10 +99,15 @@ class _FakeNoteService extends NoteService {
       : super(db: db, notesApi: NotesApi(Dio()), settings: _NoConfigSettings());
 
   final requested = <String>[];
+  final styles = <NoteStyleChoice>[];
 
   @override
-  Future<String> createFromRecording(String recordingId) async {
+  Future<String> createFromRecording(
+    String recordingId, {
+    NoteStyleChoice style = NoteStyleChoice.detailed,
+  }) async {
     requested.add(recordingId);
+    styles.add(style);
     final recording = await db.getRecording(recordingId);
     await db.insertNote(
       id: 'nowa',
@@ -211,12 +213,20 @@ void main() {
     Locale locale = const Locale('pl'),
     bool confirmSeek = true,
     List<Override> overrides = const [],
+    Map<String, Object> prefs = const {},
+    Widget? home,
   }) async {
     stubAudioPlayers(tester, confirmSeek: confirmSeek);
+    SharedPreferences.setMockInitialValues(prefs);
+    final sharedPrefs = await SharedPreferences.getInstance();
     await tester.pumpWidget(ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db), ...overrides],
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        sharedPrefsProvider.overrideWithValue(sharedPrefs),
+        ...overrides,
+      ],
       child: localizedApp(
-        RecordingDetailScreen(recordingId: id),
+        home ?? RecordingDetailScreen(recordingId: id),
         locale: locale,
         theme: buildTheme(palette: AppPalette.md3, brightness: Brightness.light),
       ),
@@ -1388,12 +1398,102 @@ void main() {
       await pumpDetail(tester, 'a', overrides: [noteServiceProvider.overrideWithValue(service)]);
 
       await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.pumpAndSettle();
+      expect(find.text(plL10n.noteStylePickTitle), findsOneWidget, reason: 'style comes first');
+      expect(service.requested, isEmpty);
+      await tester.tap(find.text(plL10n.noteStyleCreate));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pumpAndSettle();
 
       expect(service.requested, ['a']);
+      expect(service.styles, [NoteStyleChoice.detailed]);
       expect(find.byType(NoteView), findsOneWidget);
       expect(find.text('z: treść nagrania'), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('"make a note": custom styles are offered and the pick is remembered',
+        (tester) async {
+      await doneWithTranscript('x');
+      final service = _FakeNoteService(db);
+      await pumpDetail(tester, 'a',
+          overrides: [noteServiceProvider.overrideWithValue(service)],
+          prefs: {
+            'notes_custom_styles': '[{"id":"h","name":"Haiku","instructions":"Tylko haiku."}]',
+          });
+
+      await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.pumpAndSettle();
+      expect(find.text(plL10n.noteStyleCustomHint), findsNothing,
+          reason: 'the hint is for users without their own styles');
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Haiku'));
+      await tester.pumpAndSettle();
+      expect(find.text('Tylko haiku.'), findsOneWidget, reason: 'instructions as the description');
+      await tester.tap(find.text(plL10n.noteStyleCreate));
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pumpAndSettle();
+
+      expect(service.styles.single.custom?.id, 'h');
+      final prefs = await tester.runAsync(SharedPreferences.getInstance);
+      expect(prefs!.getString('notes_style'), 'custom');
+      expect(prefs.getString('notes_style_custom_id'), 'h');
+      await unmount(tester);
+    });
+
+    testWidgets('"make a note": cancelling the style dialog makes nothing', (tester) async {
+      await doneWithTranscript('x');
+      final service = _FakeNoteService(db);
+      await pumpDetail(tester, 'a', overrides: [noteServiceProvider.overrideWithValue(service)]);
+
+      await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.pumpAndSettle();
+      expect(find.text(plL10n.noteStyleCustomHint), findsOneWidget);
+      await tester.tap(find.text(plL10n.detailCancel));
+      await tester.pumpAndSettle();
+
+      expect(service.requested, isEmpty);
+      expect(find.byType(NoteView), findsNothing);
+      expect(find.text(plL10n.detailMakeNote), findsOneWidget);
+      await unmount(tester);
+    });
+
+    testWidgets('open note → source goes back instead of stacking routes', (tester) async {
+      await doneWithTranscript('x');
+      await db.insertNote(
+          id: 'n', recordingId: 'a', title: 'Istniejąca', content: 'c', now: DateTime(2026));
+      await pumpDetail(tester, 'a');
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text(plL10n.detailOpenNote));
+        await tester.pumpAndSettle();
+        expect(find.byType(NoteView), findsOneWidget);
+        await tester.tap(find.descendant(of: find.byType(NoteView), matching: find.byType(ActionChip)));
+        await tester.pumpAndSettle();
+        expect(find.byType(NoteView), findsNothing);
+      }
+
+      expect(navigator.canPop(), isFalse, reason: 'one back press leaves, not one per hop');
+      await unmount(tester);
+    });
+
+    testWidgets('note → source → open note goes back to the note', (tester) async {
+      await doneWithTranscript('x');
+      await db.insertNote(
+          id: 'n', recordingId: 'a', title: 'Istniejąca', content: 'c', now: DateTime(2026));
+      await pumpDetail(tester, 'a', home: const NoteScreen(noteId: 'n'));
+      final navigator = tester.state<NavigatorState>(find.byType(Navigator));
+
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.descendant(of: find.byType(NoteView), matching: find.byType(ActionChip)));
+        await tester.pumpAndSettle();
+        expect(find.byType(RecordingDetailView), findsOneWidget);
+        await tester.tap(find.text(plL10n.detailOpenNote));
+        await tester.pumpAndSettle();
+        expect(find.byType(RecordingDetailView), findsNothing);
+      }
+
+      expect(navigator.canPop(), isFalse);
       await unmount(tester);
     });
 
@@ -1447,6 +1547,8 @@ void main() {
       ]);
 
       await tester.tap(find.text(plL10n.detailMakeNote));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(plL10n.noteStyleCreate));
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
 

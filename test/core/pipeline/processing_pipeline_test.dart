@@ -29,10 +29,6 @@ class FakeSettings implements SettingsRepository {
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
   SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
-  @override
-  NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
-  @override
-  Future<void> saveNoteStyle(NoteStyleSetting setting) async {}
 }
 
 /// Fakes `SettingsRepository` whose key store is temporarily unavailable —
@@ -50,10 +46,6 @@ class ThrowingSettings implements SettingsRepository {
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
   SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
-  @override
-  NoteStyleSetting loadNoteStyle() => const NoteStyleSetting(style: NoteStyle.detailed);
-  @override
-  Future<void> saveNoteStyle(NoteStyleSetting setting) async {}
 }
 
 class FakeTranscription implements TranscriptionApi {

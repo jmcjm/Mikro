@@ -177,21 +177,4 @@ void main() {
     expect((await r.load(ApiTask.tags))!.sampling, isNull);
     expect(r.samplingValues(ApiTask.tags).temperature, 0.7);
   });
-
-  test('note style defaults to detailed and round-trips with custom text', () async {
-    final r = await repo({});
-    expect(r.loadNoteStyle().style, NoteStyle.detailed);
-
-    await r.saveNoteStyle(const NoteStyleSetting(style: NoteStyle.custom, custom: 'Krótko.'));
-    final loaded = r.loadNoteStyle();
-    expect(loaded.style, NoteStyle.custom);
-    expect(loaded.custom, 'Krótko.');
-  });
-
-  test('GUARD: note style keys and unknown stored value', () async {
-    expect(SettingsRepository.noteStyleKey, 'notes_style');
-    expect(SettingsRepository.noteStyleCustomKey, 'notes_style_custom');
-    final r = await repo({'notes_style': 'z-przyszlej-wersji'});
-    expect(r.loadNoteStyle().style, NoteStyle.detailed);
-  });
 }

@@ -3,11 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/provider_config.dart';
+import '../../core/notes/note_style.dart';
 import '../../core/providers.dart';
-import '../../core/settings/settings_repository.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_providers.dart';
 import '../../l10n/app_localizations.dart';
+import '../notes/note_style_picker.dart';
 import '../shell/home_tab.dart';
 
 /// Single theme choice card in the grid. The mockup displays six cards in a 2x3 layout
@@ -143,8 +144,6 @@ class _TaskForm {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _forms = {for (final task in ApiTask.values) task: _TaskForm(task)};
-  var _noteStyle = NoteStyle.detailed;
-  final _noteStyleCustom = TextEditingController();
   var _loaded = false;
 
   /// Service whose form is open: the sub-page on a phone (`null` shows the list), the right
@@ -165,7 +164,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (final form in _forms.values) {
       await _loadForm(form);
     }
-    _loadNoteStyle();
     if (mounted) setState(() => _loaded = true);
     if (_themeScrollPending) _scrollToTheme();
   }
@@ -182,17 +180,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  void _loadNoteStyle() {
-    final style = ref.read(settingsRepositoryProvider).loadNoteStyle();
-    _noteStyle = style.style;
-    _noteStyleCustom.text = style.custom;
-  }
-
   /// Leaving a form without saving drops its edits, so the list never shows a provider or
   /// model that is not what the app actually uses.
   Future<void> _discard(ApiTask task) async {
     await _loadForm(_forms[task]!);
-    if (task == ApiTask.notes) _loadNoteStyle();
     if (mounted) setState(() {});
   }
 
@@ -238,10 +229,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final messenger = ScaffoldMessenger.of(context);
     final saved = AppLocalizations.of(context).settingsSaved;
     await repo.save(task, _forms[task]!.value);
-    if (task == ApiTask.notes) {
-      await repo.saveNoteStyle(
-          NoteStyleSetting(style: _noteStyle, custom: _noteStyleCustom.text.trim()));
-    }
     revision.state++;
     messenger.showSnackBar(SnackBar(content: Text(saved)));
   }
@@ -256,7 +243,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     for (final form in _forms.values) {
       form.dispose();
     }
-    _noteStyleCustom.dispose();
     super.dispose();
   }
 
@@ -559,7 +545,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
                 if (form.task == ApiTask.notes) ...[
                   const SizedBox(height: 22),
-                  _noteStylePicker(colors, l10n),
+                  _customStyles(colors, l10n),
                 ],
                 if (form.hasAdvanced) ...[
                   const SizedBox(height: 16),
@@ -765,57 +751,108 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  /// Note style: four presets and "custom", whose text goes to the model as instructions.
-  /// The custom text stays stored while a preset is selected, so trying a preset costs nothing.
-  Widget _noteStylePicker(ColorScheme colors, AppLocalizations l10n) {
-    final options = [
-      (NoteStyle.detailed, l10n.settingsNoteStyleDetailed, l10n.settingsNoteStyleDetailedHelp),
-      (NoteStyle.concise, l10n.settingsNoteStyleConcise, l10n.settingsNoteStyleConciseHelp),
-      (NoteStyle.meeting, l10n.settingsNoteStyleMeeting, l10n.settingsNoteStyleMeetingHelp),
-      (NoteStyle.casual, l10n.settingsNoteStyleCasual, l10n.settingsNoteStyleCasualHelp),
-      (NoteStyle.custom, l10n.settingsNoteStyleCustom, null),
-    ];
-    final help = options.firstWhere((o) => o.$1 == _noteStyle).$3;
+  /// The user's own note styles. Picking a style happens when a note is made; here they are
+  /// only written. Each dialog saves on its own — the list is not part of the provider form
+  /// and its Save button.
+  Widget _customStyles(ColorScheme colors, AppLocalizations l10n) {
+    final styles = ref.watch(customNoteStylesProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _sectionLabel(l10n.settingsNoteStyleSection, colors),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            for (final (style, label, _) in options)
-              ChoiceChip(
-                label: Text(label),
-                selected: _noteStyle == style,
-                onSelected: (_) => setState(() => _noteStyle = style),
-              ),
-          ],
+        _sectionLabel(l10n.settingsCustomStylesSection, colors),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(l10n.settingsCustomStylesHelp,
+              style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant)),
         ),
-        const SizedBox(height: 10),
-        if (_noteStyle == NoteStyle.custom)
-          TextField(
-            controller: _noteStyleCustom,
-            minLines: 3,
-            maxLines: 8,
-            keyboardType: TextInputType.multiline,
-            style: TextStyle(fontSize: 15, color: colors.onSurface),
-            decoration: _fieldDecoration(l10n.settingsNoteStyleCustomLabel, colors).copyWith(
-              hintText: l10n.settingsNoteStyleCustomHint,
-              hintMaxLines: 3,
-              helperText: l10n.settingsNoteStyleCustomHelp,
-              helperMaxLines: 3,
-              alignLabelWithHint: true,
-            ),
-          )
-        else if (help != null)
+        const SizedBox(height: 8),
+        for (final style in styles)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(help, style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant)),
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Material(
+              color: colors.surfaceContainer,
+              borderRadius: BorderRadius.circular(16),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.only(left: 16, right: 4),
+                title: Text(customNoteStyleName(style, l10n),
+                    style: TextStyle(fontWeight: FontWeight.w500, color: colors.onSurface)),
+                subtitle: Text(style.instructions,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.onSurfaceVariant)),
+                onTap: () => _editCustomStyle(style),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Symbols.edit_rounded, fill: 1, size: 22),
+                      color: colors.onSurfaceVariant,
+                      tooltip: l10n.settingsCustomStyleEditTooltip,
+                      onPressed: () => _editCustomStyle(style),
+                    ),
+                    IconButton(
+                      icon: const Icon(Symbols.delete_rounded, fill: 1, size: 22),
+                      color: colors.onSurfaceVariant,
+                      tooltip: l10n.settingsCustomStyleDeleteTooltip,
+                      onPressed: () => _deleteCustomStyle(style),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _editCustomStyle(null),
+            icon: const Icon(Symbols.add_rounded, size: 20),
+            label: Text(l10n.settingsCustomStyleAdd),
+          ),
+        ),
       ],
     );
+  }
+
+  /// Adds a style ([style] `null`) or edits one.
+  Future<void> _editCustomStyle(CustomNoteStyle? style) async {
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (_) => _CustomStyleDialog(style: style, fieldDecoration: _fieldDecoration),
+    );
+    if (result == null) return;
+    final (name, instructions) = result;
+    final controller = ref.read(customNoteStylesProvider.notifier);
+    if (style == null) {
+      await controller.add(name: name, instructions: instructions);
+    } else {
+      await controller.edit(
+          CustomNoteStyle(id: style.id, name: name, instructions: instructions));
+    }
+  }
+
+  Future<void> _deleteCustomStyle(CustomNoteStyle style) async {
+    final l10n = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l10n.settingsCustomStyleDeleteTitle(customNoteStyleName(style, l10n))),
+        content: Text(l10n.settingsCustomStyleDeleteMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(l10n.detailCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(l10n.detailDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await ref.read(customNoteStylesProvider.notifier).remove(style.id);
   }
 
   /// Provider segment button group in MD3 Expressive connected style:
@@ -1101,6 +1138,95 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         borderSide: BorderSide(color: colors.outlineVariant),
       ),
       border: const UnderlineInputBorder(borderRadius: shape),
+    );
+  }
+}
+
+/// Name and instructions of a custom note style. Pops `(name, instructions)`, both trimmed
+/// and non-empty — Save stays disabled until then.
+class _CustomStyleDialog extends StatefulWidget {
+  const _CustomStyleDialog({required this.style, required this.fieldDecoration});
+
+  final CustomNoteStyle? style;
+  final InputDecoration Function(String label, ColorScheme colors) fieldDecoration;
+
+  @override
+  State<_CustomStyleDialog> createState() => _CustomStyleDialogState();
+}
+
+class _CustomStyleDialogState extends State<_CustomStyleDialog> {
+  late final _name = TextEditingController(text: widget.style?.name);
+  late final _instructions = TextEditingController(text: widget.style?.instructions);
+
+  bool get _canSave => _name.text.trim().isNotEmpty && _instructions.text.trim().isNotEmpty;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _instructions.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return AlertDialog(
+      title: Text(widget.style == null
+          ? l10n.settingsCustomStyleNewTitle
+          : l10n.settingsCustomStyleEditTitle),
+      content: SizedBox(
+        width: 480,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _name,
+                autofocus: widget.style == null,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(fontSize: 15, color: colors.onSurface),
+                decoration: widget
+                    .fieldDecoration(l10n.settingsCustomStyleName, colors)
+                    .copyWith(hintText: l10n.settingsCustomStyleNameHint),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _instructions,
+                minLines: 3,
+                maxLines: 8,
+                keyboardType: TextInputType.multiline,
+                textCapitalization: TextCapitalization.sentences,
+                onChanged: (_) => setState(() {}),
+                style: TextStyle(fontSize: 15, color: colors.onSurface),
+                decoration: widget
+                    .fieldDecoration(l10n.settingsNoteStyleCustomLabel, colors)
+                    .copyWith(
+                      hintText: l10n.settingsNoteStyleCustomHint,
+                      hintMaxLines: 3,
+                      helperText: l10n.settingsNoteStyleCustomHelp,
+                      helperMaxLines: 3,
+                      alignLabelWithHint: true,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.detailCancel),
+        ),
+        FilledButton(
+          onPressed: _canSave
+              ? () => Navigator.pop(context, (_name.text.trim(), _instructions.text.trim()))
+              : null,
+          child: Text(l10n.settingsSave),
+        ),
+      ],
     );
   }
 }
