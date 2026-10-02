@@ -5,6 +5,7 @@ import '../api/notes_api.dart';
 import '../db/database.dart';
 import '../models/provider_config.dart';
 import '../settings/settings_repository.dart';
+import 'note_style.dart';
 
 /// Raised when there is no provider configured — the UI points the user to settings instead of
 /// showing an API error.
@@ -26,9 +27,12 @@ class NoteService {
   final SettingsRepository settings;
   final DateTime Function() _clock;
 
-  /// Generates a note from the recording's CURRENT transcript (including manual edits) and
-  /// returns the new note's id. Throws [NoConfigException] or [MikroApiException].
-  Future<String> createFromRecording(String recordingId) async {
+  /// Generates a note in [style] from the recording's CURRENT transcript (including manual
+  /// edits) and returns the new note's id. Throws [NoConfigException] or [MikroApiException].
+  Future<String> createFromRecording(
+    String recordingId, {
+    NoteStyleChoice style = NoteStyleChoice.detailed,
+  }) async {
     final recording = await db.getRecording(recordingId);
     final transcript = recording?.transcript;
     if (recording == null || transcript == null || transcript.trim().isEmpty) {
@@ -37,12 +41,11 @@ class NoteService {
     final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
-    final style = settings.loadNoteStyle();
     final generated = await notesApi.generate(
       transcript: transcript,
       config: config,
       style: style.style,
-      customStyle: style.custom,
+      customStyle: style.instructions,
     );
     final id = const Uuid().v4();
     await db.insertNote(
@@ -56,9 +59,12 @@ class NoteService {
     return id;
   }
 
-  /// Rewrites an existing note from its source transcript, keeping its id and link. The user's
-  /// edits are lost — the UI confirms before calling this.
-  Future<void> regenerate(String noteId) async {
+  /// Rewrites an existing note in [style] from its source transcript, keeping its id and link.
+  /// The user's edits are lost — the UI confirms before calling this.
+  Future<void> regenerate(
+    String noteId, {
+    NoteStyleChoice style = NoteStyleChoice.detailed,
+  }) async {
     final note = await db.getNote(noteId);
     final recordingId = note?.recordingId;
     final recording = recordingId == null ? null : await db.getRecording(recordingId);
@@ -69,12 +75,11 @@ class NoteService {
     final config = await settings.load(ApiTask.notes);
     if (config == null) throw NoConfigException();
 
-    final style = settings.loadNoteStyle();
     final generated = await notesApi.generate(
       transcript: transcript,
       config: config,
       style: style.style,
-      customStyle: style.custom,
+      customStyle: style.instructions,
     );
     await db.updateNote(
       noteId,

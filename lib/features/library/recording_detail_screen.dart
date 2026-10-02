@@ -19,6 +19,7 @@ import '../../core/util/format.dart';
 import '../../core/util/share_text.dart';
 import '../../core/util/synced_text.dart';
 import '../../l10n/app_localizations.dart';
+import '../notes/note_style_picker.dart';
 import '../notes/note_view.dart';
 import '../notes/selected_note.dart';
 import '../shell/home_tab.dart';
@@ -42,12 +43,16 @@ enum DetailChrome {
 /// Fullscreen recording details. Thin wrapper around [RecordingDetailView] allowing
 /// Navigator.push invocations without needing explicit frame configuration.
 class RecordingDetailScreen extends StatelessWidget {
-  const RecordingDetailScreen({super.key, required this.recordingId});
+  const RecordingDetailScreen({super.key, required this.recordingId, this.openedFromNoteId});
 
   final String recordingId;
 
+  /// See [RecordingDetailView.openedFromNoteId].
+  final String? openedFromNoteId;
+
   @override
-  Widget build(BuildContext context) => RecordingDetailView(recordingId: recordingId);
+  Widget build(BuildContext context) =>
+      RecordingDetailView(recordingId: recordingId, openedFromNoteId: openedFromNoteId);
 }
 
 class RecordingDetailView extends ConsumerStatefulWidget {
@@ -55,10 +60,16 @@ class RecordingDetailView extends ConsumerStatefulWidget {
     super.key,
     required this.recordingId,
     this.chrome = DetailChrome.screen,
+    this.openedFromNoteId,
   });
 
   final String recordingId;
   final DetailChrome chrome;
+
+  /// Note whose "source" link pushed this route. Opening that same note goes back to it
+  /// instead of pushing another copy — otherwise note → source → note → … piles up routes
+  /// that the back button then has to walk through one by one.
+  final String? openedFromNoteId;
 
   @override
   ConsumerState<RecordingDetailView> createState() => _RecordingDetailViewState();
@@ -480,26 +491,36 @@ class _RecordingDetailViewState extends ConsumerState<RecordingDetailView>
   }
 
   /// Opens a note. Wide layout switches to the notes tab with the note selected, narrow layout
-  /// pushes the note route.
+  /// pushes the note route — or pops back to it when this route was opened from that note.
   void _openNote(String noteId) {
     if (widget.chrome == DetailChrome.panel) {
       ref.read(selectedNoteProvider.notifier).select(noteId);
       ref.read(homeTabProvider.notifier).select(HomeTab.notes);
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => NoteScreen(noteId: noteId)));
+    final navigator = Navigator.of(context);
+    if (noteId == widget.openedFromNoteId && navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.push(MaterialPageRoute(
+        builder: (_) => NoteScreen(noteId: noteId, openedFromRecordingId: widget.recordingId)));
   }
 
-  /// Generates a note from the transcript as it is NOW — the pending edit is written first,
-  /// so manual corrections (speaker names included) make it into the note.
+  /// Generates a note, in a style picked right now, from the transcript as it is NOW — the
+  /// pending edit is written first, so manual corrections (speaker names included) make it
+  /// into the note.
   Future<void> _makeNote() async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = AppLocalizations.of(context);
     final service = ref.read(noteServiceProvider);
+    final style = await pickNoteStyle(context, ref,
+        title: l10n.noteStylePickTitle, confirmLabel: l10n.noteStyleCreate);
+    if (style == null || !mounted) return;
     setState(() => _creatingNote = true);
     try {
       await _transcript.flush();
-      final id = await service.createFromRecording(widget.recordingId);
+      final id = await service.createFromRecording(widget.recordingId, style: style);
       if (mounted) _openNote(id);
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));

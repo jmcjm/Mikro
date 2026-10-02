@@ -616,41 +616,41 @@
   "@settingsApiKeyInheritHelp": {
     "description": "Podpowiedz pod kluczem API sekcji tagow i notatek: pusty klucz dziedziczy klucz STT przy tym samym adresie."
   },
-  "settingsNoteStyleDetailed": "Szczegółowa",
-  "@settingsNoteStyleDetailed": {
+  "noteStyleDetailed": "Szczegółowa",
+  "@noteStyleDetailed": {
     "description": "Preset stylu notatek: szczegolowe, ustrukturyzowane."
   },
-  "settingsNoteStyleDetailedHelp": "Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.",
-  "@settingsNoteStyleDetailedHelp": {
+  "noteStyleDetailedHelp": "Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.",
+  "@noteStyleDetailedHelp": {
     "description": "Opis presetu szczegolowego."
   },
-  "settingsNoteStyleConcise": "Zwięzła",
-  "@settingsNoteStyleConcise": {
+  "noteStyleConcise": "Zwięzła",
+  "@noteStyleConcise": {
     "description": "Preset stylu notatek: krotkie podsumowanie."
   },
-  "settingsNoteStyleConciseHelp": "Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.",
-  "@settingsNoteStyleConciseHelp": {
+  "noteStyleConciseHelp": "Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.",
+  "@noteStyleConciseHelp": {
     "description": "Opis presetu zwiezlego."
   },
-  "settingsNoteStyleMeeting": "Protokół spotkania",
-  "@settingsNoteStyleMeeting": {
+  "noteStyleMeeting": "Protokół spotkania",
+  "@noteStyleMeeting": {
     "description": "Preset stylu notatek: protokol ze spotkania."
   },
-  "settingsNoteStyleMeetingHelp": "Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.",
-  "@settingsNoteStyleMeetingHelp": {
+  "noteStyleMeetingHelp": "Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.",
+  "@noteStyleMeetingHelp": {
     "description": "Opis presetu protokolu."
   },
-  "settingsNoteStyleCasual": "Luźna",
-  "@settingsNoteStyleCasual": {
+  "noteStyleCasual": "Luźna",
+  "@noteStyleCasual": {
     "description": "Preset stylu notatek: luzny, z umiarkowana liczba emoji."
   },
-  "settingsNoteStyleCasualHelp": "Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.",
-  "@settingsNoteStyleCasualHelp": {
+  "noteStyleCasualHelp": "Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.",
+  "@noteStyleCasualHelp": {
     "description": "Opis presetu luznego."
   },
-  "settingsNoteStyleCustom": "Własna",
-  "@settingsNoteStyleCustom": {
-    "description": "Wlasny styl notatek z instrukcjami uzytkownika."
+  "noteStyleCustom": "Własna",
+  "@noteStyleCustom": {
+    "description": "Etykieta wlasnego stylu bez nazwy (przeniesionego ze starszej wersji)."
   },
   "settingsNoteStyleCustomLabel": "Instrukcje dla AI",
   "@settingsNoteStyleCustomLabel": {
@@ -676,8 +676,8 @@
   "@settingsTranslateTitle": {"description": "Nazwa uslugi tlumaczen na liscie i w tytule podstrony."},
   "settingsProviderSection": "DOSTAWCA",
   "@settingsProviderSection": {"description": "Naglowek wyboru dostawcy na podstronie uslugi."},
-  "settingsNoteStyleSection": "STYL NOTATEK",
-  "@settingsNoteStyleSection": {"description": "Naglowek wyboru stylu notatek na podstronie Notatki."},
+  "settingsCustomStylesSection": "WŁASNE STYLE NOTATEK",
+  "@settingsCustomStylesSection": {"description": "Naglowek sekcji wlasnych stylow notatek na podstronie Notatki."},
   "settingsApiKeyInheritHint": "Z Transkrypcji",
   "@settingsApiKeyInheritHint": {"description": "Podpowiedz w pustym polu klucza uslug innych niz transkrypcja."},
   "settingsAdvanced": "Zaawansowane",
@@ -687,5 +687,31 @@
   "settingsBaseUrlFromProvider": "Base URL · ustawia dostawca",
   "@settingsBaseUrlFromProvider": {"description": "Etykieta adresu tylko do odczytu, gdy wybrany jest gotowy dostawca."},
   "settingsAdvancedSamplingValues": "Base URL · temperatura {temperature}, top_p {topP}",
-  "@settingsAdvancedSamplingValues": {"description": "Podsumowanie zwinietej sekcji Zaawansowane z wlaczonym probkowaniem.", "placeholders": {"temperature": {"type": "String"}, "topP": {"type": "String"}}}
+  "@settingsAdvancedSamplingValues": {"description": "Podsumowanie zwinietej sekcji Zaawansowane z wlaczonym probkowaniem.", "placeholders": {"temperature": {"type": "String"}, "topP": {"type": "String"}}},
+  "noteStylePickTitle": "Styl notatki",
+  "@noteStylePickTitle": {"description": "Tytul dialogu wyboru stylu przed utworzeniem notatki."},
+  "noteStyleCreate": "Utwórz",
+  "@noteStyleCreate": {"description": "Przycisk dialogu wyboru stylu, ktory tworzy notatke."},
+  "noteStyleCustomHint": "Własne style dodasz w Ustawieniach → Notatki.",
+  "@noteStyleCustomHint": {"description": "Podpowiedz w dialogu wyboru stylu, gdy uzytkownik nie ma wlasnych stylow."},
+  "settingsCustomStylesHelp": "Pojawiają się obok gotowych stylów, gdy tworzysz albo regenerujesz notatkę.",
+  "@settingsCustomStylesHelp": {"description": "Opis sekcji wlasnych stylow notatek w ustawieniach."},
+  "settingsCustomStyleAdd": "Dodaj styl",
+  "@settingsCustomStyleAdd": {"description": "Przycisk dodajacy wlasny styl notatek."},
+  "settingsCustomStyleNewTitle": "Nowy styl",
+  "@settingsCustomStyleNewTitle": {"description": "Tytul dialogu tworzenia wlasnego stylu."},
+  "settingsCustomStyleEditTitle": "Edytuj styl",
+  "@settingsCustomStyleEditTitle": {"description": "Tytul dialogu edycji wlasnego stylu."},
+  "settingsCustomStyleName": "Nazwa",
+  "@settingsCustomStyleName": {"description": "Etykieta pola nazwy wlasnego stylu."},
+  "settingsCustomStyleNameHint": "np. Notatki do nauki",
+  "@settingsCustomStyleNameHint": {"description": "Przyklad w pustym polu nazwy stylu."},
+  "settingsCustomStyleEditTooltip": "Edytuj",
+  "@settingsCustomStyleEditTooltip": {"description": "Podpowiedz przycisku edycji wlasnego stylu."},
+  "settingsCustomStyleDeleteTooltip": "Usuń",
+  "@settingsCustomStyleDeleteTooltip": {"description": "Podpowiedz przycisku usuwania wlasnego stylu."},
+  "settingsCustomStyleDeleteTitle": "Usunąć styl „{name}”?",
+  "@settingsCustomStyleDeleteTitle": {"description": "Tytul dialogu usuwania wlasnego stylu.", "placeholders": {"name": {"type": "String"}}},
+  "settingsCustomStyleDeleteMessage": "Notatki utworzone w tym stylu zostają.",
+  "@settingsCustomStyleDeleteMessage": {"description": "Tresc dialogu usuwania wlasnego stylu."}
 }

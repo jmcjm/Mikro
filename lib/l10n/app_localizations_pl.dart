@@ -481,35 +481,35 @@ class AppLocalizationsPl extends AppLocalizations {
       'Puste — użyj klucza z Transkrypcji, jeśli adres jest ten sam.';
 
   @override
-  String get settingsNoteStyleDetailed => 'Szczegółowa';
+  String get noteStyleDetailed => 'Szczegółowa';
 
   @override
-  String get settingsNoteStyleDetailedHelp =>
+  String get noteStyleDetailedHelp =>
       'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.';
 
   @override
-  String get settingsNoteStyleConcise => 'Zwięzła';
+  String get noteStyleConcise => 'Zwięzła';
 
   @override
-  String get settingsNoteStyleConciseHelp =>
+  String get noteStyleConciseHelp =>
       'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.';
 
   @override
-  String get settingsNoteStyleMeeting => 'Protokół spotkania';
+  String get noteStyleMeeting => 'Protokół spotkania';
 
   @override
-  String get settingsNoteStyleMeetingHelp =>
+  String get noteStyleMeetingHelp =>
       'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.';
 
   @override
-  String get settingsNoteStyleCasual => 'Luźna';
+  String get noteStyleCasual => 'Luźna';
 
   @override
-  String get settingsNoteStyleCasualHelp =>
+  String get noteStyleCasualHelp =>
       'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.';
 
   @override
-  String get settingsNoteStyleCustom => 'Własna';
+  String get noteStyleCustom => 'Własna';
 
   @override
   String get settingsNoteStyleCustomLabel => 'Instrukcje dla AI';
@@ -541,7 +541,7 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsProviderSection => 'DOSTAWCA';
 
   @override
-  String get settingsNoteStyleSection => 'STYL NOTATEK';
+  String get settingsCustomStylesSection => 'WŁASNE STYLE NOTATEK';
 
   @override
   String get settingsApiKeyInheritHint => 'Z Transkrypcji';
@@ -560,4 +560,48 @@ class AppLocalizationsPl extends AppLocalizations {
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Base URL · temperatura $temperature, top_p $topP';
   }
+
+  @override
+  String get noteStylePickTitle => 'Styl notatki';
+
+  @override
+  String get noteStyleCreate => 'Utwórz';
+
+  @override
+  String get noteStyleCustomHint =>
+      'Własne style dodasz w Ustawieniach → Notatki.';
+
+  @override
+  String get settingsCustomStylesHelp =>
+      'Pojawiają się obok gotowych stylów, gdy tworzysz albo regenerujesz notatkę.';
+
+  @override
+  String get settingsCustomStyleAdd => 'Dodaj styl';
+
+  @override
+  String get settingsCustomStyleNewTitle => 'Nowy styl';
+
+  @override
+  String get settingsCustomStyleEditTitle => 'Edytuj styl';
+
+  @override
+  String get settingsCustomStyleName => 'Nazwa';
+
+  @override
+  String get settingsCustomStyleNameHint => 'np. Notatki do nauki';
+
+  @override
+  String get settingsCustomStyleEditTooltip => 'Edytuj';
+
+  @override
+  String get settingsCustomStyleDeleteTooltip => 'Usuń';
+
+  @override
+  String settingsCustomStyleDeleteTitle(String name) {
+    return 'Usunąć styl „$name”?';
+  }
+
+  @override
+  String get settingsCustomStyleDeleteMessage =>
+      'Notatki utworzone w tym stylu zostają.';
 }

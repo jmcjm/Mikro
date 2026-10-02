@@ -972,55 +972,55 @@ abstract class AppLocalizations {
   ///
   /// In pl, this message translates to:
   /// **'Szczegółowa'**
-  String get settingsNoteStyleDetailed;
+  String get noteStyleDetailed;
 
   /// Opis presetu szczegolowego.
   ///
   /// In pl, this message translates to:
   /// **'Nagłówki, punkty i pogrubienia; zachowuje wszystkie istotne fakty, zadania jako checklista.'**
-  String get settingsNoteStyleDetailedHelp;
+  String get noteStyleDetailedHelp;
 
   /// Preset stylu notatek: krotkie podsumowanie.
   ///
   /// In pl, this message translates to:
   /// **'Zwięzła'**
-  String get settingsNoteStyleConcise;
+  String get noteStyleConcise;
 
   /// Opis presetu zwiezlego.
   ///
   /// In pl, this message translates to:
   /// **'Kilka punktów z esencją i ewentualne zadania — do przeczytania w minutę.'**
-  String get settingsNoteStyleConciseHelp;
+  String get noteStyleConciseHelp;
 
   /// Preset stylu notatek: protokol ze spotkania.
   ///
   /// In pl, this message translates to:
   /// **'Protokół spotkania'**
-  String get settingsNoteStyleMeeting;
+  String get noteStyleMeeting;
 
   /// Opis presetu protokolu.
   ///
   /// In pl, this message translates to:
   /// **'Uczestnicy, tematy, decyzje, zadania (kto, co, do kiedy) i otwarte pytania.'**
-  String get settingsNoteStyleMeetingHelp;
+  String get noteStyleMeetingHelp;
 
   /// Preset stylu notatek: luzny, z umiarkowana liczba emoji.
   ///
   /// In pl, this message translates to:
   /// **'Luźna'**
-  String get settingsNoteStyleCasual;
+  String get noteStyleCasual;
 
   /// Opis presetu luznego.
   ///
   /// In pl, this message translates to:
   /// **'Na luzie, przyjaźnie, z kilkoma emoji tam, gdzie pasują — bez zasypywania nimi tekstu.'**
-  String get settingsNoteStyleCasualHelp;
+  String get noteStyleCasualHelp;
 
-  /// Wlasny styl notatek z instrukcjami uzytkownika.
+  /// Etykieta wlasnego stylu bez nazwy (przeniesionego ze starszej wersji).
   ///
   /// In pl, this message translates to:
   /// **'Własna'**
-  String get settingsNoteStyleCustom;
+  String get noteStyleCustom;
 
   /// Etykieta pola z wlasnymi instrukcjami stylu notatek.
   ///
@@ -1076,11 +1076,11 @@ abstract class AppLocalizations {
   /// **'DOSTAWCA'**
   String get settingsProviderSection;
 
-  /// Naglowek wyboru stylu notatek na podstronie Notatki.
+  /// Naglowek sekcji wlasnych stylow notatek na podstronie Notatki.
   ///
   /// In pl, this message translates to:
-  /// **'STYL NOTATEK'**
-  String get settingsNoteStyleSection;
+  /// **'WŁASNE STYLE NOTATEK'**
+  String get settingsCustomStylesSection;
 
   /// Podpowiedz w pustym polu klucza uslug innych niz transkrypcja.
   ///
@@ -1111,6 +1111,84 @@ abstract class AppLocalizations {
   /// In pl, this message translates to:
   /// **'Base URL · temperatura {temperature}, top_p {topP}'**
   String settingsAdvancedSamplingValues(String temperature, String topP);
+
+  /// Tytul dialogu wyboru stylu przed utworzeniem notatki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Styl notatki'**
+  String get noteStylePickTitle;
+
+  /// Przycisk dialogu wyboru stylu, ktory tworzy notatke.
+  ///
+  /// In pl, this message translates to:
+  /// **'Utwórz'**
+  String get noteStyleCreate;
+
+  /// Podpowiedz w dialogu wyboru stylu, gdy uzytkownik nie ma wlasnych stylow.
+  ///
+  /// In pl, this message translates to:
+  /// **'Własne style dodasz w Ustawieniach → Notatki.'**
+  String get noteStyleCustomHint;
+
+  /// Opis sekcji wlasnych stylow notatek w ustawieniach.
+  ///
+  /// In pl, this message translates to:
+  /// **'Pojawiają się obok gotowych stylów, gdy tworzysz albo regenerujesz notatkę.'**
+  String get settingsCustomStylesHelp;
+
+  /// Przycisk dodajacy wlasny styl notatek.
+  ///
+  /// In pl, this message translates to:
+  /// **'Dodaj styl'**
+  String get settingsCustomStyleAdd;
+
+  /// Tytul dialogu tworzenia wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nowy styl'**
+  String get settingsCustomStyleNewTitle;
+
+  /// Tytul dialogu edycji wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Edytuj styl'**
+  String get settingsCustomStyleEditTitle;
+
+  /// Etykieta pola nazwy wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nazwa'**
+  String get settingsCustomStyleName;
+
+  /// Przyklad w pustym polu nazwy stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'np. Notatki do nauki'**
+  String get settingsCustomStyleNameHint;
+
+  /// Podpowiedz przycisku edycji wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Edytuj'**
+  String get settingsCustomStyleEditTooltip;
+
+  /// Podpowiedz przycisku usuwania wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usuń'**
+  String get settingsCustomStyleDeleteTooltip;
+
+  /// Tytul dialogu usuwania wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Usunąć styl „{name}”?'**
+  String settingsCustomStyleDeleteTitle(String name);
+
+  /// Tresc dialogu usuwania wlasnego stylu.
+  ///
+  /// In pl, this message translates to:
+  /// **'Notatki utworzone w tym stylu zostają.'**
+  String get settingsCustomStyleDeleteMessage;
 }
 
 class _AppLocalizationsDelegate

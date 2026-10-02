@@ -7,6 +7,7 @@ import 'package:mikro/core/api/notes_api.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/provider_config.dart';
 import 'package:mikro/core/notes/note_service.dart';
+import 'package:mikro/core/notes/note_style.dart';
 import 'package:mikro/core/settings/settings_repository.dart';
 
 class _Settings implements SettingsRepository {
@@ -20,11 +21,6 @@ class _Settings implements SettingsRepository {
   Future<ServiceConfig> raw(ApiTask task) => throw UnimplementedError();
   @override
   SamplingParams samplingValues(ApiTask task) => throw UnimplementedError();
-  NoteStyleSetting style = const NoteStyleSetting(style: NoteStyle.detailed);
-  @override
-  NoteStyleSetting loadNoteStyle() => style;
-  @override
-  Future<void> saveNoteStyle(NoteStyleSetting setting) async => style = setting;
 }
 
 const _config = ServiceConfig(
@@ -159,21 +155,36 @@ void main() {
     expect((await db.getNote('n'))!.content, 'c');
   });
 
-  test('chosen note style reaches the model', () async {
-    await db.setTranscript('r', 'tekst', 'whisper-x');
+  /// System prompt of the next chat request.
+  String Function() captureSystemPrompt() {
     Object? sent;
     dio.interceptors.add(InterceptorsWrapper(onRequest: (o, h) {
       sent = o.data;
       h.next(o);
     }));
+    return () => ((sent! as Map)['messages'] as List).first['content'] as String;
+  }
+
+  test('chosen custom style reaches the model', () async {
+    await db.setTranscript('r', 'tekst', 'whisper-x');
+    final system = captureSystemPrompt();
     modelReplies('# T\n\nx');
-    final settings = _Settings(_config)
-      ..style = const NoteStyleSetting(style: NoteStyle.custom, custom: 'Tylko haiku.');
 
-    await NoteService(db: db, notesApi: NotesApi(dio), settings: settings, clock: () => now)
-        .createFromRecording('r');
+    await service().createFromRecording('r',
+        style: const NoteStyleChoice.custom(
+            CustomNoteStyle(id: 'h', name: 'Haiku', instructions: 'Tylko haiku.')));
 
-    final system = ((sent! as Map)['messages'] as List).first['content'] as String;
-    expect(system, contains('Tylko haiku.'));
+    expect(system(), contains('Tylko haiku.'));
+  });
+
+  test('regenerate uses the style picked for it', () async {
+    await db.setTranscript('r', 'tekst', 'whisper-x');
+    await db.insertNote(id: 'n', recordingId: 'r', title: 't', content: 'c', now: now);
+    final system = captureSystemPrompt();
+    modelReplies('# T\n\nx');
+
+    await service().regenerate('n', style: const NoteStyleChoice.preset(NoteStyle.meeting));
+
+    expect(system(), contains(NotesApi.styleInstructions(NoteStyle.meeting, '')));
   });
 }

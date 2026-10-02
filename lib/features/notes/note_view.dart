@@ -20,26 +20,40 @@ import '../library/recording_error.dart';
 import '../library/selected_recording.dart';
 import '../shell/home_tab.dart';
 import '../translation/translation_widgets.dart';
+import 'note_style_picker.dart';
 import 'selected_note.dart';
 
 /// Standalone note route for narrow layouts.
 class NoteScreen extends StatelessWidget {
-  const NoteScreen({super.key, required this.noteId});
+  const NoteScreen({super.key, required this.noteId, this.openedFromRecordingId});
 
   final String noteId;
 
+  /// See [NoteView.openedFromRecordingId].
+  final String? openedFromRecordingId;
+
   @override
-  Widget build(BuildContext context) => NoteView(noteId: noteId);
+  Widget build(BuildContext context) =>
+      NoteView(noteId: noteId, openedFromRecordingId: openedFromRecordingId);
 }
 
 /// Note in preview (rendered Markdown) or edit (raw Markdown) mode, with a link back to the
 /// recording it was made from. [panel] mirrors [DetailChrome]: route with app bar vs right column
 /// of the wide notes layout.
 class NoteView extends ConsumerStatefulWidget {
-  const NoteView({super.key, required this.noteId, this.panel = false});
+  const NoteView({
+    super.key,
+    required this.noteId,
+    this.panel = false,
+    this.openedFromRecordingId,
+  });
 
   final String noteId;
   final bool panel;
+
+  /// Recording whose "open note" button pushed this route. Its source link then goes back
+  /// instead of pushing the recording again — see [RecordingDetailView.openedFromNoteId].
+  final String? openedFromRecordingId;
 
   @override
   ConsumerState<NoteView> createState() => _NoteViewState();
@@ -106,15 +120,18 @@ class _NoteViewState extends ConsumerState<NoteView> {
     }
   }
 
+  /// The warning about lost edits and the style for the new version are one dialog.
   Future<void> _regenerate() async {
     final l10n = AppLocalizations.of(context);
     final messenger = ScaffoldMessenger.of(context);
-    final confirmed = await _confirm(
-      l10n.noteRegenerateTitle,
-      l10n.noteRegenerateMessage,
-      l10n.detailRegenerateConfirm,
+    final style = await pickNoteStyle(
+      context,
+      ref,
+      title: l10n.noteRegenerateTitle,
+      message: l10n.noteRegenerateMessage,
+      confirmLabel: l10n.detailRegenerateConfirm,
     );
-    if (!confirmed || !mounted) return;
+    if (style == null || !mounted) return;
     // Pending local edits are written first, otherwise their delayed save would land on top
     // of the regenerated text.
     await Future.wait([_title.flush(), _content.flush()]);
@@ -122,7 +139,7 @@ class _NoteViewState extends ConsumerState<NoteView> {
     final service = ref.read(noteServiceProvider);
     setState(() => _regenerating = true);
     try {
-      await service.regenerate(widget.noteId);
+      await service.regenerate(widget.noteId, style: style);
       if (mounted) setState(() => _editing = false);
     } catch (e) {
       messenger.showSnackBar(SnackBar(content: Text(noteErrorText(l10n, e))));
@@ -211,15 +228,22 @@ class _NoteViewState extends ConsumerState<NoteView> {
   }
 
   /// Wide layout keeps the user in the two-pane world: the library tab with the recording
-  /// selected. Narrow layout pushes the recording route on top of the note.
+  /// selected. Narrow layout pushes the recording route on top of the note — or pops back to
+  /// it when this note was opened from that recording.
   void _openSource(String recordingId) {
     if (widget.panel) {
       ref.read(selectedRecordingProvider.notifier).select(recordingId);
       ref.read(homeTabProvider.notifier).select(HomeTab.library);
       return;
     }
-    Navigator.of(context)
-        .push(MaterialPageRoute(builder: (_) => RecordingDetailScreen(recordingId: recordingId)));
+    final navigator = Navigator.of(context);
+    if (recordingId == widget.openedFromRecordingId && navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.push(MaterialPageRoute(
+        builder: (_) =>
+            RecordingDetailScreen(recordingId: recordingId, openedFromNoteId: widget.noteId)));
   }
 
   @override

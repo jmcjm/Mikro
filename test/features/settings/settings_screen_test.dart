@@ -286,7 +286,7 @@ void main() {
     await pumpSettings(tester);
 
     await openService(tester, plL10n.settingsNotesTitle);
-    expect(find.text(plL10n.settingsNoteStyleSection), findsOneWidget);
+    expect(find.text(plL10n.settingsCustomStylesSection), findsOneWidget);
     await tester.tap(find.byIcon(Symbols.arrow_back_rounded));
     await tester.pumpAndSettle();
     expect(find.text(plL10n.settingsServicesSection), findsOneWidget);
@@ -327,8 +327,6 @@ void main() {
     await openService(tester, plL10n.settingsNotesTitle);
     await tester.tap(find.text('OpenAI'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text(plL10n.settingsNoteStyleMeeting));
-    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Symbols.arrow_back_rounded));
     await tester.pumpAndSettle();
 
@@ -336,12 +334,6 @@ void main() {
     expect(find.text('Groq'), findsNWidgets(4));
     await openService(tester, plL10n.settingsNotesTitle);
     expect(fieldWith('llama-3.3-70b-versatile'), findsOneWidget);
-    expect(
-      tester
-          .widget<ChoiceChip>(find.widgetWithText(ChoiceChip, plL10n.settingsNoteStyleDetailed))
-          .selected,
-      isTrue,
-    );
     expect(prefs.getString('notes_base_url'), isNull);
   });
 
@@ -424,25 +416,81 @@ void main() {
     expect(fieldWith('stary'), findsOneWidget);
   });
 
-  testWidgets('note style: presets describe themselves, custom takes instructions', (tester) async {
+  Future<void> fillStyleDialog(WidgetTester tester, String name, String instructions) async {
+    final dialog = find.byType(AlertDialog);
+    await tester.enterText(
+        find.descendant(of: dialog, matching: find.byType(TextField)).first, name);
+    await tester.enterText(
+        find.descendant(of: dialog, matching: find.byType(TextField)).last, instructions);
+    await tester.pump();
+  }
+
+  Finder dialogSave() => find.descendant(
+      of: find.byType(AlertDialog), matching: find.widgetWithText(FilledButton, plL10n.settingsSave));
+
+  testWidgets('note styles are picked when a note is made, not in settings', (tester) async {
+    await pumpSettings(tester);
+    await openService(tester, plL10n.settingsNotesTitle);
+
+    expect(find.byType(ChoiceChip), findsNothing);
+    expect(find.text(plL10n.noteStyleMeeting), findsNothing);
+    expect(find.text(plL10n.settingsCustomStylesHelp), findsOneWidget);
+  });
+
+  testWidgets('custom styles: add several with names, edit, delete — saved right away',
+      (tester) async {
     final prefs = await pumpSettings(tester);
     await openService(tester, plL10n.settingsNotesTitle);
 
-    expect(find.text(plL10n.settingsNoteStyleDetailedHelp), findsOneWidget);
-
-    await tester.tap(find.text(plL10n.settingsNoteStyleMeeting));
+    await tester.ensureVisible(find.text(plL10n.settingsCustomStyleAdd));
+    await tester.tap(find.text(plL10n.settingsCustomStyleAdd));
     await tester.pumpAndSettle();
-    expect(find.text(plL10n.settingsNoteStyleMeetingHelp), findsOneWidget);
-
-    await tester.tap(find.text(plL10n.settingsNoteStyleCustom));
+    expect(tester.widget<FilledButton>(dialogSave()).onPressed, isNull,
+        reason: 'name and instructions are both required');
+    await fillStyleDialog(tester, 'Do nauki', 'Definicje i pytania kontrolne.');
+    await tester.tap(dialogSave());
     await tester.pumpAndSettle();
-    final instructions = find.widgetWithText(TextField, plL10n.settingsNoteStyleCustomLabel);
-    expect(instructions, findsOneWidget);
-    await tester.enterText(instructions, 'Pisz jak do studenta.');
-    await save(tester);
 
-    expect(prefs.getString('notes_style'), 'custom');
-    expect(prefs.getString('notes_style_custom'), 'Pisz jak do studenta.');
+    await tester.ensureVisible(find.text(plL10n.settingsCustomStyleAdd));
+    await tester.tap(find.text(plL10n.settingsCustomStyleAdd));
+    await tester.pumpAndSettle();
+    await fillStyleDialog(tester, 'Haiku', 'Tylko haiku.');
+    await tester.tap(dialogSave());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Do nauki'), findsOneWidget);
+    expect(find.text('Haiku'), findsOneWidget);
+    expect(prefs.getString('notes_custom_styles'), contains('Definicje i pytania kontrolne.'));
+    expect(prefs.getString('notes_base_url'), isNull,
+        reason: 'styles do not save the provider form');
+
+    await tester.tap(find.byTooltip(plL10n.settingsCustomStyleEditTooltip).first);
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.settingsCustomStyleEditTitle), findsOneWidget);
+    await fillStyleDialog(tester, 'Nauka', 'Definicje.');
+    await tester.tap(dialogSave());
+    await tester.pumpAndSettle();
+    expect(find.text('Do nauki'), findsNothing);
+    expect(find.text('Nauka'), findsOneWidget);
+
+    await tester.tap(find.byTooltip(plL10n.settingsCustomStyleDeleteTooltip).last);
+    await tester.pumpAndSettle();
+    expect(find.text(plL10n.settingsCustomStyleDeleteTitle('Haiku')), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, plL10n.detailDelete));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Haiku'), findsNothing);
+    final stored = prefs.getString('notes_custom_styles')!;
+    expect(stored, contains('Nauka'));
+    expect(stored, isNot(contains('Haiku')));
+  });
+
+  testWidgets('the single custom text of older versions shows up as a style', (tester) async {
+    await pumpSettings(tester, initial: {'notes_style_custom': 'Pisz jak do studenta.'});
+    await openService(tester, plL10n.settingsNotesTitle);
+
+    expect(find.text(plL10n.noteStyleCustom), findsOneWidget);
+    expect(find.text('Pisz jak do studenta.'), findsOneWidget);
   });
 
   testWidgets('five transcription providers fit a narrow phone', (tester) async {
@@ -468,7 +516,7 @@ void main() {
 
     await tester.tap(find.text(plL10n.settingsNotesTitle));
     await tester.pumpAndSettle();
-    expect(find.text(plL10n.settingsNoteStyleSection), findsOneWidget);
+    expect(find.text(plL10n.settingsCustomStylesSection), findsOneWidget);
     expect(find.text('ElevenLabs'), findsNothing);
 
     await tester.tap(find.text('OpenAI'));
