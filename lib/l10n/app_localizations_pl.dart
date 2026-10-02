@@ -432,6 +432,30 @@ class AppLocalizationsPl extends AppLocalizations {
       'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.';
 
   @override
+  String get settingsSttLanguage => 'Język nagrań';
+
+  @override
+  String get settingsSttLanguageAuto => 'Wykrywaj automatycznie';
+
+  @override
+  String get settingsSttLanguageOther => 'Inny…';
+
+  @override
+  String get settingsSttLanguageHelp =>
+      'Ustaw, jeśli model myli język albo tłumaczy transkrypcję. Nagrania w innym języku wyjdą wtedy źle.';
+
+  @override
+  String get settingsSttLanguageCode => 'Kod języka (ISO 639)';
+
+  @override
+  String get settingsSttLanguageCodeHelp =>
+      'Dwie litery, np. ka (gruziński), eu (baskijski). ElevenLabs i Gemini przyjmą też kod trzyliterowy.';
+
+  @override
+  String get settingsSttLanguageCodeError =>
+      'Wpisz dwu- lub trzyliterowy kod, np. ka.';
+
+  @override
   String get settingsModel => 'Model';
 
   @override

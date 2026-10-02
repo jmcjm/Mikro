@@ -1,4 +1,5 @@
-/// Target language offered for translations. [code] is what the database stores, [englishName]
+/// Language offered as a translation target and as the language of a recording for
+/// transcription. [code] (ISO 639-1) is what the database and settings store, [englishName]
 /// goes into the prompt (models follow an English language name more reliably than a code),
 /// [nativeName] is what the user sees — a language is recognisable in its own name whatever the
 /// app's locale, so the list needs no localisation.
@@ -33,6 +34,10 @@ class TranslationLanguage {
     TranslationLanguage('zh', 'Chinese (Simplified)', '中文'),
     TranslationLanguage('ko', 'Korean', '한국어'),
   ];
+
+  /// Whether [code] looks like an ISO 639-1 or 639-3 code (`ka`, `yue`) — what the language
+  /// field of the transcription APIs takes. Expects a normalised (trimmed, lower-case) value.
+  static bool isValidCode(String code) => RegExp(r'^[a-z]{2,3}$').hasMatch(code);
 
   /// Language for a stored [code]; an unknown code (a newer version's language after a
   /// downgrade) still gets a usable entry named by the code itself.

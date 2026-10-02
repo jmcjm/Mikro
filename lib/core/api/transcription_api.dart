@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../models/provider_config.dart';
+import '../models/translation_language.dart';
 import 'api_errors.dart';
 
 /// Upload limit of OpenAI-compatible `/audio/transcriptions` (OpenAI and Groq both cap at 25 MB).
@@ -55,6 +56,7 @@ class TranscriptionApi {
     final form = FormData.fromMap({
       'model': config.model,
       'file': await MultipartFile.fromFile(audioPath),
+      'language': ?config.language,
       if (diarize) ...{
         'response_format': 'diarized_json',
         // Required by the diarizing model for anything longer than 30 s.
@@ -84,6 +86,7 @@ class TranscriptionApi {
       // Speaker ids ride on word entries, so words must be returned.
       'timestamps_granularity': 'word',
       'tag_audio_events': 'false',
+      'language_code': ?config.language,
     });
     final response = await _dio.post<dynamic>(
       '${config.baseUrl}/speech-to-text',
@@ -104,6 +107,18 @@ class TranscriptionApi {
       'Return only the transcript text, with no headings, timestamps or commentary. If there '
       'is no speech, return an empty response.';
 
+  /// The language set in the settings, when there is one, is stated outright: left to itself
+  /// the model sometimes picks the wrong language or quietly translates into another one.
+  /// A listed language is named in English (models follow a name better than a code); a code
+  /// typed in by hand goes in as it is.
+  static String geminiPrompt(String? language) {
+    if (language == null) return _geminiPrompt;
+    final known = TranslationLanguage.all.where((l) => l.code == language).firstOrNull;
+    final name = known == null ? 'the language with ISO 639 code "$language"' : known.englishName;
+    return '$_geminiPrompt The recording is in $name: write the transcript in $name and never '
+        'translate it into another language.';
+  }
+
   /// Gemini through the native `generateContent`: its OpenAI-compatible layer has no
   /// `/audio/transcriptions`. The preset stores the OpenAI-compatible address (shared with tags
   /// and notes), so the native root is that address without its `/openai` suffix.
@@ -116,7 +131,7 @@ class TranscriptionApi {
         'contents': [
           {
             'parts': [
-              {'text': _geminiPrompt},
+              {'text': geminiPrompt(config.language)},
               {
                 'inline_data': {'mime_type': 'audio/m4a', 'data': base64Encode(bytes)},
               },

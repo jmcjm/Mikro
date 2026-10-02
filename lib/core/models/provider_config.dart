@@ -9,6 +9,7 @@ class ServiceConfig {
     required this.apiKey,
     required this.model,
     this.sampling,
+    this.language,
   });
 
   final String baseUrl;
@@ -19,6 +20,10 @@ class ServiceConfig {
   /// model's defaults. Opt-in because not every model accepts them: OpenAI's reasoning
   /// models answer HTTP 400 to any temperature other than the default.
   final SamplingParams? sampling;
+
+  /// Language of the recording as an ISO 639 code (`pl`, `en`, `yue` …), or `null` to let the
+  /// transcription model detect it. Transcription only: chat tasks follow the transcript.
+  final String? language;
 }
 
 class SamplingParams {

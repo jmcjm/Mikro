@@ -50,6 +50,9 @@ class SettingsRepository {
 
   static String apiKeyName(ApiTask task) => 'api_key_${task.name}';
 
+  /// Language of recordings for transcription; absent or empty means automatic detection.
+  static const sttLanguageKey = 'stt_language';
+
   static String samplingEnabledKey(ApiTask task) => '${task.name}_sampling_enabled';
   static String temperatureKey(ApiTask task) => '${task.name}_temperature';
   static String topPKey(ApiTask task) => '${task.name}_top_p';
@@ -90,8 +93,14 @@ class SettingsRepository {
         parent?.apiKey ??
         await _keyStore.read(legacyApiKeyName) ??
         '';
+    final language = task == ApiTask.stt ? _prefs.getString(sttLanguageKey) : null;
     return ServiceConfig(
-        baseUrl: baseUrl, apiKey: apiKey, model: model, sampling: _sampling(task));
+      baseUrl: baseUrl,
+      apiKey: apiKey,
+      model: model,
+      sampling: _sampling(task),
+      language: language == null || language.isEmpty ? null : language,
+    );
   }
 
   /// Usable settings for [task], or `null` when address or key is missing.
@@ -109,7 +118,12 @@ class SettingsRepository {
     }
     if (apiKey.isEmpty) return null;
     return ServiceConfig(
-        baseUrl: config.baseUrl, apiKey: apiKey, model: config.model, sampling: config.sampling);
+      baseUrl: config.baseUrl,
+      apiKey: apiKey,
+      model: config.model,
+      sampling: config.sampling,
+      language: config.language,
+    );
   }
 
   Future<void> save(ApiTask task, ServiceConfig config) async {
@@ -122,5 +136,6 @@ class SettingsRepository {
       await _prefs.setDouble(temperatureKey(task), sampling.temperature);
       await _prefs.setDouble(topPKey(task), sampling.topP);
     }
+    if (task == ApiTask.stt) await _prefs.setString(sttLanguageKey, config.language ?? '');
   }
 }

@@ -878,6 +878,48 @@ abstract class AppLocalizations {
   /// **'Rozmówców rozpoznają ElevenLabs, Gemini i gpt-4o-transcribe-diarize (OpenAI). Whisper (Groq, OpenAI) nie rozróżnia mówców.'**
   String get settingsSttModelHelp;
 
+  /// Etykieta listy wyboru jezyka nagran w ustawieniach transkrypcji.
+  ///
+  /// In pl, this message translates to:
+  /// **'Język nagrań'**
+  String get settingsSttLanguage;
+
+  /// Pozycja listy jezykow: model sam rozpoznaje jezyk.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wykrywaj automatycznie'**
+  String get settingsSttLanguageAuto;
+
+  /// Pozycja listy jezykow: pokazuje pole na recznie wpisany kod.
+  ///
+  /// In pl, this message translates to:
+  /// **'Inny…'**
+  String get settingsSttLanguageOther;
+
+  /// Podpowiedz pod lista jezykow nagran.
+  ///
+  /// In pl, this message translates to:
+  /// **'Ustaw, jeśli model myli język albo tłumaczy transkrypcję. Nagrania w innym języku wyjdą wtedy źle.'**
+  String get settingsSttLanguageHelp;
+
+  /// Etykieta pola na recznie wpisany kod jezyka.
+  ///
+  /// In pl, this message translates to:
+  /// **'Kod języka (ISO 639)'**
+  String get settingsSttLanguageCode;
+
+  /// Podpowiedz pod polem kodu jezyka.
+  ///
+  /// In pl, this message translates to:
+  /// **'Dwie litery, np. ka (gruziński), eu (baskijski). ElevenLabs i Gemini przyjmą też kod trzyliterowy.'**
+  String get settingsSttLanguageCodeHelp;
+
+  /// Blad pola kodu jezyka, gdy wpis nie jest kodem ISO 639.
+  ///
+  /// In pl, this message translates to:
+  /// **'Wpisz dwu- lub trzyliterowy kod, np. ka.'**
+  String get settingsSttLanguageCodeError;
+
   /// Etykieta pola nazwy modelu w kazdej sekcji API.
   ///
   /// In pl, this message translates to:

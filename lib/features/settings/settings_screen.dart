@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../core/models/provider_config.dart';
+import '../../core/models/translation_language.dart';
 import '../../core/notes/note_style.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -76,7 +77,8 @@ class SettingsScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-/// Editable settings of one [ApiTask]: preset, address, key, model and sampling.
+/// Editable settings of one [ApiTask]: preset, address, key, model, sampling and — for
+/// transcription — the language of recordings.
 class _TaskForm {
   _TaskForm(this.task);
 
@@ -84,12 +86,36 @@ class _TaskForm {
   final baseUrl = TextEditingController();
   final apiKey = TextEditingController();
   final model = TextEditingController();
+
+  /// Code typed in by hand after picking "Other" in the language list.
+  final languageCode = TextEditingController();
   ProviderPreset preset = ProviderPreset.groq;
   bool keyHidden = true;
   bool samplingEnabled = false;
   bool advancedOpen = false;
   double temperature = 0;
   double topP = 1;
+
+  /// Language picked from the list, `null` for automatic detection; ignored while
+  /// [languageOther] is on.
+  String? language;
+  bool languageOther = false;
+
+  /// Every transcription protocol takes a language (a request field for OpenAI and ElevenLabs,
+  /// a line in the prompt for Gemini), so it is offered whatever the provider.
+  bool get hasLanguage => task == ApiTask.stt;
+
+  String get _typedLanguage => languageCode.text.trim().toLowerCase();
+
+  /// A hand-typed code goes to the API as it is, so a value the API would reject with HTTP 400
+  /// cannot be saved — better caught here than as a failed transcription later.
+  bool get languageValid => !languageOther || TranslationLanguage.isValidCode(_typedLanguage);
+
+  String? get _languageValue => !hasLanguage
+      ? null
+      : languageOther
+          ? _typedLanguage
+          : language;
 
   /// Transcription does not go through chat completions, so only the other tasks offer
   /// sampling control.
@@ -105,6 +131,15 @@ class _TaskForm {
     model.text = config.model;
     preset = ProviderPreset.of(config.baseUrl);
     loadSampling(enabled: config.sampling != null, values: samplingValues);
+    loadLanguage(config.language);
+  }
+
+  /// A stored code missing from the list was typed in by hand, so it comes back as "Other".
+  void loadLanguage(String? code) {
+    final listed = code == null || TranslationLanguage.all.any((l) => l.code == code);
+    languageOther = !listed;
+    language = listed ? code : null;
+    languageCode.text = listed ? '' : code;
   }
 
   /// Values are clamped to the slider ranges, which are the ranges the OpenAI API accepts.
@@ -133,12 +168,14 @@ class _TaskForm {
         sampling: hasSampling && samplingEnabled
             ? SamplingParams(temperature: temperature, topP: topP)
             : null,
+        language: _languageValue,
       );
 
   void dispose() {
     baseUrl.dispose();
     apiKey.dispose();
     model.dispose();
+    languageCode.dispose();
   }
 }
 
@@ -175,6 +212,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (config.baseUrl.isEmpty) {
       form.applyPreset(ProviderPreset.groq);
       form.loadSampling(enabled: false, values: repo.samplingValues(form.task));
+      form.loadLanguage(null);
     } else {
       form.load(config, repo.samplingValues(form.task));
     }
@@ -543,6 +581,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     helperMaxLines: 3,
                   ),
                 ),
+                if (form.hasLanguage) ...[
+                  const SizedBox(height: 10),
+                  _languageField(form, colors, l10n),
+                ],
                 if (form.task == ApiTask.notes) ...[
                   const SizedBox(height: 22),
                   _customStyles(colors, l10n),
@@ -557,8 +599,64 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         Padding(
           padding: EdgeInsets.fromLTRB(side, 4, side, side),
-          child: _saveButton(() => _save(form.task)),
+          child: _saveButton(form.languageValid ? () => _save(form.task) : null),
         ),
+      ],
+    );
+  }
+
+  /// Language of recordings: automatic, one of the common languages, or a code typed in by
+  /// hand — listing every language there is would make a list nobody can scroll through.
+  /// Languages are shown in their own names, like the translation picker.
+  Widget _languageField(_TaskForm form, ColorScheme colors, AppLocalizations l10n) {
+    const other = '#other';
+    final valueStyle = TextStyle(fontSize: 15, color: colors.onSurface);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String?>(
+          // Keyed by the loaded value: the field keeps its own selection, and a reload
+          // (leaving the form unsaved) must show the stored language again.
+          key: ValueKey((form.languageOther, form.language)),
+          initialValue: form.languageOther ? other : form.language,
+          isExpanded: true,
+          menuMaxHeight: 420,
+          style: valueStyle,
+          borderRadius: BorderRadius.circular(16),
+          decoration: _fieldDecoration(l10n.settingsSttLanguage, colors).copyWith(
+            helperText: l10n.settingsSttLanguageHelp,
+            helperMaxLines: 3,
+          ),
+          items: [
+            DropdownMenuItem(value: null, child: Text(l10n.settingsSttLanguageAuto)),
+            for (final language in TranslationLanguage.all)
+              DropdownMenuItem(value: language.code, child: Text(language.nativeName)),
+            DropdownMenuItem(value: other, child: Text(l10n.settingsSttLanguageOther)),
+          ],
+          onChanged: (value) => setState(() {
+            form.languageOther = value == other;
+            form.language = value == other ? null : value;
+          }),
+        ),
+        if (form.languageOther) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: form.languageCode,
+            autocorrect: false,
+            enableSuggestions: false,
+            onChanged: (_) => setState(() {}),
+            style: _monoValueStyle(colors),
+            decoration: _fieldDecoration(l10n.settingsSttLanguageCode, colors).copyWith(
+              hintText: 'ka',
+              helperText: l10n.settingsSttLanguageCodeHelp,
+              helperMaxLines: 3,
+              errorText: form.languageValid || form.languageCode.text.isEmpty
+                  ? null
+                  : l10n.settingsSttLanguageCodeError,
+              errorMaxLines: 3,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1070,7 +1168,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
-  Widget _saveButton(VoidCallback onPressed) => SizedBox(
+  Widget _saveButton(VoidCallback? onPressed) => SizedBox(
         height: 56,
         child: FilledButton.icon(
           onPressed: onPressed,

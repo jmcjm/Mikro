@@ -42,6 +42,7 @@
 - Recording with a live level meter
 - Automatic transcription in the background, with an AI-generated title and tags
 - Speaker diarization — multi-speaker transcripts come out as `A: …` / `B: …`
+- Automatic language detection, or a fixed recording language (any ISO 639 code) when the model guesses wrong
 - Editable transcripts; regenerate or share a recording anytime
 - Offline queue that resumes once the network is back
 
