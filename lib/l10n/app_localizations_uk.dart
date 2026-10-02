@@ -485,35 +485,35 @@ class AppLocalizationsUk extends AppLocalizations {
       'Залиште порожнім, щоб використати ключ Транскрипції, якщо адреса та сама.';
 
   @override
-  String get settingsNoteStyleDetailed => 'Докладний';
+  String get noteStyleDetailed => 'Докладний';
 
   @override
-  String get settingsNoteStyleDetailedHelp =>
+  String get noteStyleDetailedHelp =>
       'Заголовки, марковані списки й жирний шрифт; зберігає кожен важливий факт, завдання — як чекліст.';
 
   @override
-  String get settingsNoteStyleConcise => 'Стислий';
+  String get noteStyleConcise => 'Стислий';
 
   @override
-  String get settingsNoteStyleConciseHelp =>
+  String get noteStyleConciseHelp =>
       'Кілька пунктів із найважливішим і завданнями, якщо вони є — читається за хвилину.';
 
   @override
-  String get settingsNoteStyleMeeting => 'Протокол зустрічі';
+  String get noteStyleMeeting => 'Протокол зустрічі';
 
   @override
-  String get settingsNoteStyleMeetingHelp =>
+  String get noteStyleMeetingHelp =>
       'Учасники, теми, рішення, завдання (хто, що, до коли) і відкриті питання.';
 
   @override
-  String get settingsNoteStyleCasual => 'Невимушений';
+  String get noteStyleCasual => 'Невимушений';
 
   @override
-  String get settingsNoteStyleCasualHelp =>
+  String get noteStyleCasualHelp =>
       'Невимушено й дружньо, з кількома доречними емодзі — без їхнього надміру.';
 
   @override
-  String get settingsNoteStyleCustom => 'Власний';
+  String get noteStyleCustom => 'Власний';
 
   @override
   String get settingsNoteStyleCustomLabel => 'Інструкції для ШІ';
@@ -545,7 +545,7 @@ class AppLocalizationsUk extends AppLocalizations {
   String get settingsProviderSection => 'ПРОВАЙДЕР';
 
   @override
-  String get settingsNoteStyleSection => 'СТИЛЬ НОТАТКИ';
+  String get settingsCustomStylesSection => 'ВЛАСНІ СТИЛІ НОТАТОК';
 
   @override
   String get settingsApiKeyInheritHint => 'З Транскрипції';
@@ -564,4 +564,48 @@ class AppLocalizationsUk extends AppLocalizations {
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Базова URL · temperature $temperature, top_p $topP';
   }
+
+  @override
+  String get noteStylePickTitle => 'Стиль нотатки';
+
+  @override
+  String get noteStyleCreate => 'Створити';
+
+  @override
+  String get noteStyleCustomHint =>
+      'Додавайте власні стилі в Налаштування → Нотатки.';
+
+  @override
+  String get settingsCustomStylesHelp =>
+      'Вони з\'являються поруч із вбудованими стилями під час створення або повторної генерації нотатки.';
+
+  @override
+  String get settingsCustomStyleAdd => 'Додати стиль';
+
+  @override
+  String get settingsCustomStyleNewTitle => 'Новий стиль';
+
+  @override
+  String get settingsCustomStyleEditTitle => 'Редагувати стиль';
+
+  @override
+  String get settingsCustomStyleName => 'Назва';
+
+  @override
+  String get settingsCustomStyleNameHint => 'наприклад: Навчальні конспекти';
+
+  @override
+  String get settingsCustomStyleEditTooltip => 'Редагувати';
+
+  @override
+  String get settingsCustomStyleDeleteTooltip => 'Видалити';
+
+  @override
+  String settingsCustomStyleDeleteTitle(String name) {
+    return 'Видалити стиль «$name»?';
+  }
+
+  @override
+  String get settingsCustomStyleDeleteMessage =>
+      'Нотатки, створені в цьому стилі, залишаться.';
 }

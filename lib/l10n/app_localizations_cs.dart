@@ -482,35 +482,35 @@ class AppLocalizationsCs extends AppLocalizations {
       'Nechte prázdné, aby se při stejné adrese použil klíč z Přepisu.';
 
   @override
-  String get settingsNoteStyleDetailed => 'Podrobný';
+  String get noteStyleDetailed => 'Podrobný';
 
   @override
-  String get settingsNoteStyleDetailedHelp =>
+  String get noteStyleDetailedHelp =>
       'Nadpisy, odrážky a tučné písmo; zachová každý podstatný fakt, úkoly jako kontrolní seznam.';
 
   @override
-  String get settingsNoteStyleConcise => 'Stručný';
+  String get noteStyleConcise => 'Stručný';
 
   @override
-  String get settingsNoteStyleConciseHelp =>
+  String get noteStyleConciseHelp =>
       'Pár odrážek s tím nejdůležitějším a případnými úkoly — přečtete za minutu.';
 
   @override
-  String get settingsNoteStyleMeeting => 'Zápis z porady';
+  String get noteStyleMeeting => 'Zápis z porady';
 
   @override
-  String get settingsNoteStyleMeetingHelp =>
+  String get noteStyleMeetingHelp =>
       'Účastníci, témata, rozhodnutí, úkoly (kdo, co, do kdy) a otevřené otázky.';
 
   @override
-  String get settingsNoteStyleCasual => 'Nezávazný';
+  String get noteStyleCasual => 'Nezávazný';
 
   @override
-  String get settingsNoteStyleCasualHelp =>
+  String get noteStyleCasualHelp =>
       'Uvolněný a přátelský, s pár dobře umístěnými emoji — ne jejich hromadou.';
 
   @override
-  String get settingsNoteStyleCustom => 'Vlastní';
+  String get noteStyleCustom => 'Vlastní';
 
   @override
   String get settingsNoteStyleCustomLabel => 'Pokyny pro AI';
@@ -542,7 +542,7 @@ class AppLocalizationsCs extends AppLocalizations {
   String get settingsProviderSection => 'POSKYTOVATEL';
 
   @override
-  String get settingsNoteStyleSection => 'STYL POZNÁMKY';
+  String get settingsCustomStylesSection => 'VLASTNÍ STYLY POZNÁMEK';
 
   @override
   String get settingsApiKeyInheritHint => 'Z Přepisu';
@@ -562,4 +562,48 @@ class AppLocalizationsCs extends AppLocalizations {
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Základní URL · temperature $temperature, top_p $topP';
   }
+
+  @override
+  String get noteStylePickTitle => 'Styl poznámky';
+
+  @override
+  String get noteStyleCreate => 'Vytvořit';
+
+  @override
+  String get noteStyleCustomHint =>
+      'Vlastní styly přidáte v Nastavení → Poznámky.';
+
+  @override
+  String get settingsCustomStylesHelp =>
+      'Zobrazí se vedle vestavěných stylů při vytváření nebo opětovném generování poznámky.';
+
+  @override
+  String get settingsCustomStyleAdd => 'Přidat styl';
+
+  @override
+  String get settingsCustomStyleNewTitle => 'Nový styl';
+
+  @override
+  String get settingsCustomStyleEditTitle => 'Upravit styl';
+
+  @override
+  String get settingsCustomStyleName => 'Název';
+
+  @override
+  String get settingsCustomStyleNameHint => 'např. Studijní poznámky';
+
+  @override
+  String get settingsCustomStyleEditTooltip => 'Upravit';
+
+  @override
+  String get settingsCustomStyleDeleteTooltip => 'Smazat';
+
+  @override
+  String settingsCustomStyleDeleteTitle(String name) {
+    return 'Smazat styl „$name“?';
+  }
+
+  @override
+  String get settingsCustomStyleDeleteMessage =>
+      'Poznámky vytvořené v tomto stylu zůstanou.';
 }

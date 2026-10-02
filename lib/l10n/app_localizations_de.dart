@@ -489,35 +489,35 @@ class AppLocalizationsDe extends AppLocalizations {
       'Leer lassen, um den Transkriptions-Schlüssel zu verwenden, wenn die Adresse dieselbe ist.';
 
   @override
-  String get settingsNoteStyleDetailed => 'Ausführlich';
+  String get noteStyleDetailed => 'Ausführlich';
 
   @override
-  String get settingsNoteStyleDetailedHelp =>
+  String get noteStyleDetailedHelp =>
       'Überschriften, Aufzählungen und Fettdruck; behält jeden relevanten Fakt, Aufgaben als Checkliste.';
 
   @override
-  String get settingsNoteStyleConcise => 'Knapp';
+  String get noteStyleConcise => 'Knapp';
 
   @override
-  String get settingsNoteStyleConciseHelp =>
+  String get noteStyleConciseHelp =>
       'Ein paar Stichpunkte mit dem Wesentlichen und eventuellen Aufgaben — in einer Minute gelesen.';
 
   @override
-  String get settingsNoteStyleMeeting => 'Besprechungsprotokoll';
+  String get noteStyleMeeting => 'Besprechungsprotokoll';
 
   @override
-  String get settingsNoteStyleMeetingHelp =>
+  String get noteStyleMeetingHelp =>
       'Teilnehmer, Themen, Beschlüsse, Aufgaben (wer, was, bis wann) und offene Fragen.';
 
   @override
-  String get settingsNoteStyleCasual => 'Locker';
+  String get noteStyleCasual => 'Locker';
 
   @override
-  String get settingsNoteStyleCasualHelp =>
+  String get noteStyleCasualHelp =>
       'Entspannt und freundlich, mit ein paar gut platzierten Emojis — keine Wand davon.';
 
   @override
-  String get settingsNoteStyleCustom => 'Benutzerdefiniert';
+  String get noteStyleCustom => 'Benutzerdefiniert';
 
   @override
   String get settingsNoteStyleCustomLabel => 'Anweisungen für die KI';
@@ -549,7 +549,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settingsProviderSection => 'ANBIETER';
 
   @override
-  String get settingsNoteStyleSection => 'NOTIZSTIL';
+  String get settingsCustomStylesSection => 'EIGENE NOTIZSTILE';
 
   @override
   String get settingsApiKeyInheritHint => 'Aus Transkription';
@@ -569,4 +569,48 @@ class AppLocalizationsDe extends AppLocalizations {
   String settingsAdvancedSamplingValues(String temperature, String topP) {
     return 'Basis-URL · Temperature $temperature, top_p $topP';
   }
+
+  @override
+  String get noteStylePickTitle => 'Notizstil';
+
+  @override
+  String get noteStyleCreate => 'Erstellen';
+
+  @override
+  String get noteStyleCustomHint =>
+      'Eigene Stile fügst du unter Einstellungen → Notizen hinzu.';
+
+  @override
+  String get settingsCustomStylesHelp =>
+      'Sie erscheinen neben den integrierten Stilen, wenn du eine Notiz erstellst oder neu erzeugst.';
+
+  @override
+  String get settingsCustomStyleAdd => 'Stil hinzufügen';
+
+  @override
+  String get settingsCustomStyleNewTitle => 'Neuer Stil';
+
+  @override
+  String get settingsCustomStyleEditTitle => 'Stil bearbeiten';
+
+  @override
+  String get settingsCustomStyleName => 'Name';
+
+  @override
+  String get settingsCustomStyleNameHint => 'z. B. Lernnotizen';
+
+  @override
+  String get settingsCustomStyleEditTooltip => 'Bearbeiten';
+
+  @override
+  String get settingsCustomStyleDeleteTooltip => 'Löschen';
+
+  @override
+  String settingsCustomStyleDeleteTitle(String name) {
+    return 'Stil „$name“ löschen?';
+  }
+
+  @override
+  String get settingsCustomStyleDeleteMessage =>
+      'Mit diesem Stil erstellte Notizen bleiben erhalten.';
 }
