@@ -542,6 +542,36 @@ abstract class AppLocalizations {
   /// **'Systemowy'**
   String get settingsThemeSystem;
 
+  /// Naglowek sekcji wyboru mikrofonu (tylko Android); wersalikami jak pozostale sekcje.
+  ///
+  /// In pl, this message translates to:
+  /// **'MIKROFON'**
+  String get settingsMicSection;
+
+  /// Segment: nagrywaj mikrofonem podlaczonych sluchawek (Bluetooth, przewodowe, USB).
+  ///
+  /// In pl, this message translates to:
+  /// **'Słuchawki'**
+  String get settingsMicHeadset;
+
+  /// Segment: nagrywaj wbudowanym mikrofonem telefonu, nawet z podlaczonymi sluchawkami.
+  ///
+  /// In pl, this message translates to:
+  /// **'Telefon'**
+  String get settingsMicPhone;
+
+  /// Opis pod wyborem mikrofonu, gdy wybrane sa sluchawki.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagrywa mikrofonem podłączonych słuchawek. Słuchawki Bluetooth przełączą się na czas nagrania w tryb rozmowy. Bez słuchawek nagrywa telefon.'**
+  String get settingsMicHeadsetHelp;
+
+  /// Opis pod wyborem mikrofonu, gdy wybrany jest telefon.
+  ///
+  /// In pl, this message translates to:
+  /// **'Nagrywa mikrofonem telefonu, także gdy słuchawki są podłączone.'**
+  String get settingsMicPhoneHelp;
+
   /// Naglowek pierwszego kroku wprowadzenia. Lamanie wierszy jest z makiety i ma zostac.
   ///
   /// In pl, this message translates to:

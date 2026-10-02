@@ -244,6 +244,23 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsThemeSystem => 'System';
 
   @override
+  String get settingsMicSection => 'MICROPHONE';
+
+  @override
+  String get settingsMicHeadset => 'Headset';
+
+  @override
+  String get settingsMicPhone => 'Phone';
+
+  @override
+  String get settingsMicHeadsetHelp =>
+      'Records with the connected headset\'s microphone. Bluetooth headphones switch to call mode while recording. Without a headset the phone records.';
+
+  @override
+  String get settingsMicPhoneHelp =>
+      'Records with the phone\'s microphone, even with a headset connected.';
+
+  @override
   String get onboardingWelcomeHeadline =>
       'Speak.\nMikro writes it down\nand tags it.';
 

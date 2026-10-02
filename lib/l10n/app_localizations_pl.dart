@@ -243,6 +243,23 @@ class AppLocalizationsPl extends AppLocalizations {
   String get settingsThemeSystem => 'Systemowy';
 
   @override
+  String get settingsMicSection => 'MIKROFON';
+
+  @override
+  String get settingsMicHeadset => 'Słuchawki';
+
+  @override
+  String get settingsMicPhone => 'Telefon';
+
+  @override
+  String get settingsMicHeadsetHelp =>
+      'Nagrywa mikrofonem podłączonych słuchawek. Słuchawki Bluetooth przełączą się na czas nagrania w tryb rozmowy. Bez słuchawek nagrywa telefon.';
+
+  @override
+  String get settingsMicPhoneHelp =>
+      'Nagrywa mikrofonem telefonu, także gdy słuchawki są podłączone.';
+
+  @override
   String get onboardingWelcomeHeadline => 'Mów.\nMikro zapisze\ni otaguje.';
 
   @override

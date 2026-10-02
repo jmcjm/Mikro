@@ -80,6 +80,11 @@
   "settingsThemeLight": "Light",
   "settingsThemeDark": "Dark",
   "settingsThemeSystem": "System",
+  "settingsMicSection": "MICROPHONE",
+  "settingsMicHeadset": "Headset",
+  "settingsMicPhone": "Phone",
+  "settingsMicHeadsetHelp": "Records with the connected headset's microphone. Bluetooth headphones switch to call mode while recording. Without a headset the phone records.",
+  "settingsMicPhoneHelp": "Records with the phone's microphone, even with a headset connected.",
 
   "onboardingWelcomeHeadline": "Speak.\nMikro writes it down\nand tags it.",
   "onboardingWelcomeBody": "Recordings stay on your device, transcription and tags go to the provider you pick.",
