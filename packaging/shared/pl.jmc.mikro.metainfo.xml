@@ -49,6 +49,12 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="2.4.0" date="2026-10-02">
+      <description>
+        <p>Styl notatki wybiera się teraz przy każdej notatce: w oknie tuż przed jej utworzeniem oraz przy ponownym generowaniu, z podpowiedzią ostatnio użytego stylu. W ustawieniach można dodać dowolną liczbę własnych, nazwanych stylów, które pojawiają się obok gotowych. Przechodzenie między notatką a jej nagraniem nie odkłada już kolejnych ekranów, więc „wstecz” wraca od razu.</p>
+        <p xml:lang="en">The note style is now picked per note: in a dialog right before the note is made and when regenerating it, with the last used style preselected. Settings let you add any number of named custom styles, which show up next to the presets. Moving between a note and its recording no longer stacks screens, so back returns straight away.</p>
+      </description>
+    </release>
     <release version="2.3.0" date="2026-10-01">
       <description>
         <p>Udostępnianie tekstu notatki: przycisk w notatce przekazuje jej treść wraz z tytułem do systemowego okna udostępniania, a na komputerze kopiuje ją do schowka. Gdy na ekranie jest tłumaczenie, udostępniane jest ono, a nie oryginał.</p>
