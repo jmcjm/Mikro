@@ -50,6 +50,7 @@ dependencies:
   share_plus: ^13.3.0
   m3e_collection: ^0.3.7
   flutter_markdown_plus: ^1.0.12
+  wakelock_plus: ^1.8.2
 
 dev_dependencies:
   flutter_test:

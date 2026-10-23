@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mikro/core/audio/mikro_recorder.dart';
+import 'package:mikro/core/audio/screen_wake.dart';
 import 'package:mikro/core/audio/waveform.dart';
 import 'package:mikro/core/db/database.dart';
 import 'package:mikro/core/models/recording_status.dart';
@@ -63,6 +64,12 @@ class FakeRecorder implements MikroRecorder {
   Future<void> dispose() async {}
 }
 
+class FakeScreenWake implements ScreenWake {
+  final calls = <bool>[];
+  @override
+  Future<void> keepOn(bool on) async => calls.add(on);
+}
+
 class FakePipeline implements ProcessingPipeline {
   final enqueued = <String>[];
   @override
@@ -81,13 +88,16 @@ void main() {
   late AppDatabase db;
   late FakeRecorder recorder;
   late FakePipeline pipeline;
+  late FakeScreenWake screenWake;
   late ProviderContainer container;
 
   setUp(() {
     db = AppDatabase.forTesting(NativeDatabase.memory());
     recorder = FakeRecorder();
     pipeline = FakePipeline();
+    screenWake = FakeScreenWake();
     container = ProviderContainer(overrides: [
+      screenWakeProvider.overrideWithValue(screenWake),
       databaseProvider.overrideWithValue(db),
       recorderProvider.overrideWithValue(recorder),
       pipelineProvider.overrideWithValue(pipeline),
@@ -131,6 +141,29 @@ void main() {
     expect(durationMs, greaterThanOrEqualTo(0));
     expect(durationMs, lessThan(10000),
         reason: 'test run lasts milliseconds, not seconds');
+  });
+
+  test('screen is kept on from start to stop', () async {
+    final controller = container.read(recorderControllerProvider.notifier);
+    await controller.startRecording();
+    expect(screenWake.calls, [true]);
+    await controller.stopRecording();
+    expect(screenWake.calls, [true, false]);
+  });
+
+  test('screen lock is not taken when recording never started', () async {
+    recorder.permission = false;
+    await container.read(recorderControllerProvider.notifier).startRecording();
+    recorder.permission = true;
+    recorder.startError = Exception('mic busy');
+    await container.read(recorderControllerProvider.notifier).startRecording();
+    expect(screenWake.calls, isEmpty);
+  });
+
+  test('screen lock is released when the controller is disposed mid-recording', () async {
+    await container.read(recorderControllerProvider.notifier).startRecording();
+    container.dispose();
+    expect(screenWake.calls, [true, false]);
   });
 
   test('missing permission -> lastError, without start', () async {
