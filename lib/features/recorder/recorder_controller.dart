@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
+import '../../core/audio/screen_wake.dart';
 import '../../core/audio/waveform.dart';
 import '../../core/providers.dart';
 
@@ -69,6 +70,11 @@ class RecorderController extends Notifier<RecorderState> {
   /// and since no caller awaits this write, a primary key violation would escape as an unhandled exception.
   bool _stopping = false;
   StreamSubscription<double>? _ampSub;
+
+  /// Holds the screen on while recording; set once recording has started, released by
+  /// [_cleanup]. Kept here rather than read again on release, because [_cleanup] also runs on
+  /// dispose, where `ref` is off limits.
+  ScreenWake? _screenWake;
   String? _currentId;
   String? _currentPath;
 
@@ -124,6 +130,8 @@ class RecorderController extends Notifier<RecorderState> {
             isRecording: true, elapsed: _stopwatch.elapsed, amplitude: a);
       });
       state = const RecorderState(isRecording: true);
+      _screenWake = ref.read(screenWakeProvider);
+      _screenWake!.keepOn(true);
     } finally {
       _starting = false;
     }
@@ -158,6 +166,8 @@ class RecorderController extends Notifier<RecorderState> {
   }
 
   void _cleanup() {
+    _screenWake?.keepOn(false);
+    _screenWake = null;
     _stopwatch.stop();
     _ticker?.cancel();
     _ticker = null;

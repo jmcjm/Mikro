@@ -9,6 +9,7 @@ import 'api/tagging_api.dart';
 import 'api/transcription_api.dart';
 import 'api/translation_api.dart';
 import 'audio/mikro_recorder.dart';
+import 'audio/screen_wake.dart';
 import 'db/database.dart';
 import 'notes/note_service.dart';
 import 'pipeline/processing_pipeline.dart';
@@ -91,6 +92,8 @@ final recorderProvider = Provider<MikroRecorder>((ref) {
   ref.onDispose(recorder.dispose);
   return recorder;
 });
+
+final screenWakeProvider = Provider<ScreenWake>((ref) => WakelockScreenWake());
 
 final pipelineProvider = Provider<ProcessingPipeline>((ref) => ProcessingPipeline(
       db: ref.watch(databaseProvider),

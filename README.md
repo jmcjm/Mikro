@@ -39,7 +39,7 @@
 
 ### 🎙️ Recording & transcription
 
-- Recording with a live level meter
+- Recording with a live level meter; the screen stays on while recording
 - Automatic transcription in the background, with an AI-generated title and tags
 - Speaker diarization — multi-speaker transcripts come out as `A: …` / `B: …`
 - Editable transcripts; regenerate or share a recording anytime
