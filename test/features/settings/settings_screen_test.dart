@@ -529,4 +529,22 @@ void main() {
       reason: 'model field, the notes row and the translation row that follows notes',
     );
   });
+
+  testWidgets('microphone: headset by default, phone saved on tap', (tester) async {
+    final prefs = await pumpSettings(tester);
+
+    expect(find.text(plL10n.settingsMicSection), findsOneWidget);
+    expect(find.text(plL10n.settingsMicHeadsetHelp), findsOneWidget);
+
+    await tester.ensureVisible(find.text(plL10n.settingsMicPhone));
+    await tester.tap(find.text(plL10n.settingsMicPhone));
+    await tester.pumpAndSettle();
+    expect(prefs.getString('mic_source'), 'phone');
+    expect(find.text(plL10n.settingsMicPhoneHelp), findsOneWidget);
+  });
+
+  testWidgets('no microphone choice outside Android', (tester) async {
+    await pumpSettings(tester);
+    expect(find.text(plL10n.settingsMicSection), findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

@@ -323,6 +323,26 @@
   "@settingsThemeSystem": {
     "description": "Karta motywu: jasnosc idzie za ustawieniem systemu. Dracula, Nord i Gruvbox to nazwy wlasne palet i zostaja nietlumaczone."
   },
+  "settingsMicSection": "MIKROFON",
+  "@settingsMicSection": {
+    "description": "Naglowek sekcji wyboru mikrofonu (tylko Android); wersalikami jak pozostale sekcje."
+  },
+  "settingsMicHeadset": "Słuchawki",
+  "@settingsMicHeadset": {
+    "description": "Segment: nagrywaj mikrofonem podlaczonych sluchawek (Bluetooth, przewodowe, USB)."
+  },
+  "settingsMicPhone": "Telefon",
+  "@settingsMicPhone": {
+    "description": "Segment: nagrywaj wbudowanym mikrofonem telefonu, nawet z podlaczonymi sluchawkami."
+  },
+  "settingsMicHeadsetHelp": "Nagrywa mikrofonem podłączonych słuchawek. Słuchawki Bluetooth przełączą się na czas nagrania w tryb rozmowy. Bez słuchawek nagrywa telefon.",
+  "@settingsMicHeadsetHelp": {
+    "description": "Opis pod wyborem mikrofonu, gdy wybrane sa sluchawki."
+  },
+  "settingsMicPhoneHelp": "Nagrywa mikrofonem telefonu, także gdy słuchawki są podłączone.",
+  "@settingsMicPhoneHelp": {
+    "description": "Opis pod wyborem mikrofonu, gdy wybrany jest telefon."
+  },
 
   "onboardingWelcomeHeadline": "Mów.\nMikro zapisze\ni otaguje.",
   "@onboardingWelcomeHeadline": {

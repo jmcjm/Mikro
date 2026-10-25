@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../../core/audio/mic_source.dart';
 import '../../core/models/provider_config.dart';
 import '../../core/notes/note_style.dart';
 import '../../core/providers.dart';
@@ -324,6 +326,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ],
                 const SizedBox(height: 24),
                 KeyedSubtree(key: _themeKey, child: _themeSection(colors, l10n)),
+                // Only Android lets the app choose; desktop takes the system input.
+                if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) ...[
+                  const SizedBox(height: 24),
+                  _micSection(colors, l10n),
+                ],
               ],
             ),
           ),
@@ -982,6 +989,44 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ],
           );
         }),
+      ],
+    );
+  }
+
+  /// Microphone used for recording. Saved on tap, like the theme.
+  Widget _micSection(ColorScheme colors, AppLocalizations l10n) {
+    final source = ref.watch(micSourceProvider);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionLabel(l10n.settingsMicSection, colors),
+        const SizedBox(height: 10),
+        SegmentedButton<MicSource>(
+          segments: [
+            ButtonSegment(
+              value: MicSource.headset,
+              icon: const Icon(Symbols.headset_mic_rounded),
+              label: Text(l10n.settingsMicHeadset),
+            ),
+            ButtonSegment(
+              value: MicSource.phone,
+              icon: const Icon(Symbols.smartphone_rounded),
+              label: Text(l10n.settingsMicPhone),
+            ),
+          ],
+          selected: {source},
+          showSelectedIcon: false,
+          onSelectionChanged: (selection) =>
+              ref.read(micSourceProvider.notifier).set(selection.single),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            source == MicSource.headset ? l10n.settingsMicHeadsetHelp : l10n.settingsMicPhoneHelp,
+            style: TextStyle(fontSize: 13, color: colors.onSurfaceVariant),
+          ),
+        ),
       ],
     );
   }

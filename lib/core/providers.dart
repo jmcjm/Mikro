@@ -8,6 +8,7 @@ import 'api/notes_api.dart';
 import 'api/tagging_api.dart';
 import 'api/transcription_api.dart';
 import 'api/translation_api.dart';
+import 'audio/mic_source.dart';
 import 'audio/mikro_recorder.dart';
 import 'audio/screen_wake.dart';
 import 'db/database.dart';
@@ -88,7 +89,7 @@ final tagColorsProvider =
     StreamProvider<Map<String, int>>((ref) => ref.watch(databaseProvider).watchTagColors());
 
 final recorderProvider = Provider<MikroRecorder>((ref) {
-  final recorder = RecordPluginRecorder();
+  final recorder = RecordPluginRecorder(micSource: () => ref.read(micSourceProvider));
   ref.onDispose(recorder.dispose);
   return recorder;
 });
