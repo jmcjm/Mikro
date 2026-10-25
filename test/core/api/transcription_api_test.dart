@@ -99,6 +99,47 @@ void main() {
         reason: 'multipart must carry the recording in the file field');
   });
 
+  group('language', () {
+    Future<Map<String, String>> sentFields(ServiceConfig config, String url) async {
+      FormData? sent;
+      dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+        sent = options.data as FormData;
+        handler.next(options);
+      }));
+      adapter.onPost(url, (server) => server.reply(200, {'text': 'ok'}), data: Matchers.any);
+      await TranscriptionApi(dio).transcribe(audioPath: audioPath, config: config);
+      return {for (final f in sent!.fields) f.key: f.value};
+    }
+
+    test('OpenAI protocol sends the set language, nothing when automatic', () async {
+      const polish =
+          ServiceConfig(baseUrl: 'https://api.test/v1', apiKey: 'k', model: 'w', language: 'pl');
+      const url = 'https://api.test/v1/audio/transcriptions';
+      expect((await sentFields(polish, url))['language'], 'pl');
+      expect(await sentFields(config, url), isNot(contains('language')),
+          reason: 'no field at all lets the model detect the language');
+    });
+
+    test('ElevenLabs gets it as language_code', () async {
+      const eleven = ServiceConfig(
+        baseUrl: 'https://api.elevenlabs.io/v1',
+        apiKey: 'xi',
+        model: 'scribe_v2',
+        language: 'yue',
+      );
+      final fields = await sentFields(eleven, 'https://api.elevenlabs.io/v1/speech-to-text');
+      expect(fields['language_code'], 'yue');
+      expect(fields, isNot(contains('language')));
+    });
+
+    test('Gemini names the language in the prompt', () {
+      expect(TranscriptionApi.geminiPrompt(null), isNot(contains('The recording is in')));
+      expect(TranscriptionApi.geminiPrompt('pl'), contains('The recording is in Polish'));
+      expect(TranscriptionApi.geminiPrompt('ka'), contains('ISO 639 code "ka"'),
+          reason: 'a code typed in by hand has no English name to use');
+    });
+  });
+
   group('diarization', () {
     const diarizeConfig = ServiceConfig(
       baseUrl: 'https://api.test/v1',
@@ -284,6 +325,7 @@ void main() {
       expect(text, 'A: Cześć.\n\nB: Hej.');
       expect(sent!.headers['x-goog-api-key'], 'AIza');
       final parts = ((sent!.data as Map)['contents'] as List).single['parts'] as List;
+      expect(parts.first['text'], TranscriptionApi.geminiPrompt(null));
       final inline = parts.last['inline_data'] as Map;
       expect(inline['mime_type'], 'audio/m4a');
       expect(base64Decode(inline['data'] as String), [1, 2, 3],

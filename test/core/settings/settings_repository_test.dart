@@ -57,6 +57,23 @@ void main() {
     }, reason: 'keys live in the key store, one per task, never in preferences');
   });
 
+  test('transcription language: saved, empty means automatic, other tasks have none', () async {
+    final r = await repo({});
+    expect((await r.raw(ApiTask.stt)).language, isNull, reason: 'automatic by default');
+
+    await r.save(ApiTask.stt,
+        const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'w', language: 'pl'));
+    expect((await r.load(ApiTask.stt))!.language, 'pl');
+
+    await r.save(ApiTask.stt, const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'w'));
+    expect((await r.load(ApiTask.stt))!.language, isNull);
+
+    await r.save(ApiTask.notes,
+        const ServiceConfig(baseUrl: _groq, apiKey: 'gsk', model: 'm', language: 'de'));
+    expect((await r.load(ApiTask.notes))!.language, isNull);
+    expect(SettingsRepository.sttLanguageKey, 'stt_language', reason: 'on-disk format');
+  });
+
   test('GUARD: storage key names', () {
     // On-disk format: renaming any of these orphans users' settings.
     expect(SettingsRepository.baseUrlKey(ApiTask.stt), 'stt_base_url');

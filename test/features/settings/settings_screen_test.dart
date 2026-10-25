@@ -392,6 +392,73 @@ void main() {
     expect(prefs.getBool('notes_sampling_enabled'), isNull, reason: 'notes were not saved');
   });
 
+  testWidgets('transcription language: automatic, a listed one, or a code typed in', (
+    tester,
+  ) async {
+    final prefs = await pumpSettings(tester, keys: FakeKeyStore()..values['api_key_stt'] = 'k');
+    await openService(tester, plL10n.settingsSttTitle);
+    expect(find.text(plL10n.settingsSttLanguageAuto), findsOneWidget);
+
+    // The "Saved" snackbar of one save covers the Save button for the next one.
+    Future<void> saveAgain() async {
+      tester.state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger)).clearSnackBars();
+      await tester.pumpAndSettle();
+      await save(tester);
+    }
+
+    // The open menu is a lazy list of its own (the topmost Scrollable): an item far from the
+    // selected one is not even built until scrolled to — down, or [up] for the top of the list.
+    Future<void> pick(String label, {bool up = false}) async {
+      final field = find.byType(DropdownButtonFormField<String?>);
+      await tester.ensureVisible(field);
+      await tester.pumpAndSettle();
+      await tester.tap(field);
+      await tester.pumpAndSettle();
+      final menu = find.byType(Scrollable).last;
+      final item = find.descendant(of: menu, matching: find.text(label));
+      await tester.scrollUntilVisible(item, up ? -200 : 200, scrollable: menu);
+      await tester.pumpAndSettle();
+      await tester.tap(item);
+      await tester.pumpAndSettle();
+    }
+
+    final codeField = find.widgetWithText(TextField, plL10n.settingsSttLanguageCode);
+    final saveButton = find.widgetWithText(FilledButton, plL10n.settingsSave);
+
+    await pick('Polski');
+    await save(tester);
+    expect(prefs.getString('stt_language'), 'pl');
+
+    await pick(plL10n.settingsSttLanguageOther);
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNull, reason: 'no code yet');
+    await tester.enterText(codeField, 'gruziński');
+    await tester.pump();
+    expect(find.text(plL10n.settingsSttLanguageCodeError), findsOneWidget);
+    expect(tester.widget<FilledButton>(saveButton).onPressed, isNull);
+
+    await tester.enterText(codeField, ' KA ');
+    await tester.pump();
+    await saveAgain();
+    expect(prefs.getString('stt_language'), 'ka');
+
+    // A typed code comes back as "Other" with the code in its field.
+    await tester.tap(find.byIcon(Symbols.arrow_back_rounded));
+    await tester.pumpAndSettle();
+    await openService(tester, plL10n.settingsSttTitle);
+    expect(find.text(plL10n.settingsSttLanguageOther), findsOneWidget);
+    expect(fieldWith('ka'), findsOneWidget);
+
+    await pick(plL10n.settingsSttLanguageAuto, up: true);
+    await saveAgain();
+    expect(prefs.getString('stt_language'), '');
+  });
+
+  testWidgets('only transcription asks for the language', (tester) async {
+    await pumpSettings(tester);
+    await openService(tester, plL10n.settingsNotesTitle);
+    expect(find.text(plL10n.settingsSttLanguage), findsNothing);
+  });
+
   testWidgets('settings saved before the split fill every service', (tester) async {
     await pumpSettings(
       tester,
